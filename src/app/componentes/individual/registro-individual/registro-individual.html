@@ -1,0 +1,48 @@
+
+
+<div class="min-h-screen bg-gray-50 font-sans flex">
+	<!-- Sidebar (optional, for future navigation) -->
+	<!-- <aside class="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 p-6">
+		<span class="text-xl font-bold text-blue-900 mb-8">SAAE</span>
+		...sidebar links...
+	</aside> -->
+	<main class="flex-1 flex flex-col items-center justify-center">
+		<div class="w-full max-w-xl bg-white rounded-2xl shadow-lg p-10 border border-gray-100">
+			<h2 class="text-center font-[Inter] text-3xl font-bold mb-8">Registro Individual</h2>
+			<form class="flex flex-col gap-6" autocomplete="off">
+				<div class="flex flex-col gap-4">
+					@for (id of studentIds; track $index) {
+						<div class="flex items-center gap-2">
+							<input type="text" class="font-[Inter] flex-1 py-3 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black text-sm" placeholder="Carnet de identidad del hermano {{$index+1}}" [(ngModel)]="studentIds[$index]" name="studentId{{$index}}" required>
+							@if (studentIds.length > 2) {
+								<button type="button" (click)="removeStudentId($index)" class="p-2 rounded-full hover:text-red-600 text-black transition">
+									<!-- Heroicon: Trash -->
+									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+									</svg>
+								</button>
+							}
+						</div>
+					}
+				</div>
+				<button type="button" (click)="addStudentId()" class="w-full font-[Roboto] flex items-center justify-center gap-2 self-start py-2 px-4 rounded-lg bg-gray-100 text-black font-semibold text-base hover:bg-gray-200 hover:shadow-md transition-all duration-200 ease-in-out" [disabled]="studentIds.length >= 5">
+					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+					</svg>
+					Agregar otro estudiante
+				</button>
+				<button type="submit" class="font-[Roboto] w-full py-3 px-6 rounded-lg bg-black text-white font-bold text-base flex items-center justify-center gap-3 hover:bg-gray-700 hover:shadow-lg 
+         transition-all duration-200 ease-in-out">
+					
+					Registrar
+				</button>
+			</form>
+			<button routerLink="/menu" class="w-full flex items-center justify-center mt-8 text-black hover:underline font-medium font-[Roboto]">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 0l3 3m-3-3l3-3" />
+            </svg>
+            Regresar
+            </button>
+		</div>
+	</main>
+</div>
