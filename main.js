@@ -1,17 +1,62 @@
-// Example: require your HTTP client for external API requests
-const axios = require('axios');
-// IPC handler for external API requests
-ipcMain.handle('academico:fetchExternal', async (event, endpoint, params) => {
-  // Replace with your actual API logic
-  // Example: return await axios.get(endpoint, { params });
-  return { endpoint, params, result: 'Demo API response' };
-});
+
+require('dotenv').config();
+
 const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const registerRoutes = require('./electron-backend/routes');
-// Example: require your database library here (e.g., sqlite3, pg, etc.)
-// const sqlite3 = require('sqlite3').verbose();
-// let db = new sqlite3.Database('path_to_db.sqlite');
+const externalApi = require('./electron-backend/externalApi');
 const path = require('path');
+// Example: require your HTTP client for external API requests
+//const axios = require('axios');
+
+// IPC handler for external API requests
+ipcMain.handle('academico:fetchExternal', async (event, endpoint, params) => {
+  return { endpoint, params, result: 'Demo API response' };
+});
+
+// IPC handler for obtenerIDPersona
+ipcMain.handle('api:obtenerIDPersona', async (event, carnet) => {
+  try {
+    return await externalApi.personas.obtenerIDPersona(carnet);
+  } catch (error) {
+    throw error;
+  }
+});
+
+// IPC handler for obtenerKardexEstudiante
+ipcMain.handle('api:obtenerKardexEstudiante', async (event, id_estudiante) => {
+  try {
+    return await externalApi.personas.obtenerKardexEstudiante(id_estudiante);
+  } catch (error) {
+    throw error;
+  }
+});
+
+// IPC handler for obtenerPagosRealizados
+ipcMain.handle('api:obtenerPagosRealizados', async (event, id_estudiante) => {
+  try {
+    return await externalApi.personas.obtenerPagosRealizados(id_estudiante);
+  } catch (error) {
+    throw error;
+  }
+});
+
+// IPC handler for obtenerDetalleFactura
+ipcMain.handle('api:obtenerDetalleFactura', async (event, numero_maestro, id_regional, orden) => {
+  try {
+    return await externalApi.personas.obtenerDetalleFactura(numero_maestro, id_regional, orden);
+  } catch (error) {
+    throw error;
+  }
+});
+
+// IPC handler for obtenerNombreCompleto
+ipcMain.handle('api:obtenerNombreCompleto', async (event, id_estudiante) => {
+  try {
+    return await externalApi.personas.obtenerNombreCompleto(id_estudiante);
+  } catch (error) {
+    throw error;
+  }
+});
 
 function createWindow() {
   const size = screen.getPrimaryDisplay().workAreaSize;
