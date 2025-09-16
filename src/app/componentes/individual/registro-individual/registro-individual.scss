@@ -1,0 +1,9 @@
+// Visual feedback for disabled Registrar button
+.registrar-btn:disabled {
+	opacity: 0.5;
+	filter: grayscale(0.5);
+	cursor: not-allowed;
+	box-shadow: none;
+	background-image: linear-gradient(to right, #a3a3a3, #d1d5db) !important;
+	color: #fff !important;
+}

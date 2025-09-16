@@ -181,6 +181,10 @@ export class RegistroIndividual {
     return [referencia, planAccedido, pagoRealizado];
   }
 
+  get allCarnetsFilled(): boolean {
+    return this.carnetEstudiantes.every(c => c && c.trim().length > 0);
+  }
+
 
   /*async createGestionMock() {
     const data = {

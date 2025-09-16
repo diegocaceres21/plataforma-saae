@@ -1,4 +1,4 @@
-<!--<div class="min-h-screen bg-gray-50 font-sans flex">
+<div class="min-h-screen bg-gray-50 font-sans flex">
 	<main class="flex-1 flex flex-col items-center justify-center">
 		<div class="w-full max-w-xl bg-white rounded-2xl shadow-lg p-10 border border-gray-100">
 			<h2 class="text-center font-[Inter] text-3xl font-bold mb-5">Registro Individual</h2>
@@ -23,19 +23,21 @@
 					</svg>
 					Agregar otro estudiante
 				</button>
-				<button type="submit" class="font-[Roboto] w-full py-3 px-6 rounded-lg bg-black text-white font-bold text-base flex items-center justify-center gap-3 hover:bg-gray-700 hover:shadow-lg
-         transition-all duration-200 ease-in-out">
-
-					Registrar
-				</button>
+				   <button type="submit" class="font-[Roboto] w-full py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-3 transition-all duration-300 focus:outline-none"
+					   [class]="allCarnetsFilled ? 'bg-gradient-to-r from-blue-900 to-blue-800 text-white hover:from-blue-800 hover:to-blue-700 hover:shadow-xl focus:ring-4 focus:ring-blue-300' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
+					   [disabled]="!allCarnetsFilled">
+					   Registrar
+				   </button>
 			</form>
-			<button routerLink="/menu" class="w-full flex items-center justify-center mt-8 text-black hover:underline font-medium font-[Roboto]">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-8 h-8">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 0l3 3m-3-3l3-3" />
-            </svg>
-            Regresar
-            </button>
+			<button 
+				routerLink="/menu" 
+				class="group w-full mt-4 inline-flex items-center justify-center px-8 py-3 text-black font-[Inter] font-semibold transition-all duration-300 rounded-xl hover:text-blue-800 focus:text-blue-500">
+				<svg class="w-5 h-5 mr-3 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+				</svg>
+				Regresar al Menú Principal
+			</button>
 		</div>
 	</main>
-</div>-->
+</div>
 <app-vista-individual></app-vista-individual>
