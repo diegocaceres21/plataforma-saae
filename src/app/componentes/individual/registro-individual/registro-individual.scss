@@ -7,3 +7,45 @@
 	background-image: linear-gradient(to right, #a3a3a3, #d1d5db) !important;
 	color: #fff !important;
 }
+
+// Fade-in animation for success messages
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.3s ease-out;
+}
+
+// Autocomplete dropdown styling
+.autocomplete-dropdown {
+	max-height: 240px;
+	overflow-y: auto;
+	scrollbar-width: thin;
+	scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar {
+	width: 6px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-track {
+	background: #f7fafc;
+	border-radius: 3px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+	background: #cbd5e0;
+	border-radius: 3px;
+}
+
+.autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+	background: #a0aec0;
+}

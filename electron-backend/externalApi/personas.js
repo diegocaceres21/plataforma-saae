@@ -13,24 +13,46 @@ async function obtenerIDPersona(carnet) {
       'Uniquecode': UNIQUE_CODE
     };
     const response = await axios.get(url, { headers });
-
     if (response.status === 200) {
       const jsonData = response.data;
       const datos = jsonData.datos || [];
-      
       if (datos.length > 0) {
+        //console.log(datos[0].id);
+        //return datos;
         return datos[0].id;
       } else {
-        throw new Error("No se encontró el estudiante.");
+        throw new Error("No se ha encontrado ningún estudiante con el carnet o nombre: " + carnet);
       }
     } else {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
   } catch (error) {
-    console.error(`Error: ${error.message}`);
     throw new Error("El Estudiante no fue encontrado");
   }
 }
+
+async function obtenerPersonasPorCarnet(carnet) {
+  try {
+    const url = `https://backend2.ucb.edu.bo/Authentication/api/v1/Personas/ObtenerPersonasPorRegional?idRegional=PJh5GJydX69ABmU3tKVdpQ==&criterioBusqueda=${carnet}&tipoResultado=Objeto`;
+
+    const headers = {
+      'Token': TOKEN,
+      'Uniquecode': UNIQUE_CODE
+    };
+
+    const response = await axios.get(url, { headers });
+    if (response.status === 200) {
+      const jsonData = response.data;
+      const datos = jsonData.datos || [];
+      return datos;
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  } catch (error) {
+    throw new Error("Ha ocurrido un error al buscar las personas por carnet" + error.message);
+  }
+}
+
 
 async function obtenerKardexEstudiante(id_estudiante) {
   try {
@@ -148,4 +170,4 @@ async function obtenerNombreCompleto(id_estudiante) {
   }
 }
 
-module.exports = { obtenerIDPersona, obtenerKardexEstudiante, obtenerPagosRealizados, obtenerDetalleFactura, obtenerNombreCompleto };
+module.exports = { obtenerIDPersona, obtenerKardexEstudiante, obtenerPagosRealizados, obtenerDetalleFactura, obtenerNombreCompleto, obtenerPersonasPorCarnet };
