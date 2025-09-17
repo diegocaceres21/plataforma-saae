@@ -6,7 +6,7 @@ module.exports = {
   },
   apoyo_familiar: {
     table: 'apoyo_familiar',
-    columns: ['orden', 'porcentaje']
+    columns: ['id','orden', 'porcentaje']
   },
   solicitud: {
     table: 'solicitud',
@@ -15,7 +15,7 @@ module.exports = {
   registro_estudiante: {
     table: 'registro_estudiante',
     columns: [
-      'id', 'id_solicitud', 'ci_estudiante', 'nombre_estudiante', 'carrera',
+      'id', 'id_solicitud', 'id_estudiante_siaan',  'ci_estudiante', 'nombre_estudiante', 'carrera',
       'valor_credito', 'total_creditos', 'credito_tecnologico',
       'porcentaje_descuento', 'total_semestre', 'registrado'
     ]

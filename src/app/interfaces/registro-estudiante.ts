@@ -2,6 +2,7 @@ export interface RegistroEstudiante {
     id: string;
     id_solicitud: string;
     id_gestion: string;
+    id_estudiante_siaan: string;
     ci_estudiante: string;
     nombre_estudiante: string;
     carrera: string;

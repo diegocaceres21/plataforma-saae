@@ -2,32 +2,114 @@
 	<main class="flex-1 flex flex-col items-center justify-center">
 		<div class="w-full max-w-xl bg-white rounded-2xl shadow-lg p-10 border border-gray-100">
 			<h2 class="text-center font-[Inter] text-3xl font-bold mb-5">Registro Individual</h2>
+			
+			
+			<!-- Selected Students Summary -->
+			@if (registrosEstudiantes.length > 0) {
+				<div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+					<h3 class="font-[Inter] text-sm font-semibold text-blue-800 mb-3 flex items-center">
+						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						Estudiantes Seleccionados ({{registrosEstudiantes.length}})
+					</h3>
+					<div class="space-y-2">
+						@for (estudiante of registrosEstudiantes; track estudiante.ci_estudiante) {
+							<div class="flex justify-between items-center text-xs bg-white p-3 rounded border">
+								<div class="flex flex-col flex-1">
+									<span class="font-medium text-gray-900">{{estudiante.nombre_estudiante}}</span>
+									<span class="text-gray-600">CI: {{estudiante.ci_estudiante}}</span>
+								</div>
+								<div class="flex items-center gap-2">
+									<button 
+										type="button"
+										(click)="removeStudentFromResults(estudiante.ci_estudiante)"
+										class="p-1 rounded-full hover:bg-red-100 text-red-500 hover:text-red-700 transition-colors">
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+										</svg>
+									</button>
+								</div>
+							</div>
+						}
+					</div>
+				</div>
+			}
+			
 			<form class="flex flex-col gap-6" autocomplete="off" (ngSubmit)="onSubmit()">
-				<div class="flex flex-col gap-4">
-					@for (id of carnetEstudiantes; track $index) {
-						<div class="flex items-center gap-2">
-							<input type="text" class="font-[Inter] flex-1 py-3 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-black text-sm" placeholder="Carnet de identidad del hermano {{$index+1}}" [(ngModel)]="carnetEstudiantes[$index]" name="studentId{{$index}}" required>
-							@if (carnetEstudiantes.length > 2) {
-								<button type="button" (click)="removeStudentId($index)" class="p-2 rounded-full hover:text-red-600 text-black transition">
-									<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-								</button>
+				<!-- Single Search Input -->
+				<div class="relative">
+					<input 
+						type="text" 
+						class="font-[Inter] w-full py-3 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all duration-200" 
+						placeholder="Buscar estudiante por carnet o nombre" 
+						[value]="autocompleteState.query"
+						(input)="onInputChange($any($event.target).value)"
+						(keydown)="onInputKeyDown($event)"
+						(blur)="closeAutocomplete()"
+						(focus)="autocompleteState.isOpen = autocompleteState.results.length > 0"
+						name="studentSearch" 
+						autocomplete="off">
+					
+					<!-- Loading indicator -->
+					@if (autocompleteState.isLoading) {
+						<div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+							<svg class="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+						</div>
+					}
+					
+					<!-- Autocomplete Dropdown -->
+					@if (autocompleteState.isOpen) {
+						<div class="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 autocomplete-dropdown">
+							@if (autocompleteState.results.length > 0) {
+								@for (student of autocompleteState.results; track student.id; let i = $index) {
+									<div 
+										class="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+										[class.bg-blue-100]="autocompleteState.selectedIndex === i"
+										(mousedown)="selectStudent(student)"
+										(mouseenter)="autocompleteState.selectedIndex = i">
+										<div class="flex flex-col">
+											<div class="font-semibold text-gray-900">
+												{{student.nombre}}
+											</div>
+											<div class="text-sm text-gray-600 flex justify-between">
+												<span>CI: {{student.carnet}}</span>
+											</div>
+										</div>
+									</div>
+								}
+							} @else if (!autocompleteState.isLoading && autocompleteState.query.length >= 2) {
+								<div class="px-4 py-3 text-gray-500 text-center">
+									<div class="flex flex-col items-center">
+										<svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0118 12c0-3.042-1.135-5.824-3-7.938l-3 2.647z"></path>
+										</svg>
+										<span>No se encontraron estudiantes</span>
+										<span class="text-xs">con el criterio "{{autocompleteState.query}}"</span>
+									</div>
+								</div>
 							}
 						</div>
 					}
 				</div>
-				<button type="button" (click)="addStudentId()" class="w-full font-[Roboto] flex items-center justify-center gap-2 self-start py-2 px-4 rounded-lg bg-gray-100 text-black font-semibold text-base hover:bg-gray-200 hover:shadow-md transition-all duration-200 ease-in-out" [disabled]="carnetEstudiantes.length >= 5">
-					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+				
+				<!-- Instruction Text -->
+				
+				<button type="submit" class="font-[Roboto] w-full py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-3 transition-all duration-300 focus:outline-none"
+					[class]="canProcess ? 'bg-gradient-to-r from-blue-900 to-blue-800 text-white hover:from-blue-800 hover:to-blue-700 hover:shadow-xl focus:ring-4 focus:ring-blue-300' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
+					[disabled]="!canProcess">
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 					</svg>
-					Agregar otro estudiante
+					@if (canProcess) {
+						Procesar Registros ({{registrosEstudiantes.length}})
+					} @else {
+						Selecciona al menos 2 estudiantes
+					}
 				</button>
-				   <button type="submit" class="font-[Roboto] w-full py-3 px-6 rounded-lg font-bold text-base flex items-center justify-center gap-3 transition-all duration-300 focus:outline-none"
-					   [class]="allCarnetsFilled ? 'bg-gradient-to-r from-blue-900 to-blue-800 text-white hover:from-blue-800 hover:to-blue-700 hover:shadow-xl focus:ring-4 focus:ring-blue-300' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
-					   [disabled]="!allCarnetsFilled">
-					   Registrar
-				   </button>
 			</form>
 			<button 
 				routerLink="/menu" 
@@ -40,4 +122,3 @@
 		</div>
 	</main>
 </div>
-<app-vista-individual></app-vista-individual>

@@ -8,6 +8,50 @@ const path = require('path');
 // Example: require your HTTP client for external API requests
 //const axios = require('axios');
 
+// IPC handler for printing
+ipcMain.handle('print:document', async (event, htmlContent) => {
+  console.log('[Electron] Received print request.');
+  let printWindow = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false, // Start hidden
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  try {
+    // Load the HTML content into the hidden window
+    await printWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+    console.log('[Electron] Print content loaded.');
+
+    // Wait for the content to be fully rendered
+    await new Promise(resolve => printWindow.webContents.once('did-finish-load', resolve));
+    console.log('[Electron] Web contents finished loading.');
+
+    // Show the window but don't focus it, then print
+    printWindow.showInactive();
+    console.log('[Electron] Print window shown inactively.');
+
+    const printSuccessful = await printWindow.webContents.print({
+      silent: false,
+      printBackground: true,
+    });
+
+    console.log(`[Electron] Print dialog closed. Success: ${printSuccessful}`);
+    return { success: printSuccessful };
+
+  } catch (error) {
+    console.error(`[Electron] Error during printing: ${error.message}`);
+    return { success: false, error: error.message };
+  } finally {
+    if (printWindow && !printWindow.isDestroyed()) {
+      console.log('[Electron] Destroying print window.');
+      printWindow.destroy();
+    }
+  }
+});
 // IPC handler for external API requests
 ipcMain.handle('academico:fetchExternal', async (event, endpoint, params) => {
   return { endpoint, params, result: 'Demo API response' };
@@ -53,6 +97,15 @@ ipcMain.handle('api:obtenerDetalleFactura', async (event, numero_maestro, id_reg
 ipcMain.handle('api:obtenerNombreCompleto', async (event, id_estudiante) => {
   try {
     return await externalApi.personas.obtenerNombreCompleto(id_estudiante);
+  } catch (error) {
+    throw error;
+  }
+});
+
+// IPC handler for obtenerPersonasPorCarnet
+ipcMain.handle('api:obtenerPersonasPorCarnet', async (event, carnet) => {
+  try {
+    return await externalApi.personas.obtenerPersonasPorCarnet(carnet);
   } catch (error) {
     throw error;
   }
