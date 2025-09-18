@@ -12,10 +12,12 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
 import { CarreraService } from '../../../servicios/carrera.service';
 import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
+import { ToastService } from '../../../servicios/toast';
+import { ToastContainerComponent } from '../../shared/toast-container/toast-container';
 
 @Component({
   selector: 'app-registro-individual',
-  imports: [RouterLink, CommonModule, FormsModule],
+  imports: [RouterLink, CommonModule, FormsModule, ToastContainerComponent],
   templateUrl: './registro-individual.html',
   styleUrl: './registro-individual.scss'
 })
@@ -26,6 +28,26 @@ export class RegistroIndividual {
   semestreActual: Gestion = { id: '145848848484', gestion: '1-2024', anio: 2024, orden: 1, activo: true };
   registrosEstudiantes: RegistroEstudiante[] = [];
   successMessage: string = '';
+  
+  // Manual payment input state
+  showManualPaymentModal: boolean = false;
+  currentStudentForManualInput: string = '';
+  manualPaymentData = {
+    referencia: '',
+    planAccedido: '',
+    pagoRealizado: 0
+  };
+  
+  // Kardex error modal state
+  showKardexErrorModalFlag: boolean = false;
+  kardexErrorMessages: string[] = [];
+  
+  // Career selection modal state
+  showCareerSelectionModal: boolean = false;
+  currentStudentWithCareerIssue: any = null;
+  availableCareers: any[] = [];
+  selectedCareerForStudent: string = '';
+  originalCareerFromKardex: string = '';
   
   // Single autocomplete state
   autocompleteState: StudentAutocompleteState = {
@@ -39,6 +61,7 @@ export class RegistroIndividual {
   private apoyoFamiliarService = inject(ApoyoFamiliarService);
   private carreraService = inject(CarreraService);
   private dataService = inject(RegistroIndividualDataService);
+  private toastService = inject(ToastService);
   
   constructor() {
     this.initializeSearchSubject();
@@ -223,6 +246,9 @@ export class RegistroIndividual {
         throw new Error('academicoAPI not available');
       }
       
+      let hasKardexErrors = false;
+      let kardexErrorMessages: string[] = [];
+      
       // Now load detailed information for each selected student
       for (let i = 0; i < this.registrosEstudiantes.length; i++) {
         const registro = this.registrosEstudiantes[i];
@@ -245,7 +271,13 @@ export class RegistroIndividual {
           };
           
         } catch (error) {
-          console.error(`Error loading details for student ${registro.ci_estudiante}:`, error);
+          
+          // Check if it's a kardex semester error
+          if (error instanceof Error && error.message.includes('No se encontró información para el semestre')) {
+            hasKardexErrors = true;
+            kardexErrorMessages.push(`${registro.nombre_estudiante} (${registro.ci_estudiante}): ${error.message}`);
+          }
+          
           // Keep basic info if detailed loading fails
           this.registrosEstudiantes[i] = {
             ...registro,
@@ -257,29 +289,73 @@ export class RegistroIndividual {
           };
         }
       }
+      
+      // If there are kardex errors, show toast and modal and stop processing
+      if (hasKardexErrors) {
+        this.showKardexErrorModal(kardexErrorMessages);
+        return; // Stop processing and don't navigate to view
+      }
       this.calcularPorcentajes();
       const carreras = this.carreraService.currentData;
-      this.registrosEstudiantes.forEach(registro => {
+      
+      // Check for career mismatches before proceeding
+      let hasCareersToResolve = false;
+      for (const registro of this.registrosEstudiantes) {
         const carreraInfo = carreras.find(c => 
           c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
           (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         );
-        if (carreraInfo) {
-          registro.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
-          registro.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
-          registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
+        
+        if (!carreraInfo && registro.carrera && registro.carrera !== 'Error al cargar información') {
+          hasCareersToResolve = true;
+          try {
+            await this.promptForCareerSelection(registro, carreras);
+            break; // Process one at a time
+          } catch (error) {
+            // User cancelled the career selection - stop processing completely
+            console.log('🚫 Proceso cancelado por el usuario en selección de carrera');
+            return;
+          }
         }
-      });
-      this.showSuccessMessage('Información completa cargada para todos los estudiantes');
+      }
       
-      // Pasar datos al servicio compartido y navegar a la vista
-      this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);
+      // If we need to resolve careers, stop here and wait for user input
+      if (hasCareersToResolve) {
+        return;
+      }
+      
+      // Continue with final processing
+      this.completeFinalProcessing();
       
     } catch (error) {
       console.error('Error processing final submission:', error);
     } finally {
       this.loadingService.hide();
     }
+  }
+  
+  completeFinalProcessing(): void {
+    const carreras = this.carreraService.currentData;
+    
+    // Apply career information to all students
+    this.registrosEstudiantes.forEach(registro => {
+      const carreraInfo = carreras.find(c => 
+        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
+        (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      );
+      if (carreraInfo) {
+        registro.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
+        registro.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
+        registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
+      }
+    });
+    
+    console.log('Final student records with complete information:', this.registrosEstudiantes);
+    this.showSuccessMessage('Información completa cargada para todos los estudiantes');
+    
+    // Pasar datos al servicio compartido y navegar a la vista
+    console.log('📊 Pasando datos al servicio y navegando a vista-individual');
+    this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);
   }
   
   calcularPorcentajes() {
@@ -297,6 +373,7 @@ export class RegistroIndividual {
   async obtenerInformacionKardex(kardex: any[], semestre_actual: string): Promise<[number, string]> {
     let totalCreditos: number = 0;
     let carrera: string = '';
+    let semestreEncontrado = false;
 
     // Iterate over kardex in reverse
     for (let i = kardex.length - 1; i >= 0; i--) {
@@ -313,8 +390,14 @@ export class RegistroIndividual {
           .pop()
           ?.normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '') || '';
+        semestreEncontrado = true;
         break;
       }
+    }
+
+    // Si no se encontró el semestre, lanzar error
+    if (!semestreEncontrado) {
+      throw new Error(`No se encontró información para el semestre "${semestre_actual}" en el kardex del estudiante.`);
     }
 
     return [totalCreditos, carrera];
@@ -380,6 +463,181 @@ export class RegistroIndividual {
       console.error('Error in obtenerPlanDePagoRealizado:', error);
     }
     
+    // If no payment data was found automatically, prompt for manual input
+    if (!planAccedido || !referencia || pagoRealizado === 0) {
+      return await this.promptForManualPaymentData(id_estudiante);
+    }
+    
     return [referencia, planAccedido, pagoRealizado];
+  }
+
+  private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number]> {
+    return new Promise((resolve) => {
+      // Find student name for display
+      const student = this.registrosEstudiantes.find(r => r.id_estudiante_siaan === id_estudiante);
+      const studentName = student?.nombre_estudiante || id_estudiante;
+      
+      // Reset manual input data
+      this.manualPaymentData = {
+        referencia: '',
+        planAccedido: 'PLAN ESTANDAR', // Default value
+        pagoRealizado: 0
+      };
+      
+      this.currentStudentForManualInput = studentName;
+      this.showManualPaymentModal = true;
+      
+      // Store the resolve function to be called when modal is submitted
+      this.manualPaymentResolve = resolve;
+    });
+  }
+  
+  private manualPaymentResolve: ((value: [string, string, number]) => void) | null = null;
+  
+  onManualPaymentSubmit(): void {
+    if (this.manualPaymentResolve) {
+      const result: [string, string, number] = [
+        this.manualPaymentData.referencia,
+        this.manualPaymentData.planAccedido,
+        this.manualPaymentData.pagoRealizado
+      ];
+      
+      this.manualPaymentResolve(result);
+      this.manualPaymentResolve = null;
+    }
+    
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+  }
+  
+  onManualPaymentCancel(): void {
+    if (this.manualPaymentResolve) {
+      // Return default/empty values if cancelled
+      this.manualPaymentResolve(['', '', 0]);
+      this.manualPaymentResolve = null;
+    }
+    
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+  }
+  
+  // Kardex error modal methods
+  showKardexErrorModal(errorMessages: string[]): void {
+    this.kardexErrorMessages = errorMessages;
+    this.showKardexErrorModalFlag = true;
+  }
+  
+  closeKardexErrorModal(): void {
+    this.showKardexErrorModalFlag = false;
+    this.kardexErrorMessages = [];
+  }
+
+  // Career selection modal methods
+  async promptForCareerSelection(registro: any, availableCareers: any[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.currentStudentWithCareerIssue = registro;
+      this.availableCareers = availableCareers;
+      this.originalCareerFromKardex = registro.carrera || '';
+      this.selectedCareerForStudent = '';
+      this.showCareerSelectionModal = true;
+      
+      // Store both resolve and reject functions
+      (this as any).careerSelectionResolve = resolve;
+      (this as any).careerSelectionReject = reject;
+    
+    });
+  }
+
+  onCareerSelectionConfirm(): void {
+    if (this.selectedCareerForStudent && this.currentStudentWithCareerIssue) {
+      // Update the student's career with the selected one
+      this.currentStudentWithCareerIssue.carrera = this.selectedCareerForStudent;
+      
+      this.toastService.success(
+        'Carrera Actualizada',
+        `Se asignó la carrera "${this.selectedCareerForStudent}" al estudiante ${this.currentStudentWithCareerIssue.nombre_estudiante}`,
+        3000
+      );
+      
+      // Resolve the promise to continue processing
+      if ((this as any).careerSelectionResolve) {
+        (this as any).careerSelectionResolve();
+        (this as any).careerSelectionResolve = null;
+      }
+      
+      // Clean up reject function too
+      if ((this as any).careerSelectionReject) {
+        (this as any).careerSelectionReject = null;
+      }
+      
+      // Check if there are more career issues to resolve
+      this.closeCareerSelectionModal();
+      this.continueCareerResolution();
+    }
+  }
+
+  onCareerSelectionCancel(): void {
+    this.toastService.warning(
+      'Proceso Cancelado',
+      'Se canceló la selección de carrera. El proceso no continuará hacia la vista de resultados.',
+      4000
+    );
+    
+    // Reset all modal states
+    this.closeCareerSelectionModal();
+    
+    // Reset processing flags
+    this.currentStudentWithCareerIssue = null;
+    this.selectedCareerForStudent = '';
+    this.originalCareerFromKardex = '';
+    
+    // Reject the promise to stop processing
+    if ((this as any).careerSelectionReject) {
+      (this as any).careerSelectionReject(new Error('Career selection cancelled by user'));
+      (this as any).careerSelectionReject = null;
+    }
+    
+    // Clean up resolve function too
+    if ((this as any).careerSelectionResolve) {
+      (this as any).careerSelectionResolve = null;
+    }
+    
+    // Don't continue processing - user cancelled
+    console.log('🚫 Usuario canceló la selección de carrera, proceso detenido');
+  }
+
+  async continueCareerResolution(): Promise<void> {
+    const carreras = this.carreraService.currentData;
+    
+    // Check if there are more career issues to resolve
+    for (const registro of this.registrosEstudiantes) {
+      const carreraInfo = carreras.find(c => 
+        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
+        (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      );
+      
+      if (!carreraInfo && registro.carrera && registro.carrera !== 'Error al cargar información') {
+        // Found another career issue, prompt for selection
+        try {
+          await this.promptForCareerSelection(registro, carreras);
+          return; // Process one at a time
+        } catch (error) {
+          // User cancelled the career selection - stop processing completely
+          console.log('🚫 Proceso cancelado por el usuario en continueCareerResolution');
+          return;
+        }
+      }
+    }
+    
+    // No more career issues, continue with final processing
+    this.completeFinalProcessing();
+  }
+
+  closeCareerSelectionModal(): void {
+    this.showCareerSelectionModal = false;
+    this.currentStudentWithCareerIssue = null;
+    this.availableCareers = [];
+    this.selectedCareerForStudent = '';
+    this.originalCareerFromKardex = '';
   }
 }

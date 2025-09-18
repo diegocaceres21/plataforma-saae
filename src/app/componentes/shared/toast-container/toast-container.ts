@@ -1,7 +1,12 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ToastService, Toast } from '../../../servicios/toast';
 import { Subscription } from 'rxjs';
+
+interface ToastWithProgress extends Toast {
+  progressWidth: number;
+  progressInterval?: any;
+}
 
 @Component({
   selector: 'app-toast-container',
@@ -57,11 +62,11 @@ import { Subscription } from 'rxjs';
           
           <!-- Progress Bar -->
           @if (toast.showProgress && toast.duration) {
-            <div class="mt-2 w-full bg-gray-200 rounded-full h-1">
+            <div class="mt-2 w-full bg-gray-200 rounded-full h-1 overflow-hidden">
               <div 
                 class="h-1 rounded-full transition-all ease-linear"
                 [class]="getProgressClasses(toast.type)"
-                [style.animation]="'shrink ' + toast.duration + 'ms linear'">
+                [style.width.%]="toast.progressWidth">
               </div>
             </div>
           }
@@ -81,37 +86,106 @@ import { Subscription } from 'rxjs';
       }
     }
 
-    @keyframes shrink {
-      from {
-        width: 100%;
-      }
-      to {
-        width: 0%;
-      }
-    }
-
     .animate-slide-in {
       animation: slide-in 0.3s ease-out;
     }
   `]
 })
 export class ToastContainerComponent implements OnInit, OnDestroy {
-  toasts: Toast[] = [];
+  toasts: ToastWithProgress[] = [];
   private subscription?: Subscription;
 
-  constructor(private toastService: ToastService) {}
+  constructor(
+    private toastService: ToastService,
+    private cdr: ChangeDetectorRef
+  ) {}
 
   ngOnInit() {
     this.subscription = this.toastService.getToasts().subscribe((toasts: Toast[]) => {
-      this.toasts = toasts;
+      // Handle new toasts
+      const newToasts = toasts.filter(toast => 
+        !this.toasts.find(existingToast => existingToast.id === toast.id)
+      );
+      
+      // Handle removed toasts
+      const removedToastIds = this.toasts
+        .filter(existingToast => !toasts.find(toast => toast.id === existingToast.id))
+        .map(toast => toast.id);
+      
+      // Clean up intervals for removed toasts
+      removedToastIds.forEach(id => {
+        const toast = this.toasts.find(t => t.id === id);
+        if (toast?.progressInterval) {
+          clearInterval(toast.progressInterval);
+        }
+      });
+      
+      // Update toasts list
+      this.toasts = toasts.map(toast => {
+        const existingToast = this.toasts.find(t => t.id === toast.id);
+        if (existingToast) {
+          return existingToast; // Keep existing toast with progress
+        }
+        
+        // Create new toast with progress
+        const newToast: ToastWithProgress = {
+          ...toast,
+          progressWidth: 100
+        };
+        
+        // Start progress animation for new toasts
+        if (newToast.showProgress && newToast.duration) {
+          this.startProgressAnimation(newToast);
+        }
+        
+        return newToast;
+      });
+      
+      this.cdr.detectChanges();
     });
   }
 
   ngOnDestroy() {
+    // Clean up all intervals
+    this.toasts.forEach(toast => {
+      if (toast.progressInterval) {
+        clearInterval(toast.progressInterval);
+      }
+    });
     this.subscription?.unsubscribe();
   }
 
+  private startProgressAnimation(toast: ToastWithProgress) {
+    if (!toast.duration || toast.duration <= 0) return;
+    
+    const updateInterval = 50; // Update every 50ms for smooth animation
+    const totalSteps = toast.duration / updateInterval;
+    const decreasePerStep = 100 / totalSteps;
+    
+    // Start after a short delay to ensure the element is rendered
+    setTimeout(() => {
+      toast.progressInterval = setInterval(() => {
+        toast.progressWidth -= decreasePerStep;
+        
+        if (toast.progressWidth <= 0) {
+          toast.progressWidth = 0;
+          if (toast.progressInterval) {
+            clearInterval(toast.progressInterval);
+            toast.progressInterval = undefined;
+          }
+        }
+        
+        this.cdr.detectChanges();
+      }, updateInterval);
+    }, 100);
+  }
+
   removeToast(id: string) {
+    // Clean up interval before removing
+    const toast = this.toasts.find(t => t.id === id);
+    if (toast?.progressInterval) {
+      clearInterval(toast.progressInterval);
+    }
     this.toastService.remove(id);
   }
 
