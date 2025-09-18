@@ -23,7 +23,9 @@ export class CarreraService {
   }
 
   get currentData(): CarreraWithRelations[] {
-    return this._carreraData.value;
+    return this._carreraData.value.sort((a, b) => 
+      a.carrera.localeCompare(b.carrera, 'es', { sensitivity: 'base' })
+    );
   }
 
   get isLoading(): boolean {
