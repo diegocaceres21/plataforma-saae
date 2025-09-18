@@ -16,6 +16,27 @@ declare global {
       updateApoyoFamiliar: (id: string, data: any) => Promise<any>;
       removeApoyoFamiliar: (id: string) => Promise<any>;
       
+      // APIs for tarifario table
+      getAllTarifario: () => Promise<any>;
+      getTarifarioById: (id: string) => Promise<any>;
+      createTarifario: (data: any) => Promise<any>;
+      updateTarifario: (id: string, data: any) => Promise<any>;
+      removeTarifario: (id: string) => Promise<any>;
+      
+      // APIs for departamento table
+      getAllDepartamento: () => Promise<any>;
+      getDepartamentoById: (id: string) => Promise<any>;
+      createDepartamento: (data: any) => Promise<any>;
+      updateDepartamento: (id: string, data: any) => Promise<any>;
+      removeDepartamento: (id: string) => Promise<any>;
+      
+      // APIs for carrera table
+      getAllCarrera: () => Promise<any>;
+      getCarreraById: (id: string) => Promise<any>;
+      createCarrera: (data: any) => Promise<any>;
+      updateCarrera: (id: string, data: any) => Promise<any>;
+      removeCarrera: (id: string) => Promise<any>;
+      
       // External APIs
       obtenerIDPersona: (carnet: string) => Promise<any>;
       obtenerKardexEstudiante: (id_estudiante: string) => Promise<any>;

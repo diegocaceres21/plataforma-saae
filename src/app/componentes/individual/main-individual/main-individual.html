@@ -1,2 +1,9 @@
-<app-registro-individual></app-registro-individual>
-<app-vista-individual></app-vista-individual>
+<!-- Mostrar componente de registro cuando la vista actual es 'registro' -->
+@if(currentView === 'registro'){
+    <app-registro-individual></app-registro-individual>
+}
+
+<!-- Mostrar componente de vista cuando la vista actual es 'vista' -->
+@if(currentView === 'vista'){
+    <app-vista-individual></app-vista-individual>
+}
