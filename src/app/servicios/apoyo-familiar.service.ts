@@ -50,7 +50,6 @@ export class ApoyoFamiliarService {
       const sortedData = data.sort((a: ApoyoFamiliar, b: ApoyoFamiliar) => a.orden - b.orden);
       
       this._apoyoFamiliarData.next(sortedData);
-      console.log('Apoyo familiar data loaded successfully:', sortedData);
       
     } catch (error) {
       const errorMessage = `Error loading apoyo familiar data: ${error}`;

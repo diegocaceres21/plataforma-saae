@@ -1,5 +1,18 @@
 // Models for DB tables
 module.exports = {
+  tarifario: {
+    table: 'tarifario',
+    columns: ['id', 'tarifario', 'valor_credito', 'created_at', 'updated_at']
+  },
+  departamento: {
+    table: 'departamento',
+    columns: ['id', 'departamento']
+  },
+  carrera: {
+    table: 'carrera',
+    columns: ['id', 'carrera', 'id_departamento', 'id_tarifario', 'incluye_tecnologico', 'created_at']
+  },
+
   gestion: {
     table: 'gestion',
     columns: ['id', 'gestion', 'anio', 'orden', 'activo']

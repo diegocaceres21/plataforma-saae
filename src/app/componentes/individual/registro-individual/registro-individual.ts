@@ -5,15 +5,17 @@ import { FormsModule } from '@angular/forms';
 import { LoadingService } from '../../../servicios/loading';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { Gestion } from '../../../interfaces/gestion';
-import { VistaIndividual } from "../vista-individual/vista-individual";
 import { StudentSearchResult, StudentAutocompleteState } from '../../../interfaces/student-search';
 import '../../../interfaces/electron-api'; // Importar tipos de Electron
 import { Subject, of } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
+import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
+import { CarreraService } from '../../../servicios/carrera.service';
+import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
 
 @Component({
   selector: 'app-registro-individual',
-  imports: [RouterLink, CommonModule, FormsModule, VistaIndividual],
+  imports: [RouterLink, CommonModule, FormsModule],
   templateUrl: './registro-individual.html',
   styleUrl: './registro-individual.scss'
 })
@@ -34,6 +36,9 @@ export class RegistroIndividual {
   private searchSubject = new Subject<string>();
   
   public loadingService = inject(LoadingService);
+  private apoyoFamiliarService = inject(ApoyoFamiliarService);
+  private carreraService = inject(CarreraService);
+  private dataService = inject(RegistroIndividualDataService);
   
   constructor() {
     this.initializeSearchSubject();
@@ -221,7 +226,6 @@ export class RegistroIndividual {
       // Now load detailed information for each selected student
       for (let i = 0; i < this.registrosEstudiantes.length; i++) {
         const registro = this.registrosEstudiantes[i];
-        console.log(registro);
         try {
           // Get kardex information
           const kardex = await window.academicoAPI.obtenerKardexEstudiante(registro.id_estudiante_siaan);
@@ -253,15 +257,41 @@ export class RegistroIndividual {
           };
         }
       }
-      
-      console.log('Final student records with complete information:', this.registrosEstudiantes);
+      this.calcularPorcentajes();
+      const carreras = this.carreraService.currentData;
+      this.registrosEstudiantes.forEach(registro => {
+        const carreraInfo = carreras.find(c => 
+          c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
+          (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        );
+        if (carreraInfo) {
+          registro.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
+          registro.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
+          registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
+        }
+      });
       this.showSuccessMessage('Información completa cargada para todos los estudiantes');
+      
+      // Pasar datos al servicio compartido y navegar a la vista
+      this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);
       
     } catch (error) {
       console.error('Error processing final submission:', error);
     } finally {
       this.loadingService.hide();
     }
+  }
+  
+  calcularPorcentajes() {
+    this.registrosEstudiantes.sort((a, b) => (b.total_creditos || 0) - (a.total_creditos || 0));
+    
+    const apoyoFamiliarData = this.apoyoFamiliarService.currentData
+      .sort((a, b) => a.orden - b.orden);
+    
+    this.registrosEstudiantes.forEach((registro, index) => {
+      const apoyo = apoyoFamiliarData[index] || null;
+      registro.porcentaje_descuento = apoyo ? apoyo.porcentaje : 0;
+    });
   }
 
   async obtenerInformacionKardex(kardex: any[], semestre_actual: string): Promise<[number, string]> {
@@ -352,29 +382,4 @@ export class RegistroIndividual {
     
     return [referencia, planAccedido, pagoRealizado];
   }
-
-  /*async createGestionMock() {
-    const data = {
-      gestion: '2025',
-      anio: 2025,
-      orden: 1
-    };
-    if (window.academicoAPI?.createGestion) {
-      const result = await window.academicoAPI.createGestion(data);
-      console.log('Created gestion:', result);
-      await this.getAllGestionMock();
-    } else {
-      console.error('academicoAPI.createGestion is not available');
-    }
-  }
-
-  async getAllGestionMock() {
-    if (window.academicoAPI?.getAllGestion) {
-      const result = await window.academicoAPI.getAllGestion();
-      this.gestionList = result;
-      console.log('All gestion:', result);
-    } else {
-      console.error('academicoAPI.getAllGestion is not available');
-    }
-  }*/
 }

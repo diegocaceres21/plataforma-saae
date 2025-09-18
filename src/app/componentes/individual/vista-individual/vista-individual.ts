@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
@@ -8,6 +8,8 @@ import { ToastContainerComponent } from '../../shared/toast-container/toast-cont
 import { ExportConfigModalComponent } from '../../shared/export-config-modal/export-config-modal';
 import { ExportConfig } from '../../../interfaces/export-config';
 import jsPDF from 'jspdf';
+import { Subject, takeUntil } from 'rxjs';
+import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
 import '../../../interfaces/electron-api'; // Importar tipos de Electron
 
 @Component({
@@ -16,12 +18,29 @@ import '../../../interfaces/electron-api'; // Importar tipos de Electron
   templateUrl: './vista-individual.html',
   styleUrl: './vista-individual.scss'
 })
-export class VistaIndividual {
+export class VistaIndividual implements OnInit, OnDestroy {
   
+  registrosEstudiantes: Partial<RegistroEstudiante>[] = [];
+  hasValidData = false;
+  private destroy$ = new Subject<void>();
+
   ngOnInit() {
-    // Agregar datos de prueba si no hay registros
-    if (this.registrosEstudiantes.length === 0) {
-      console.log('📝 Agregando datos de prueba para impresión...');
+    // Suscribirse a los datos del servicio
+    this.dataService.registrosEstudiantes$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(registros => {
+        this.registrosEstudiantes = registros;
+      });
+
+    // Suscribirse al estado de validación de datos
+    this.dataService.hasValidData$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(hasData => {
+        this.hasValidData = hasData;
+      });
+
+    // Si no hay datos válidos al cargar, agregar datos de prueba para desarrollo
+    if (this.registrosEstudiantes.length === 0 && !this.hasValidData) {
       this.registrosEstudiantes = [
         {
           id: '1',
@@ -44,34 +63,18 @@ export class VistaIndividual {
       ];
     }
   }
-  registrosEstudiantes: Partial<RegistroEstudiante>[] = [
-    {
-        ci_estudiante: "E-10268053",
-        nombre_estudiante: "CACERES CORTEZ DIEGO ISAIAS",
-        carrera: "INGENIERIA EMPRESARIAL",  
-        total_creditos: 15,
-        plan_primer_pago: "PLAN ESTANDAR",
-        monto_primer_pago: 1428,
-        referencia_primer_pago: "PRIMER PAGO ESTANDAR TUPURAYA 1-2024",
-        porcentaje_descuento: 0, //INVENTADO
-        valor_credito: 357, //INVENTADO,
-        credito_tecnologico: 357, //INVENTADO
-        total_semestre: 5712 //INVENTADO
-    },
-    {
-        ci_estudiante: "6555232",
-        nombre_estudiante: "VARGAS SINGER SARA ELENA",
-        carrera: "ADMINISTRACION DE EMPRESAS",
-        total_creditos: 15,
-        plan_primer_pago: "PLAN ESTANDAR",
-        monto_primer_pago: 1428,
-        referencia_primer_pago: "PRIMER PAGO ESTANDAR TUPURAYA 1-2024",
-        porcentaje_descuento: 0.2,
-        valor_credito: 357,
-        credito_tecnologico: 357,
-        total_semestre: 5712
-    }
-  ];
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // Método para regresar a la vista de registro
+  volverARegistro(): void {
+    this.dataService.navigateToRegistro();
+  }
+
+  constructor(private toastService: ToastService, private dataService: RegistroIndividualDataService) {}
 
   expandedItems: Set<number> = new Set();
   
@@ -84,8 +87,6 @@ export class VistaIndividual {
   // Modal de configuración
   showExportModal = false;
   exportConfig: ExportConfig | null = null;
-
-  constructor(private toastService: ToastService) {}
 
   toggleAccordion(index: number): void {
     if (this.expandedItems.has(index)) {
@@ -109,7 +110,6 @@ export class VistaIndividual {
         'Guardado Exitoso', 
         `Se guardaron ${this.registrosEstudiantes.length} registros correctamente`
       );
-      console.log('Guardando registro...', this.registrosEstudiantes);
     }, 2000);
   }
 
