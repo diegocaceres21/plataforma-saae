@@ -41,6 +41,22 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   updateCarrera: (id, data) => ipcRenderer.invoke('carrera:update', id, data),
   removeCarrera: (id) => ipcRenderer.invoke('carrera:remove', id),
 
+  // CRUD for solicitud table
+  getAllSolicitud: () => ipcRenderer.invoke('solicitud:getAll'),
+  getSolicitudById: (id) => ipcRenderer.invoke('solicitud:getById', id),
+  createSolicitud: (data) => ipcRenderer.invoke('solicitud:create', data),
+  updateSolicitud: (id, data) => ipcRenderer.invoke('solicitud:update', id, data),
+  removeSolicitud: (id) => ipcRenderer.invoke('solicitud:remove', id),
+
+  // CRUD for registro_estudiante table
+  getAllRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAll'),
+  getRegistroEstudianteById: (id) => ipcRenderer.invoke('registro_estudiante:getById', id),
+  getRegistroEstudiantesBySolicitud: (id_solicitud) => ipcRenderer.invoke('registro_estudiante:getBySolicitud', id_solicitud),
+  createRegistroEstudiante: (data) => ipcRenderer.invoke('registro_estudiante:create', data),
+  updateRegistroEstudiante: (id, data) => ipcRenderer.invoke('registro_estudiante:update', id, data),
+  removeRegistroEstudiante: (id) => ipcRenderer.invoke('registro_estudiante:remove', id),
+  createMultipleRegistroEstudiante: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultiple', dataArray),
+
   // External API endpoints
   obtenerIDPersona: (carnet) => ipcRenderer.invoke('api:obtenerIDPersona', carnet),
   obtenerKardexEstudiante: (id_estudiante) => ipcRenderer.invoke('api:obtenerKardexEstudiante', id_estudiante),

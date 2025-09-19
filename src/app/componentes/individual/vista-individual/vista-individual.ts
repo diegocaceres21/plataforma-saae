@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
+import { Solicitud } from '../../../interfaces/solicitud';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import * as XLSX from 'xlsx';
@@ -39,29 +40,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
         this.hasValidData = hasData;
       });
 
-    // Si no hay datos válidos al cargar, agregar datos de prueba para desarrollo
-    if (this.registrosEstudiantes.length === 0 && !this.hasValidData) {
-      this.registrosEstudiantes = [
-        {
-          id: '1',
-          id_solicitud: 'SOL-001',
-          id_gestion: 'GEST-2024',
-          ci_estudiante: '12345678',
-          nombre_estudiante: 'Juan Carlos Pérez López',
-          total_creditos: 24,
-          carrera: 'Ingeniería de Sistemas',
-          valor_credito: 120,
-          credito_tecnologico: 50,
-          porcentaje_descuento: 25,
-          total_semestre: 2800,
-          plan_primer_pago: 'Contado',
-          monto_primer_pago: 2100,
-          referencia_primer_pago: 'REF-2024-001',
-          registrado: true,
-          comentarios: 'Estudiante con beca de excelencia académica'
-        }
-      ];
-    }
+    
   }
 
   ngOnDestroy(): void {
@@ -100,17 +79,105 @@ export class VistaIndividual implements OnInit, OnDestroy {
     return this.expandedItems.has(index);
   }
 
-  guardarRegistro(): void {
+  async guardarRegistro(): Promise<void> {
+    if (this.registrosEstudiantes.length === 0) {
+      this.toastService.warning(
+        'Sin Datos',
+        'No hay registros disponibles para guardar'
+      );
+      return;
+    }
+
     this.isSaving = true;
     
-    // Simular proceso de guardado
-    setTimeout(() => {
+    try {
+      // Verificar que las APIs están disponibles
+      if (!window.academicoAPI?.createSolicitud || !window.academicoAPI?.createMultipleRegistroEstudiante) {
+        throw new Error('APIs de base de datos no disponibles');
+      }
+
+      
+      // Debug: Primero intentar obtener todas las solicitudes para ver la estructura
+      try {
+        const existingSolicitudes = await window.academicoAPI.getAllSolicitud();
+      } catch (debugError) {
+        console.log('⚠️ No se pudieron obtener solicitudes existentes:', debugError);
+      }
+      
+      // Obtener el ID de gestión del primer registro o usar valor por defecto
+      const gestionId = this.registrosEstudiantes[0]?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
+      
+      // Paso 1: Crear la solicitud
+      const solicitudData = {
+        fecha: new Date().toISOString(),
+        id_gestion: gestionId,
+        estado: 'completado' as const,
+        cantidad_estudiantes: this.registrosEstudiantes.length,
+        comentarios: `Solicitud generada automáticamente para ${this.registrosEstudiantes.length} estudiante(s)`
+      };
+
+      console.log('📝 Creando solicitud:', solicitudData);
+      const solicitud = await window.academicoAPI.createSolicitud(solicitudData);
+      
+      if (!solicitud || !solicitud.id) {
+        throw new Error('No se pudo crear la solicitud');
+      }
+
+      console.log('✅ Solicitud creada con ID:', solicitud.id);
+
+      // Paso 2: Preparar los datos de los estudiantes con el ID de solicitud
+      const registrosParaGuardar = this.registrosEstudiantes.map(registro => ({
+        id_solicitud: solicitud.id,
+        id_gestion: gestionId,
+        id_estudiante_siaan: registro.id_estudiante_siaan || '',
+        ci_estudiante: registro.ci_estudiante || '',
+        nombre_estudiante: registro.nombre_estudiante || '',
+        carrera: registro.carrera || '',
+        total_creditos: registro.total_creditos || 0,
+        valor_credito: registro.valor_credito || 0,
+        credito_tecnologico: registro.credito_tecnologico || 0,
+        porcentaje_descuento: registro.porcentaje_descuento || 0,
+        monto_primer_pago: registro.monto_primer_pago || 0,
+        plan_primer_pago: registro.plan_primer_pago || '',
+        referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
+        total_semestre: registro.total_semestre || 0,
+        registrado: true,
+        comentarios: registro.comentarios || ''
+      }));
+
+      
+      // Paso 3: Guardar todos los registros de estudiantes
+      const registrosGuardados = await window.academicoAPI.createMultipleRegistroEstudiante(registrosParaGuardar);
+      
+      
       this.isSaving = false;
       this.toastService.success(
         'Guardado Exitoso', 
-        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente`
+        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente en la base de datos. ID de solicitud: ${solicitud.id}`,
+        5000
       );
-    }, 2000);
+
+      // Opcional: Marcar todos los registros como guardados
+      this.registrosEstudiantes.forEach(registro => {
+        registro.registrado = true;
+        registro.id_solicitud = solicitud.id;
+      });
+
+    } catch (error) {
+      this.isSaving = false;
+      console.error('❌ Error guardando registros:', error);
+      
+      let errorMessage = 'Error desconocido al guardar los registros';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      this.toastService.error(
+        'Error al Guardar',
+        `No se pudieron guardar los registros: ${errorMessage}. Por favor, intente nuevamente.`,
+        8000
+      );
+    }
   }
 
   exportarPDF(): void {
@@ -142,7 +209,6 @@ export class VistaIndividual implements OnInit, OnDestroy {
         'Error en Generación de PDF', 
         'Ocurrió un error al generar el archivo PDF. Por favor, intente nuevamente.'
       );
-      console.error('Error generando PDF:', error);
     }
   }
 
@@ -494,7 +560,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
               <span class="info-label">Nombre:</span> ${registro.nombre_estudiante || 'N/A'}
             </div>
             <div class="info-item">
-              <span class="info-label">Créditos:</span> ${registro.total_creditos || 0}
+              <span class="info-label">Total U.V.E.:</span> ${registro.total_creditos || 0}
             </div>
             <div class="info-item">
               <span class="info-label">Carrera:</span> ${registro.carrera || 'N/A'}
@@ -635,7 +701,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
     
     // Columna 1
     doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 15);
-    doc.text(`Créditos: ${registro.total_creditos || 0}`, col1X, currentY + 20);
+    doc.text(`Total U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 20);
     
     // Columna 2
     doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 15);
@@ -769,13 +835,13 @@ export class VistaIndividual implements OnInit, OnDestroy {
     
     return [
       [
-        'Valor por Crédito',
+        'Valor por U.V.E.',
         `BOB. ${valorCredito.toFixed(2)}`,
         `BOB. ${valorCredito.toFixed(2)}`,
         'BOB. 0.00'
       ],
       [
-        'Total Créditos',
+        'Total U.V.E.',
         `${totalCreditos}`,
         `${totalCreditos}`,
         '0'

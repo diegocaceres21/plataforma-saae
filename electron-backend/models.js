@@ -6,31 +6,32 @@ module.exports = {
   },
   departamento: {
     table: 'departamento',
-    columns: ['id', 'departamento']
+    columns: ['id', 'departamento', 'created_at', 'updated_at']
   },
   carrera: {
     table: 'carrera',
-    columns: ['id', 'carrera', 'id_departamento', 'id_tarifario', 'incluye_tecnologico', 'created_at']
+    columns: ['id', 'carrera', 'id_tarifario', 'id_departamento', 'incluye_tecnologico', 'created_at', 'updated_at']
   },
 
   gestion: {
     table: 'gestion',
-    columns: ['id', 'gestion', 'anio', 'orden', 'activo']
+    columns: ['id', 'gestion', 'anio', 'orden', 'activo', 'visible', 'created_at', 'updated_at']
   },
   apoyo_familiar: {
     table: 'apoyo_familiar',
-    columns: ['id','orden', 'porcentaje']
+    columns: ['id', 'orden', 'porcentaje', 'created_at', 'updated_at']
   },
   solicitud: {
     table: 'solicitud',
-    columns: ['id', 'fecha', 'id_gestion']
+    columns: ['id', 'fecha', 'id_gestion', 'estado', 'cantidad_estudiantes', 'comentarios', 'created_at', 'updated_at']
   },
   registro_estudiante: {
     table: 'registro_estudiante',
     columns: [
-      'id', 'id_solicitud', 'id_estudiante_siaan',  'ci_estudiante', 'nombre_estudiante', 'carrera',
-      'valor_credito', 'total_creditos', 'credito_tecnologico',
-      'porcentaje_descuento', 'total_semestre', 'registrado'
+      'id', 'id_solicitud', 'id_estudiante_siaan', 'id_gestion', 'ci_estudiante', 'nombre_estudiante', 
+      'carrera', 'valor_credito', 'total_creditos', 'credito_tecnologico', 'porcentaje_descuento', 
+      'monto_primer_pago', 'plan_primer_pago', 'referencia_primer_pago', 'total_semestre', 'registrado', 'comentarios', 
+      'created_at', 'updated_at'
     ]
   }
 };

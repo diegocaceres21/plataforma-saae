@@ -1,0 +1,249 @@
+<div class="lista-registros-container">
+  <!-- Header y controles -->
+  <div class="header-section">
+    <div class="title-section">
+      <h1>📊 Lista de Registros de Estudiantes</h1>
+      <p class="subtitle">Gestión de registros agrupados por solicitud en formato de tabla</p>
+    </div>
+
+    <!-- Controles de filtros -->
+    <div class="filters-section">
+      <div class="filters-row">
+        <!-- Filtro por gestión -->
+        <div class="filter-group">
+          <label for="filtroGestion">Gestión:</label>
+          <select 
+            id="filtroGestion" 
+            [(ngModel)]="filtroGestion" 
+            (ngModelChange)="onFiltroChange()"
+            [disabled]="isLoadingFiltros">
+            <option value="">Todas las gestiones</option>
+            <option *ngFor="let gestion of gestiones" [value]="gestion.id">
+              {{ gestion.gestion }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Filtro por carrera -->
+        <div class="filter-group">
+          <label for="filtroCarrera">Carrera:</label>
+          <select 
+            id="filtroCarrera" 
+            [(ngModel)]="filtroCarrera" 
+            (ngModelChange)="onFiltroChange()"
+            [disabled]="isLoadingFiltros">
+            <option value="">Todas las carreras</option>
+            <option *ngFor="let carrera of carreras" [value]="carrera.carrera">
+              {{ carrera.carrera }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Búsqueda por nombre o carnet -->
+        <div class="filter-group search-group">
+          <label for="filtroBusqueda">Buscar estudiante:</label>
+          <input 
+            type="text" 
+            id="filtroBusqueda"
+            [(ngModel)]="filtroBusqueda" 
+            (ngModelChange)="onFiltroChange()"
+            placeholder="Nombre o carnet del estudiante..."
+            class="search-input">
+        </div>
+
+        <!-- Botones de acción -->
+        <div class="action-buttons">
+          <button 
+            type="button" 
+            class="btn btn-secondary"
+            (click)="limpiarFiltros()"
+            [disabled]="isLoading">
+            🗑️ Limpiar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-spinner"></div>
+    <p>Cargando registros de estudiantes...</p>
+  </div>
+
+  <!-- Lista de registros en formato tabla -->
+  <div *ngIf="!isLoading" class="registros-container">
+    
+    <!-- Información de resultados -->
+    <div class="results-info">
+      <span class="results-count">
+        📋 Mostrando {{ solicitudesAgrupadas.length }} de {{ totalItems }} solicitudes
+      </span>
+      <span class="total-students">
+        👥 Total de estudiantes: {{ getTotalEstudiantes() }}
+      </span>
+    </div>
+
+    <!-- Lista de solicitudes agrupadas -->
+    <div class="solicitudes-container">
+      <div *ngFor="let grupo of solicitudesAgrupadas; let i = index" class="solicitud-group">
+        
+        <!-- Header de la solicitud -->
+        <div class="solicitud-header">
+          <div class="solicitud-info">
+            <div class="solicitud-title">
+              <strong>Solicitud #{{ grupo.solicitud.id?.substring(0, 8) || 'N/A' }}</strong>
+              <span class="badge" [ngClass]="getEstadoBadgeClass(grupo.solicitud.estado)">
+                {{ grupo.solicitud.estado }}
+              </span>
+            </div>
+            
+            <div class="solicitud-details">
+              <span class="detail-item">
+                📅 {{ formatearFecha(grupo.solicitud.fecha) }}
+              </span>
+              <span class="detail-item">
+                🎓 {{ getNombreGestion(grupo.solicitud.id_gestion) }}
+              </span>
+              <span class="detail-item">
+                👥 {{ grupo.registros.length }} estudiante(s)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de estudiantes -->
+        <div class="estudiantes-table-wrapper">
+          <table class="estudiantes-table">
+            <thead>
+              <tr>
+                <th>Carnet</th>
+                <th>Nombre</th>
+                <th>Carrera</th>
+                <th>Total U.V.E.</th>
+                <th>Valor U.V.E.</th>
+                <th>% Descuento</th>
+                <th>Plan Pago</th>
+                <th>Monto</th>
+                <th>Referencia</th>
+                <th>Estado</th>
+                <th>Comentarios</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let registro of grupo.registros; let j = index" 
+                  class="estudiante-row"
+                  [class.even]="j % 2 === 0">
+                
+                <td class="carnet">
+                  <strong>{{ registro.ci_estudiante }}</strong>
+                </td>
+                
+                <td class="nombre">
+                  {{ registro.nombre_estudiante }}
+                </td>
+                
+                <td class="carrera">
+                  {{ registro.carrera }}
+                </td>
+                
+                <td class="creditos">
+                  {{ registro.total_creditos }}
+                </td>
+                
+                <td class="valor-credito">
+                  {{ registro.valor_credito | currency:'BOB ':'symbol':'1.2-2' }}
+                </td>
+                
+                <td class="descuento">
+                  <span class="descuento-value">{{ registro.porcentaje_descuento }}%</span>
+                </td>
+                
+                <td class="plan">
+                  {{ registro.plan_primer_pago }}
+                </td>
+                
+                <td class="monto">
+                  {{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}
+                </td>
+                
+                <td class="referencia">
+                  {{ registro.referencia_primer_pago || 'N/A' }}
+                </td>
+                
+                <td class="estado-registro">
+                  <span class="status-badge" [class.registered]="registro.registrado">
+                    {{ registro.registrado ? '✅ Registrado' : '⏳ Pendiente' }}
+                  </span>
+                </td>
+                
+                <td class="comentarios">
+                  <span *ngIf="registro.comentarios" 
+                        class="comentario-tooltip" 
+                        [title]="registro.comentarios">
+                    💬
+                  </span>
+                  <span *ngIf="!registro.comentarios" class="no-comentario">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Comentarios de la solicitud -->
+        <div class="solicitud-comments" *ngIf="grupo.solicitud.comentarios">
+          <p><strong>Comentarios de la solicitud:</strong> {{ grupo.solicitud.comentarios }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensaje cuando no hay resultados -->
+    <div *ngIf="solicitudesAgrupadas.length === 0" class="no-results">
+      <div class="no-results-icon">🔍</div>
+      <h3>No se encontraron registros</h3>
+      <p>Intenta ajustar los filtros de búsqueda o verifica que existan registros en la base de datos.</p>
+      <button type="button" class="btn btn-primary" (click)="limpiarFiltros()">
+        Limpiar filtros
+      </button>
+    </div>
+
+    <!-- Paginación -->
+    <div *ngIf="totalPages > 1" class="pagination-container">
+      <div class="pagination">
+        <button 
+          type="button" 
+          class="page-btn"
+          (click)="previousPage()"
+          [disabled]="currentPage === 1">
+          ← Anterior
+        </button>
+
+        <span class="page-numbers">
+          <button 
+            *ngFor="let page of pages" 
+            type="button"
+            class="page-number"
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)">
+            {{ page }}
+          </button>
+        </span>
+
+        <button 
+          type="button" 
+          class="page-btn"
+          (click)="nextPage()"
+          [disabled]="currentPage === totalPages">
+          Siguiente →
+        </button>
+      </div>
+
+      <div class="pagination-info">
+        Página {{ currentPage }} de {{ totalPages }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <app-toast-container></app-toast-container>
+</div>

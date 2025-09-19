@@ -10,6 +10,15 @@ function registerRoutes(ipcMain) {
     ipcMain.handle(`${table}:update`, async (event, id, data) => await controllers.update(table, id, data));
     ipcMain.handle(`${table}:remove`, async (event, id) => await controllers.remove(table, id));
   });
+
+  // Special routes for registro_estudiante
+  ipcMain.handle('registro_estudiante:createMultiple', async (event, dataArray) => {
+    return await controllers.createMultiple('registro_estudiante', dataArray);
+  });
+  
+  ipcMain.handle('registro_estudiante:getBySolicitud', async (event, id_solicitud) => {
+    return await controllers.getBySolicitud(id_solicitud);
+  });
 }
 
 module.exports = registerRoutes;
