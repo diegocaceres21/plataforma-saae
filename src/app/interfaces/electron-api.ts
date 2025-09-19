@@ -37,6 +37,22 @@ declare global {
       updateCarrera: (id: string, data: any) => Promise<any>;
       removeCarrera: (id: string) => Promise<any>;
       
+      // APIs for solicitud table
+      getAllSolicitud: () => Promise<any>;
+      getSolicitudById: (id: string) => Promise<any>;
+      createSolicitud: (data: any) => Promise<any>;
+      updateSolicitud: (id: string, data: any) => Promise<any>;
+      removeSolicitud: (id: string) => Promise<any>;
+      
+      // APIs for registro_estudiante table
+      getAllRegistroEstudiante: () => Promise<any>;
+      getRegistroEstudianteById: (id: string) => Promise<any>;
+      getRegistroEstudiantesBySolicitud: (id_solicitud: string) => Promise<any>;
+      createRegistroEstudiante: (data: any) => Promise<any>;
+      updateRegistroEstudiante: (id: string, data: any) => Promise<any>;
+      removeRegistroEstudiante: (id: string) => Promise<any>;
+      createMultipleRegistroEstudiante: (data: any[]) => Promise<any>;
+      
       // External APIs
       obtenerIDPersona: (carnet: string) => Promise<any>;
       obtenerKardexEstudiante: (id_estudiante: string) => Promise<any>;

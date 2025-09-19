@@ -52,4 +52,46 @@ function remove(table, id) {
   });
 }
 
-module.exports = { getAll, getById, create, update, remove };
+function createMultiple(table, dataArray) {
+  return new Promise((resolve, reject) => {
+    if (!dataArray || dataArray.length === 0) {
+      return resolve([]);
+    }
+
+    // Get column names from the first record
+    const cols = Object.keys(dataArray[0]);
+    const colsStr = cols.join(',');
+
+    // Create values string for multiple records
+    const valueGroups = dataArray.map((_, index) => {
+      const startIndex = index * cols.length + 1;
+      const placeholders = cols.map((_, colIndex) => `$${startIndex + colIndex}`).join(',');
+      return `(${placeholders})`;
+    }).join(',');
+
+    // Flatten all values
+    const allValues = dataArray.flatMap(record => Object.values(record));
+
+    const query = `INSERT INTO ${table} (${colsStr}) VALUES ${valueGroups} RETURNING *`;
+
+    pool.query(query, allValues, (err, result) => {
+      if (err) {
+        console.error('Error in createMultiple:', err);
+        reject(err);
+      } else {
+        resolve(result.rows);
+      }
+    });
+  });
+}
+
+function getBySolicitud(id_solicitud) {
+  return new Promise((resolve, reject) => {
+    pool.query(`SELECT * FROM registro_estudiante WHERE id_solicitud = $1`, [id_solicitud], (err, result) => {
+      if (err) reject(err);
+      else resolve(result.rows);
+    });
+  });
+}
+
+module.exports = { getAll, getById, create, update, remove, createMultiple, getBySolicitud };

@@ -25,7 +25,7 @@ import { ToastContainerComponent } from '../../shared/toast-container/toast-cont
 export class RegistroIndividual {
   // Single input for search
   searchQuery: string = '';
-  semestreActual: Gestion = { id: '145848848484', gestion: '1-2024', anio: 2024, orden: 1, activo: true };
+  semestreActual: Gestion = { id: '581e078e-2c19-4d8f-a9f8-eb5ac388cb44', gestion: '2-2025', anio: 2024, orden: 1, activo: true };
   registrosEstudiantes: RegistroEstudiante[] = [];
   successMessage: string = '';
   
