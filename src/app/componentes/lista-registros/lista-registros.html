@@ -1,61 +1,113 @@
-<div class="lista-registros-container">
-  <!-- Header y controles -->
-  <div class="header-section">
-    <div class="title-section">
-      <h1>📊 Lista de Registros de Estudiantes</h1>
-      <p class="subtitle">Gestión de registros agrupados por solicitud en formato de tabla</p>
+<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 font-sans">
+  <div class="w-full max-w-7xl bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm">
+    
+    <!-- Header -->
+    <div class="mb-8 py-4 text-center relative">
+      <!-- Back Button -->
+      <div class="absolute left-0 top-0">
+        <button 
+          (click)="volverAlMenu()"
+          class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 
+                 rounded-xl transition-all duration-200 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md
+                 font-medium text-sm group">
+          <svg class="w-4 h-4 mr-2 transition-transform duration-200 group-hover:-translate-x-1" 
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Volver al Menú
+        </button>
+      </div>
+      
+      <div class="absolute inset-0 bg-gradient-to-r from-blue-900/5 to-yellow-400/5 rounded-xl -z-10"></div>
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl mb-4 shadow-lg">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+        </svg>
+      </div>
+      <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Lista de Registros de Estudiantes</h2>
+      <p class="text-gray-600 font-medium">Gestión y visualización de solicitudes con filtros avanzados</p>
     </div>
 
     <!-- Controles de filtros -->
-    <div class="filters-section">
-      <div class="filters-row">
+    <div class="bg-gray-50 rounded-xl p-6 mb-6 border border-gray-100">
+      <div class="flex flex-wrap items-end gap-4">
         <!-- Filtro por gestión -->
-        <div class="filter-group">
-          <label for="filtroGestion">Gestión:</label>
-          <select 
-            id="filtroGestion" 
-            [(ngModel)]="filtroGestion" 
-            (ngModelChange)="onFiltroChange()"
-            [disabled]="isLoadingFiltros">
-            <option value="">Todas las gestiones</option>
-            <option *ngFor="let gestion of gestiones" [value]="gestion.id">
-              {{ gestion.gestion }}
-            </option>
-          </select>
+        <div class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Gestión:</label>
+          <app-multi-select-dropdown
+            [options]="gestionOptions"
+            [ngModel]="filtroGestion"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar gestiones"
+            width="w-50"
+            dropdownId="gestion-dropdown"
+            (ngModelChange)="onGestionSelectionChange($event)">
+          </app-multi-select-dropdown>
         </div>
 
         <!-- Filtro por carrera -->
-        <div class="filter-group">
-          <label for="filtroCarrera">Carrera:</label>
-          <select 
-            id="filtroCarrera" 
-            [(ngModel)]="filtroCarrera" 
-            (ngModelChange)="onFiltroChange()"
-            [disabled]="isLoadingFiltros">
-            <option value="">Todas las carreras</option>
-            <option *ngFor="let carrera of carreras" [value]="carrera.carrera">
-              {{ carrera.carrera }}
-            </option>
-          </select>
+        <div class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Carrera:</label>
+          <app-multi-select-dropdown
+            [options]="carreraOptions"
+            [ngModel]="filtroCarrera"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar carreras"
+            width="w-80"
+            dropdownId="carrera-dropdown"
+            (ngModelChange)="onCarreraSelectionChange($event)">
+          </app-multi-select-dropdown>
+        </div>
+
+        <!-- Filtro por descuento -->
+        <div class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Descuento:</label>
+          <app-multi-select-dropdown
+            [options]="descuentoOptions"
+            [ngModel]="filtroDescuento"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar descuentos"
+            width="w-52"
+            dropdownId="descuento-dropdown"
+            (ngModelChange)="onDescuentoSelectionChange($event)">
+          </app-multi-select-dropdown>
         </div>
 
         <!-- Búsqueda por nombre o carnet -->
-        <div class="filter-group search-group">
-          <label for="filtroBusqueda">Buscar estudiante:</label>
+        <div class="flex flex-col grow min-w-[240px]">
+          <label for="filtroBusqueda" class="text-sm font-medium text-slate-700 mb-1">Buscar estudiante:</label>
           <input 
             type="text" 
             id="filtroBusqueda"
             [(ngModel)]="filtroBusqueda" 
             (ngModelChange)="onFiltroChange()"
             placeholder="Nombre o carnet del estudiante..."
-            class="search-input">
+            class="px-3 py-2 border border-slate-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+          >
+        </div>
+
+        <!-- Configuración de filtrado -->
+        <div class="flex flex-col justify-end">
+          <div class="flex items-center space-x-2 h-10 bg-slate-50 px-3 py-2 rounded-md border border-slate-200">
+            <input 
+              type="checkbox" 
+              id="filtroModo"
+              [(ngModel)]="mostrarSoloEstudiantesFiltrados"
+              (ngModelChange)="aplicarFiltros()"
+              class="w-4 h-4 text-slate-600 border-slate-300 rounded focus:ring-slate-400"
+            >
+            <label for="filtroModo" class="text-sm text-slate-700 cursor-pointer whitespace-nowrap" 
+                   title="Activado: muestra solo estudiantes que cumplen filtros. Desactivado: muestra solicitudes completas si al menos un estudiante cumple filtros.">
+              No agrupar estudiantes
+            </label>
+          </div>
         </div>
 
         <!-- Botones de acción -->
-        <div class="action-buttons">
+        <div class="">
           <button 
             type="button" 
-            class="btn btn-secondary"
+            class="inline-flex items-center px-3 py-2 border border-slate-300 rounded-md text-sm font-medium text-slate-700 hover:bg-slate-50"
             (click)="limpiarFiltros()"
             [disabled]="isLoading">
             🗑️ Limpiar
@@ -63,187 +115,172 @@
         </div>
       </div>
     </div>
-  </div>
 
   <!-- Loading state -->
-  <div *ngIf="isLoading" class="loading-container">
-    <div class="loading-spinner"></div>
-    <p>Cargando registros de estudiantes...</p>
-  </div>
+  @if (isLoading) {
+    <div class="flex flex-col items-center justify-center py-16 text-slate-600">
+      <div class="h-8 w-8 border-4 border-slate-300 border-t-slate-600 rounded-full animate-spin mb-3"></div>
+      <p class="text-sm">Cargando registros de estudiantes...</p>
+    </div>
+  }
 
   <!-- Lista de registros en formato tabla -->
-  <div *ngIf="!isLoading" class="registros-container">
+  @if (!isLoading) {
+  <div class="space-y-4">
     
     <!-- Información de resultados -->
-    <div class="results-info">
-      <span class="results-count">
+    <div class="flex items-center justify-between text-sm text-slate-600">
+      <span>
         📋 Mostrando {{ solicitudesAgrupadas.length }} de {{ totalItems }} solicitudes
       </span>
-      <span class="total-students">
+      <span>
         👥 Total de estudiantes: {{ getTotalEstudiantes() }}
       </span>
     </div>
 
-    <!-- Lista de solicitudes agrupadas -->
-    <div class="solicitudes-container">
-      <div *ngFor="let grupo of solicitudesAgrupadas; let i = index" class="solicitud-group">
-        
-        <!-- Header de la solicitud -->
-        <div class="solicitud-header">
-          <div class="solicitud-info">
-            <div class="solicitud-title">
-              <strong>Solicitud #{{ grupo.solicitud.id?.substring(0, 8) || 'N/A' }}</strong>
-              <span class="badge" [ngClass]="getEstadoBadgeClass(grupo.solicitud.estado)">
-                {{ grupo.solicitud.estado }}
-              </span>
-            </div>
-            
-            <div class="solicitud-details">
-              <span class="detail-item">
-                📅 {{ formatearFecha(grupo.solicitud.fecha) }}
-              </span>
-              <span class="detail-item">
-                🎓 {{ getNombreGestion(grupo.solicitud.id_gestion) }}
-              </span>
-              <span class="detail-item">
-                👥 {{ grupo.registros.length }} estudiante(s)
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tabla de estudiantes -->
-        <div class="estudiantes-table-wrapper">
-          <table class="estudiantes-table">
-            <thead>
-              <tr>
-                <th>Carnet</th>
-                <th>Nombre</th>
-                <th>Carrera</th>
-                <th>Total U.V.E.</th>
-                <th>Valor U.V.E.</th>
-                <th>% Descuento</th>
-                <th>Plan Pago</th>
-                <th>Monto</th>
-                <th>Referencia</th>
-                <th>Estado</th>
-                <th>Comentarios</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let registro of grupo.registros; let j = index" 
-                  class="estudiante-row"
-                  [class.even]="j % 2 === 0">
-                
-                <td class="carnet">
-                  <strong>{{ registro.ci_estudiante }}</strong>
-                </td>
-                
-                <td class="nombre">
-                  {{ registro.nombre_estudiante }}
-                </td>
-                
-                <td class="carrera">
-                  {{ registro.carrera }}
-                </td>
-                
-                <td class="creditos">
-                  {{ registro.total_creditos }}
-                </td>
-                
-                <td class="valor-credito">
-                  {{ registro.valor_credito | currency:'BOB ':'symbol':'1.2-2' }}
-                </td>
-                
-                <td class="descuento">
-                  <span class="descuento-value">{{ registro.porcentaje_descuento }}%</span>
-                </td>
-                
-                <td class="plan">
-                  {{ registro.plan_primer_pago }}
-                </td>
-                
-                <td class="monto">
-                  {{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}
-                </td>
-                
-                <td class="referencia">
-                  {{ registro.referencia_primer_pago || 'N/A' }}
-                </td>
-                
-                <td class="estado-registro">
-                  <span class="status-badge" [class.registered]="registro.registrado">
-                    {{ registro.registrado ? '✅ Registrado' : '⏳ Pendiente' }}
+    <!-- Tabla con agrupaciones visuales -->
+    <div class="bg-white rounded-xl shadow border border-slate-200 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="bg-gradient-to-br from-slate-800 to-slate-600 text-white">
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Estudiante</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10 whitespace-normal">Carrera</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Total U.V.E.</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Valor U.V.E.</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">% Descuento</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Monto</th>
+              <th class="px-4 py-3 text-left font-semibold">Estado Registro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Iteración por grupos de solicitud -->
+            @for (grupo of solicitudesAgrupadas; track grupo.solicitud.id; let groupIndex = $index) {
+              <!-- Encabezado del grupo: solo ID de seguimiento -->
+              <tr [ngClass]="{'border-t-4 border-slate-200': groupIndex > 0}" class="bg-slate-50">
+                <td colspan="7" class="px-4 py-2 font-bold text-slate-900 tracking-wide">
+                  ID de seguimiento: 
+                  <span class="font-mono bg-slate-200 text-slate-900 px-1.5 py-0.5 rounded border border-slate-300 ml-1">
+                    {{ grupo.solicitud.id || 'N/A' }}
                   </span>
                 </td>
-                
-                <td class="comentarios">
-                  <span *ngIf="registro.comentarios" 
-                        class="comentario-tooltip" 
-                        [title]="registro.comentarios">
-                    💬
-                  </span>
-                  <span *ngIf="!registro.comentarios" class="no-comentario">-</span>
-                </td>
               </tr>
-            </tbody>
-          </table>
-        </div>
 
-        <!-- Comentarios de la solicitud -->
-        <div class="solicitud-comments" *ngIf="grupo.solicitud.comentarios">
-          <p><strong>Comentarios de la solicitud:</strong> {{ grupo.solicitud.comentarios }}</p>
-        </div>
+              <!-- Filas de estudiantes del grupo -->
+              @for (registro of grupo.registros; track registro.id; let i = $index) {
+                <tr class="transition hover:bg-slate-50">
+                  <!-- Información del estudiante -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100">
+                    <div class="space-y-0.5">
+                      <div class="font-semibold text-slate-800 text-[0.95rem]">{{ registro.nombre_estudiante }}</div>
+                      <div class="text-slate-600 text-xs font-mono bg-slate-100 inline-block px-1.5 py-0.5 rounded">{{ registro.ci_estudiante }}</div>
+                    </div>
+                  </td>
+                  
+                  <!-- Carrera -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100 max-w-[400px] whitespace-normal break-words">
+                    <span class="inline-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded-md font-semibold text-[0.9rem] leading-5">{{ registro.carrera }}</span>
+                  </td>
+                  
+                  <!-- Créditos -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100 text-right font-medium text-slate-700">
+                    {{ registro.total_creditos }}
+                  </td>
+                  
+                  <!-- Valor crédito -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100 text-right font-medium text-slate-700">
+                    {{ registro.valor_credito | currency:'BOB ':'symbol':'1.2-2' }}
+                  </td>
+                  
+                  <!-- Descuento -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100 text-center">
+                    <span class="inline-block bg-green-100 text-green-700 px-2 py-1 rounded-md font-semibold text-sm border border-green-300">{{ registro.porcentaje_descuento * 100}}%</span>
+                  </td>
+                  
+                  <!-- Monto -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100">
+                    <div class="space-y-0.5">
+                      <div class="font-semibold text-slate-800">{{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}</div>
+                      <div class="text-slate-500 text-xs break-words">{{ registro.plan_primer_pago }}</div>
+                    </div>
+                  </td>
+                  
+                  <!-- Estado de registro -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100 text-center">
+                    <span 
+                      class="inline-block px-3 py-1 rounded-full text-xs font-semibold border"
+                      [ngClass]="registro.registrado 
+                        ? 'bg-green-100 text-green-700 border-green-300' 
+                        : 'bg-rose-100 text-rose-700 border-rose-300'">
+                      {{ registro.registrado ? 'Registrado' : 'Pendiente' }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
       </div>
     </div>
 
     <!-- Mensaje cuando no hay resultados -->
-    <div *ngIf="solicitudesAgrupadas.length === 0" class="no-results">
-      <div class="no-results-icon">🔍</div>
-      <h3>No se encontraron registros</h3>
-      <p>Intenta ajustar los filtros de búsqueda o verifica que existan registros en la base de datos.</p>
-      <button type="button" class="btn btn-primary" (click)="limpiarFiltros()">
-        Limpiar filtros
-      </button>
-    </div>
-
-    <!-- Paginación -->
-    <div *ngIf="totalPages > 1" class="pagination-container">
-      <div class="pagination">
+    @if (solicitudesAgrupadas.length === 0) {
+      <div class="flex flex-col items-center justify-center py-16 text-center space-y-3">
+        <div class="text-3xl">🔍</div>
+        <h3 class="text-lg font-semibold text-slate-800">No se encontraron registros</h3>
+        <p class="text-slate-600">Intenta ajustar los filtros de búsqueda o verifica que existan registros en la base de datos.</p>
         <button 
           type="button" 
-          class="page-btn"
+          class="inline-flex items-center px-3 py-2 rounded-md bg-slate-800 text-white text-sm hover:bg-slate-700"
+          (click)="limpiarFiltros()">
+          Limpiar filtros
+        </button>
+      </div>
+    }
+
+    <!-- Paginación -->
+    @if (totalPages > 1) {
+    <div class="flex items-center justify-between pt-2">
+      <div class="flex items-center gap-2">
+        <button 
+          type="button" 
+          class="px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           (click)="previousPage()"
           [disabled]="currentPage === 1">
           ← Anterior
         </button>
 
-        <span class="page-numbers">
-          <button 
-            *ngFor="let page of pages" 
-            type="button"
-            class="page-number"
-            [class.active]="page === currentPage"
-            (click)="goToPage(page)">
-            {{ page }}
-          </button>
+        <span class="flex items-center gap-1">
+          @for (page of pages; track page) {
+            <button 
+              type="button"
+              class="px-3 py-2 rounded-md border text-sm"
+              [ngClass]="page === currentPage ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-300 text-slate-700 hover:bg-slate-50'"
+              (click)="goToPage(page)">
+              {{ page }}
+            </button>
+          }
         </span>
 
         <button 
           type="button" 
-          class="page-btn"
+          class="px-3 py-2 rounded-md border border-slate-300 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
           (click)="nextPage()"
           [disabled]="currentPage === totalPages">
           Siguiente →
         </button>
       </div>
 
-      <div class="pagination-info">
+      <div class="text-sm text-slate-600">
         Página {{ currentPage }} de {{ totalPages }}
       </div>
     </div>
+    }
   </div>
-
+  }
+  
+  </div>
+  
   <!-- Toast Container -->
   <app-toast-container></app-toast-container>
 </div>
