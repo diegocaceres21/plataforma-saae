@@ -1,13 +1,17 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { RegistroEstudiante } from '../../interfaces/registro-estudiante';
 import { Gestion } from '../../interfaces/gestion';
 import { Carrera } from '../../interfaces/carrera';
 import { Solicitud } from '../../interfaces/solicitud';
+import { ApoyoFamiliar } from '../../interfaces/apoyo-familiar';
 import { ToastService } from '../../servicios/toast';
 import { ToastContainerComponent } from '../shared/toast-container/toast-container';
+import { MultiSelectDropdownComponent, MultiSelectOption } from '../shared/multi-select-dropdown/multi-select-dropdown';
+import { CarreraService } from '../../servicios/carrera.service';
+import { GestionService } from '../../servicios/gestion.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import '../../interfaces/electron-api';
 
@@ -23,7 +27,7 @@ interface SolicitudAgrupada {
 
 @Component({
   selector: 'app-lista-registros',
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent],
   templateUrl: './lista-registros.html',
   styleUrl: './lista-registros.scss'
 })
@@ -37,22 +41,44 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   gestiones: Gestion[] = [];
   carreras: Carrera[] = [];
   solicitudes: Solicitud[] = [];
+  apoyosFamiliares: ApoyoFamiliar[] = [];
 
+  //Servicios
+  carreraService = inject(CarreraService);
+  gestionService = inject(GestionService);
   // Estados de loading
   isLoading = false;
   isLoadingFiltros = false;
 
+  // Estados de dropdowns
+  isGestionDropdownOpen = false;
+  isCarreraDropdownOpen = false;
+
   // Filtros
-  filtroGestion = '';
+  filtroGestion: string[] = [];
   filtroBusqueda = '';
-  filtroCarrera = '';
+  filtroCarrera: string[] = [];
+  filtroDescuento: string[] = [];
+  
+  // Configuración de filtrado
+  mostrarSoloEstudiantesFiltrados = true; // false = mostrar toda la solicitud, true = solo estudiantes filtrados
+
+  // Dropdown options
+  gestionOptions: MultiSelectOption[] = [];
+  carreraOptions: MultiSelectOption[] = [];
+  descuentoOptions: MultiSelectOption[] = [];
 
   // Paginación
   currentPage = 1;
   itemsPerPage = 10;
   totalItems = 0;
 
-  constructor(private toastService: ToastService) {}
+  constructor(private toastService: ToastService, private router: Router) {}
+
+  // Método para regresar al menú principal
+  volverAlMenu(): void {
+    this.router.navigate(['/menu']);
+  }
 
   ngOnInit(): void {
     this.cargarDatos();
@@ -107,17 +133,29 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     try {
       this.isLoadingFiltros = true;
 
-      if (!window.academicoAPI?.getAllGestion || !window.academicoAPI?.getAllCarrera) {
-        return;
+      this.gestiones = this.gestionService.currentData || [];
+      this.carreras = this.carreraService.currentData || [];
+
+      // Cargar apoyos familiares desde la API
+      if (window.academicoAPI) {
+        this.apoyosFamiliares = await window.academicoAPI.getAllApoyoFamiliar();
       }
 
-      const [gestiones, carreras] = await Promise.all([
-        window.academicoAPI.getAllGestion(),
-        window.academicoAPI.getAllCarrera()
-      ]);
+      // Create dropdown options
+      this.gestionOptions = this.gestiones.map(gestion => ({
+        value: gestion.id,
+        label: gestion.gestion
+      }));
 
-      this.gestiones = gestiones || [];
-      this.carreras = carreras || [];
+      this.carreraOptions = this.carreras.map(carrera => ({
+        value: carrera.carrera,
+        label: carrera.carrera
+      }));
+
+      this.descuentoOptions = this.apoyosFamiliares.map(apoyo => ({
+        value: apoyo.porcentaje.toString(),
+        label: `${apoyo.porcentaje * 100}%`
+      }));
 
     } catch (error) {
       console.error('❌ Error cargando datos de filtros:', error);
@@ -178,18 +216,47 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     // Partir desde las solicitudes originales
     let solicitudesFiltradas = [...this.solicitudesOriginales];
 
-    // Filtro por gestión
-    if (this.filtroGestion) {
+    if (this.mostrarSoloEstudiantesFiltrados) {
+      // Modo: Solo estudiantes filtrados
+      // Filtrar estudiantes individuales y reagrupar por solicitud
+      solicitudesFiltradas = this.aplicarFiltrosPorEstudiante(solicitudesFiltradas);
+    } else {
+      // Modo: Mostrar toda la solicitud si al menos un estudiante cumple
+      solicitudesFiltradas = this.aplicarFiltrosPorSolicitud(solicitudesFiltradas);
+    }
+
+    // Aplicar paginación
+    this.totalItems = solicitudesFiltradas.length;
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+    this.solicitudesAgrupadas = solicitudesFiltradas.slice(startIndex, startIndex + this.itemsPerPage);
+  }
+
+  private aplicarFiltrosPorSolicitud(solicitudes: SolicitudAgrupada[]): SolicitudAgrupada[] {
+    let solicitudesFiltradas = [...solicitudes];
+
+    // Filtro por gestión (multi-select)
+    if (this.filtroGestion.length > 0) {
       solicitudesFiltradas = solicitudesFiltradas.filter(item => 
-        item.solicitud.id_gestion === this.filtroGestion
+        this.filtroGestion.includes(item.solicitud.id_gestion)
       );
     }
 
-    // Filtro por carrera
-    if (this.filtroCarrera) {
+    // Filtro por carrera (multi-select)
+    if (this.filtroCarrera.length > 0) {
       solicitudesFiltradas = solicitudesFiltradas.filter(item =>
         item.registros.some((registro: RegistroConSolicitud) => 
-          registro.carrera.toLowerCase().includes(this.filtroCarrera.toLowerCase())
+          this.filtroCarrera.some(carrera => 
+            registro.carrera.toLowerCase().includes(carrera.toLowerCase())
+          )
+        )
+      );
+    }
+
+    // Filtro por descuento de apoyo familiar (multi-select)
+    if (this.filtroDescuento.length > 0) {
+      solicitudesFiltradas = solicitudesFiltradas.filter(item =>
+        item.registros.some((registro: RegistroConSolicitud) => 
+          this.filtroDescuento.includes(registro.porcentaje_descuento.toString())
         )
       );
     }
@@ -205,10 +272,56 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Aplicar paginación
-    this.totalItems = solicitudesFiltradas.length;
-    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-    this.solicitudesAgrupadas = solicitudesFiltradas.slice(startIndex, startIndex + this.itemsPerPage);
+    return solicitudesFiltradas;
+  }
+
+  private aplicarFiltrosPorEstudiante(solicitudes: SolicitudAgrupada[]): SolicitudAgrupada[] {
+    const solicitudesFiltradas: SolicitudAgrupada[] = [];
+
+    for (const item of solicitudes) {
+      // Filtro por gestión
+      if (this.filtroGestion.length > 0 && !this.filtroGestion.includes(item.solicitud.id_gestion)) {
+        continue;
+      }
+
+      // Filtrar estudiantes que cumplen todos los criterios
+      let registrosFiltrados = [...item.registros];
+
+      // Filtro por carrera
+      if (this.filtroCarrera.length > 0) {
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
+          this.filtroCarrera.some(carrera => 
+            registro.carrera.toLowerCase().includes(carrera.toLowerCase())
+          )
+        );
+      }
+
+      // Filtro por descuento
+      if (this.filtroDescuento.length > 0) {
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
+          this.filtroDescuento.includes(registro.porcentaje_descuento.toString())
+        );
+      }
+
+      // Filtro por búsqueda
+      if (this.filtroBusqueda.trim()) {
+        const busqueda = this.filtroBusqueda.toLowerCase().trim();
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
+          registro.nombre_estudiante.toLowerCase().includes(busqueda) ||
+          registro.ci_estudiante.toLowerCase().includes(busqueda)
+        );
+      }
+
+      // Si hay estudiantes que cumplen los criterios, incluir la solicitud con solo esos estudiantes
+      if (registrosFiltrados.length > 0) {
+        solicitudesFiltradas.push({
+          ...item,
+          registros: registrosFiltrados
+        });
+      }
+    }
+
+    return solicitudesFiltradas;
   }
 
   onFiltroChange(): void {
@@ -217,9 +330,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   }
 
   limpiarFiltros(): void {
-    this.filtroGestion = '';
+    this.filtroGestion = [];
     this.filtroBusqueda = '';
-    this.filtroCarrera = '';
+    this.filtroCarrera = [];
+    this.filtroDescuento = [];
     this.currentPage = 1;
     this.aplicarFiltros();
   }
@@ -295,5 +409,104 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
   getTotalEstudiantes(): number {
     return this.solicitudesAgrupadas.reduce((total, item) => total + item.registros.length, 0);
+  }
+
+  // Métodos para dropdowns personalizados
+  toggleGestionDropdown(): void {
+    this.isGestionDropdownOpen = !this.isGestionDropdownOpen;
+    if (this.isGestionDropdownOpen) {
+      this.isCarreraDropdownOpen = false;
+    }
+  }
+
+  toggleCarreraDropdown(): void {
+    this.isCarreraDropdownOpen = !this.isCarreraDropdownOpen;
+    if (this.isCarreraDropdownOpen) {
+      this.isGestionDropdownOpen = false;
+    }
+  }
+
+  closeDropdowns(): void {
+    this.isGestionDropdownOpen = false;
+    this.isCarreraDropdownOpen = false;
+  }
+
+  toggleGestion(gestionId: string): void {
+    const index = this.filtroGestion.indexOf(gestionId);
+    if (index > -1) {
+      this.filtroGestion.splice(index, 1);
+    } else {
+      this.filtroGestion.push(gestionId);
+    }
+    this.onFiltroChange();
+  }
+
+  toggleCarrera(carrera: string): void {
+    const index = this.filtroCarrera.indexOf(carrera);
+    if (index > -1) {
+      this.filtroCarrera.splice(index, 1);
+    } else {
+      this.filtroCarrera.push(carrera);
+    }
+    this.onFiltroChange();
+  }
+
+  selectAllGestiones(): void {
+    if (this.filtroGestion.length === this.gestiones.length) {
+      this.filtroGestion = [];
+    } else {
+      this.filtroGestion = this.gestiones.map(g => g.id);
+    }
+    this.onFiltroChange();
+  }
+
+  selectAllCarreras(): void {
+    if (this.filtroCarrera.length === this.carreras.length) {
+      this.filtroCarrera = [];
+    } else {
+      this.filtroCarrera = this.carreras.map(c => c.carrera);
+    }
+    this.onFiltroChange();
+  }
+
+  isGestionSelected(gestionId: string): boolean {
+    return this.filtroGestion.includes(gestionId);
+  }
+
+  isCarreraSelected(carrera: string): boolean {
+    return this.filtroCarrera.includes(carrera);
+  }
+
+  getGestionDropdownText(): string {
+    if (this.filtroGestion.length === 0) return 'Seleccionar gestiones';
+    if (this.filtroGestion.length === 1) {
+      const gestion = this.gestiones.find(g => g.id === this.filtroGestion[0]);
+      return gestion?.gestion || 'Gestión seleccionada';
+    }
+    return `${this.filtroGestion.length} gestiones seleccionadas`;
+  }
+
+  getCarreraDropdownText(): string {
+    if (this.filtroCarrera.length === 0) return 'Seleccionar carreras';
+    if (this.filtroCarrera.length === 1) {
+      return this.filtroCarrera[0];
+    }
+    return `${this.filtroCarrera.length} carreras seleccionadas`;
+  }
+
+  // New component event handlers
+  onGestionSelectionChange(selectedValues: string[]): void {
+    this.filtroGestion = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  onCarreraSelectionChange(selectedValues: string[]): void {
+    this.filtroCarrera = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  onDescuentoSelectionChange(selectedValues: string[]): void {
+    this.filtroDescuento = selectedValues;
+    this.aplicarFiltros();
   }
 }
