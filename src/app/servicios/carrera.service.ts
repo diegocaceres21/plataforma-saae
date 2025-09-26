@@ -41,11 +41,11 @@ export class CarreraService {
     this._error.next(null);
 
     try {
-      if (!window.academicoAPI?.getAllCarrera) {
-        throw new Error('academicoAPI.getAllCarrera not available');
+      if (!window.academicoAPI?.getAllVisibleCarrera) {
+        throw new Error('academicoAPI.getAllVisibleCarrera not available');
       }
 
-      const carreraData: Carrera[] = await window.academicoAPI.getAllCarrera();
+      const carreraData: Carrera[] = await window.academicoAPI.getAllVisibleCarrera();
       
       // Join with departamento and tarifario data
       const carrerasWithRelations: CarreraWithRelations[] = carreraData.map(carrera => {
@@ -56,12 +56,15 @@ export class CarreraService {
           ...carrera,
           departamento: departamento ? {
             id: departamento.id,
-            departamento: departamento.departamento
+            departamento: departamento.departamento,
+            created_at: departamento.created_at,
+            updated_at: departamento.updated_at
           } : undefined,
           tarifario: tarifario ? {
             id: tarifario.id,
             tarifario: tarifario.tarifario,
             valor_credito: tarifario.valor_credito,
+            visible: tarifario.visible,
             created_at: tarifario.created_at,
             updated_at: tarifario.updated_at
           } : undefined

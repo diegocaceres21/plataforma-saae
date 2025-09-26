@@ -19,7 +19,6 @@ export class GestionService {
   get currentData(): Gestion[] {
     // Ordenar por orden (asc) y luego por anio (desc) si aplica
     return [...this._gestionData.value].sort((a, b) => {
-      if (a.orden !== b.orden) return a.orden - b.orden;
       if (a.anio !== b.anio) return b.anio - a.anio;
       return a.gestion.localeCompare(b.gestion, 'es', { sensitivity: 'base' });
     });
@@ -38,11 +37,11 @@ export class GestionService {
     this._error.next(null);
 
     try {
-      if (!window.academicoAPI?.getAllGestion) {
-        throw new Error('academicoAPI.getAllGestion not available');
+      if (!window.academicoAPI?.getAllVisibleGestion) {
+        throw new Error('academicoAPI.getAllVisibleGestion not available');
       }
 
-      const data: Gestion[] = await window.academicoAPI.getAllGestion();
+      const data: Gestion[] = await window.academicoAPI.getAllVisibleGestion();
       this._gestionData.next(Array.isArray(data) ? data : []);
     } catch (error) {
       const errorMessage = `Error loading gestion data: ${error}`;

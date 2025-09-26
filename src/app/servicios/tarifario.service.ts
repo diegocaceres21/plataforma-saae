@@ -33,11 +33,11 @@ export class TarifarioService {
     this._error.next(null);
 
     try {
-      if (!window.academicoAPI?.getAllTarifario) {
-        throw new Error('academicoAPI.getAllTarifario not available');
+      if (!window.academicoAPI?.getAllVisibleTarifario) {
+        throw new Error('academicoAPI.getAllVisibleTarifario not available');
       }
 
-      const data = await window.academicoAPI.getAllTarifario();
+      const data = await window.academicoAPI.getAllVisibleTarifario();
       
       this._tarifarioData.next(data);
       

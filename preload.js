@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   // CRUD for gestion table
   createGestion: (data) => ipcRenderer.invoke('gestion:create', data),
   getAllGestion: () => ipcRenderer.invoke('gestion:getAll'),
+  getAllVisibleGestion: () => ipcRenderer.invoke('gestion:getAllVisible'),
+  updateGestion: (id, data) => ipcRenderer.invoke('gestion:update', id, data),
 
   // CRUD for apoyo_familiar table
   getAllApoyoFamiliar: () => ipcRenderer.invoke('apoyo_familiar:getAll'),
@@ -22,6 +24,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
 
   // CRUD for tarifario table
   getAllTarifario: () => ipcRenderer.invoke('tarifario:getAll'),
+  getAllVisibleTarifario: () => ipcRenderer.invoke('tarifario:getAllVisible'),
   getTarifarioById: (id) => ipcRenderer.invoke('tarifario:getById', id),
   createTarifario: (data) => ipcRenderer.invoke('tarifario:create', data),
   updateTarifario: (id, data) => ipcRenderer.invoke('tarifario:update', id, data),
@@ -36,6 +39,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
 
   // CRUD for carrera table
   getAllCarrera: () => ipcRenderer.invoke('carrera:getAll'),
+  getAllVisibleCarrera: () => ipcRenderer.invoke('carrera:getAllVisible'),
   getCarreraById: (id) => ipcRenderer.invoke('carrera:getById', id),
   createCarrera: (data) => ipcRenderer.invoke('carrera:create', data),
   updateCarrera: (id, data) => ipcRenderer.invoke('carrera:update', id, data),
@@ -43,6 +47,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
 
   // CRUD for solicitud table
   getAllSolicitud: () => ipcRenderer.invoke('solicitud:getAll'),
+  getAllVisibleSolicitud: () => ipcRenderer.invoke('solicitud:getAllVisible'),
   getSolicitudById: (id) => ipcRenderer.invoke('solicitud:getById', id),
   createSolicitud: (data) => ipcRenderer.invoke('solicitud:create', data),
   updateSolicitud: (id, data) => ipcRenderer.invoke('solicitud:update', id, data),
@@ -50,6 +55,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
 
   // CRUD for registro_estudiante table
   getAllRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAll'),
+  getAllVisibleRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAllVisible'),
   getRegistroEstudianteById: (id) => ipcRenderer.invoke('registro_estudiante:getById', id),
   getRegistroEstudiantesBySolicitud: (id_solicitud) => ipcRenderer.invoke('registro_estudiante:getBySolicitud', id_solicitud),
   createRegistroEstudiante: (data) => ipcRenderer.invoke('registro_estudiante:create', data),
