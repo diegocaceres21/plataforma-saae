@@ -27,7 +27,47 @@
       <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Revisión Individual de Apoyo Familiar</h2>
       
       <!-- Stats Summary -->
+      @if (registrosEstudiantes.length > 0) {
+        <div class="flex items-center justify-center space-x-8 mt-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-900">{{ registrosEstudiantes.length }}</div>
+            <div class="text-sm text-gray-600">Total Hermanos</div>
+          </div>
+          <div class="w-px h-8 bg-gray-300"></div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-green-600">{{ getStudentsWithDiscount() }}</div>
+            <div class="text-sm text-gray-600">Con Descuento</div>
+          </div>
+          @if (manualOrderApplied) {
+            <div class="w-px h-8 bg-gray-300"></div>
+            <div class="text-center">
+              <div class="flex items-center justify-center mb-1">
+                <svg class="w-5 h-5 text-orange-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+                <span class="text-sm font-medium text-orange-600">Orden Manual</span>
+              </div>
+              <div class="text-xs text-gray-500">Empates resueltos</div>
+            </div>
+          }
+        </div>
+      }
       
+      <!-- Manual Order Action -->
+      @if (manualOrderApplied) {
+        <div class="mt-4 flex justify-center">
+          <button
+            (click)="reopenTieResolution()"
+            class="inline-flex items-center px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-700 hover:text-orange-800 
+                   rounded-xl transition-all duration-200 border border-orange-200 hover:border-orange-300 shadow-sm hover:shadow-md
+                   font-medium text-sm">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Modificar Orden de Empates
+          </button>
+        </div>
+      }
     </div>
 
     <!-- Accordion Container -->
@@ -74,6 +114,11 @@
                     <span class="font-[Inter] inline-flex items-center justify-center px-3 py-1.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-900 to-blue-800 text-white shadow-lg">
                       {{ registro.total_creditos }}
                     </span>
+                    @if (manualOrderApplied && isStudentInTieGroup(registro)) {
+                      <svg class="w-4 h-4 text-orange-500 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Orden modificado manualmente">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                      </svg>
+                    }
                   </div>
                 </div>
                 
@@ -395,4 +440,197 @@
     (close)="onExportModalClose()"
     (export)="onExportConfirmed($event)">
   </app-export-config-modal>
+
+  <!-- Tie Resolution Modal -->
+  @if (showTieResolutionModal) {
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-6">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              </svg>
+              <div>
+                <h3 class="font-[Inter] text-xl font-bold">Resolver Empate en U.V.E.</h3>
+                <p class="font-[Roboto] text-sm text-blue-100 mt-1">
+                  Grupo {{ currentTieGroupIndex + 1 }} de {{ tiedGroups.length }} - {{ tiedGroups[currentTieGroupIndex].uve }} U.V.E.
+                </p>
+              </div>
+            </div>
+            
+            <div class="text-right">
+              <div class="text-sm text-blue-100">Estudiantes empatados</div>
+              <div class="text-2xl font-bold">{{ currentTieStudents.length }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Content -->
+        <div class="p-6 overflow-y-auto max-h-[60vh]">
+          
+          <!-- Instructions -->
+          <div class="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+            <div class="flex items-start">
+              <svg class="w-6 h-6 text-yellow-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div>
+                <h4 class="font-[Inter] font-semibold text-yellow-800 mb-2">¿Cómo resolver el empate?</h4>
+                <p class="font-[Roboto] text-sm text-yellow-700 mb-2">
+                  Estos estudiantes tienen la misma cantidad de U.V.E. ({{ tiedGroups[currentTieGroupIndex].uve }}). 
+                  Puede reordenarlos de dos formas:
+                </p>
+                <ul class="font-[Roboto] text-xs text-yellow-600 ml-4 list-disc space-y-1">
+                  <li><strong>Arrastrando y soltando:</strong> Haga clic y arrastre cualquier tarjeta a la posición deseada</li>
+                  <li><strong>Usando las flechas:</strong> Use los botones ↑ ↓ para mover estudiantes uno por uno</li>
+                  <li><strong>Posición 1:</strong> Mayor descuento disponible</li>
+                  <li><strong>Posición 2:</strong> Segundo mayor descuento, y así sucesivamente...</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Students List for Reordering -->
+          <div class="space-y-3">
+            @for (student of currentTieStudents; track $index) {
+              <div 
+                draggable="true"
+                (dragstart)="onDragStart($event, $index)"
+                (dragover)="onDragOver($event, $index)"
+                (dragleave)="onDragLeave()"
+                (drop)="onDrop($event, $index)"
+                (dragend)="onDragEnd()"
+                class="bg-white border-2 rounded-xl p-4 transition-all duration-200 cursor-move select-none"
+                [class.border-gray-200]="dragOverIndex !== $index && draggedIndex !== $index"
+                [class.border-blue-400]="$index === 0 && dragOverIndex !== $index && draggedIndex !== $index"
+                [class.bg-blue-50]="$index === 0 && dragOverIndex !== $index && draggedIndex !== $index"
+                [class.border-green-400]="dragOverIndex === $index"
+                [class.bg-green-50]="dragOverIndex === $index"
+                [class.border-yellow-400]="draggedIndex === $index"
+                [class.bg-yellow-50]="draggedIndex === $index"
+                [class.opacity-50]="draggedIndex === $index"
+                [class.scale-105]="dragOverIndex === $index"
+                [class.shadow-lg]="dragOverIndex === $index">
+                
+                <div class="flex items-center justify-between">
+                  
+                  <!-- Drag Handle Icon -->
+                  <div class="mr-3 text-gray-400 hover:text-gray-600 transition-colors duration-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                    </svg>
+                  </div>
+                  
+                  <!-- Student Info -->
+                  <div class="flex-1">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      
+                      <!-- Position and Priority -->
+                      <div class="flex items-center">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-full mr-4"
+                             [class.bg-green-100]="$index === 0"
+                             [class.text-green-700]="$index === 0"
+                             [class.bg-yellow-100]="$index === 1"
+                             [class.text-yellow-700]="$index === 1"
+                             [class.bg-gray-100]="$index > 1"
+                             [class.text-gray-700]="$index > 1">
+                          <span class="font-[Inter] font-bold text-lg">{{ $index + 1 }}</span>
+                        </div>
+                        <div>
+                          <div class="font-[Inter] font-semibold text-sm text-gray-800">
+                            Posición {{ $index + 1 }}
+                          </div>
+                          <div class="font-[Roboto] text-xs text-gray-500">
+                            @if ($index === 0) {
+                              Mayor descuento
+                            } @else {
+                              Menor descuento
+                            }
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Student Details -->
+                      <div>
+                        <div class="font-[Inter] font-semibold text-gray-900">{{ student.nombre_estudiante }}</div>
+                        <div class="font-[Roboto] text-sm text-gray-600">CI: {{ student.ci_estudiante }}</div>
+                      </div>
+
+                      <!-- Career and UVE -->
+                      <div>
+                        <div class="font-[Roboto] text-sm text-gray-700">{{ student.carrera }}</div>
+                        <div class="font-[Inter] font-bold text-blue-600">{{ student.total_creditos }} U.V.E.</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Reorder Controls -->
+                  <div class="flex flex-col space-y-2 ml-4">
+                    
+                    <!-- Move Up Button -->
+                    <button
+                      (click)="moveStudentUp($index)"
+                      [disabled]="$index === 0"
+                      class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-blue-100">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                      </svg>
+                    </button>
+
+                    <!-- Move Down Button -->
+                    <button
+                      (click)="moveStudentDown($index)"
+                      [disabled]="$index === currentTieStudents.length - 1"
+                      class="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-blue-100">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t border-gray-200">
+          
+          <!-- Progress Info -->
+          <div class="text-sm text-gray-600">
+            @if (currentTieGroupIndex < tiedGroups.length - 1) {
+              <span>Después de confirmar, se resolverá el siguiente grupo de empates</span>
+            } @else {
+              <span>Este es el último grupo de empates por resolver</span>
+            }
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex space-x-3">
+            
+            <!-- Cancel Button -->
+            <button
+              (click)="cancelTieResolution()"
+              class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-[Roboto] font-medium rounded-xl transition-all duration-200">
+              Cancelar
+            </button>
+
+            <!-- Confirm Button -->
+            <button
+              (click)="confirmTieOrder()"
+              class="px-6 py-2 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-[Inter] font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
+              @if (currentTieGroupIndex < tiedGroups.length - 1) {
+                Confirmar y Continuar
+              } @else {
+                Confirmar y Finalizar
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 </div>

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { Solicitud } from '../../../interfaces/solicitud';
 import { CommonModule } from '@angular/common';
@@ -11,6 +11,7 @@ import { ExportConfig } from '../../../interfaces/export-config';
 import jsPDF from 'jspdf';
 import { Subject, takeUntil } from 'rxjs';
 import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
+import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
 import '../../../interfaces/electron-api'; // Importar tipos de Electron
 
 @Component({
@@ -24,6 +25,17 @@ export class VistaIndividual implements OnInit, OnDestroy {
   registrosEstudiantes: Partial<RegistroEstudiante>[] = [];
   hasValidData = false;
   private destroy$ = new Subject<void>();
+  
+  // Modal para resolver empates
+  showTieResolutionModal = false;
+  tiedGroups: { uve: number; students: Partial<RegistroEstudiante>[] }[] = [];
+  currentTieGroupIndex = 0;
+  currentTieStudents: Partial<RegistroEstudiante>[] = [];
+  manualOrderApplied = false;
+  
+  // Drag and Drop state
+  draggedIndex: number | null = null;
+  dragOverIndex: number | null = null;
 
   ngOnInit() {
     // Suscribirse a los datos del servicio
@@ -31,6 +43,10 @@ export class VistaIndividual implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(registros => {
         this.registrosEstudiantes = registros;
+        // Detectar empates automáticamente cuando se cargan los datos
+        if (registros.length > 0) {
+          this.detectAndHandleTies();
+        }
       });
 
     // Suscribirse al estado de validación de datos
@@ -39,8 +55,6 @@ export class VistaIndividual implements OnInit, OnDestroy {
       .subscribe(hasData => {
         this.hasValidData = hasData;
       });
-
-    
   }
 
   ngOnDestroy(): void {
@@ -53,7 +67,230 @@ export class VistaIndividual implements OnInit, OnDestroy {
     this.dataService.navigateToRegistro();
   }
 
-  constructor(private toastService: ToastService, private dataService: RegistroIndividualDataService) {}
+  // Método para detectar y manejar empates en UVE
+  detectAndHandleTies(): void {
+    // Agrupar estudiantes por cantidad de UVE
+    const uveGroups: { [key: number]: Partial<RegistroEstudiante>[] } = {};
+    
+    this.registrosEstudiantes.forEach(estudiante => {
+      const uve = estudiante.total_creditos || 0;
+      if (!uveGroups[uve]) {
+        uveGroups[uve] = [];
+      }
+      uveGroups[uve].push(estudiante);
+    });
+    
+    // Identificar grupos con empates (más de un estudiante con la misma UVE)
+    this.tiedGroups = [];
+    Object.keys(uveGroups).forEach(uveKey => {
+      const uve = parseInt(uveKey);
+      const students = uveGroups[uve];
+      if (students.length > 1) {
+        this.tiedGroups.push({ uve, students });
+      }
+    });
+    
+    // Si hay empates, mostrar el modal
+    if (this.tiedGroups.length > 0) {
+      this.showTieResolutionModal = true;
+      this.currentTieGroupIndex = 0;
+      this.currentTieStudents = [...this.tiedGroups[0].students];
+      
+      this.toastService.info(
+        'Empates Detectados',
+        `Se encontraron ${this.tiedGroups.length} grupo(s) de estudiantes con empates en UVE. Por favor, reordene para determinar los descuentos.`,
+        6000
+      );
+    }
+  }
+
+  // Método para mover un estudiante hacia arriba en el orden de empate
+  moveStudentUp(index: number): void {
+    if (index > 0 && this.currentTieStudents.length > 1) {
+      const temp = this.currentTieStudents[index];
+      this.currentTieStudents[index] = this.currentTieStudents[index - 1];
+      this.currentTieStudents[index - 1] = temp;
+    }
+  }
+
+  // Método para mover un estudiante hacia abajo en el orden de empate
+  moveStudentDown(index: number): void {
+    if (index < this.currentTieStudents.length - 1) {
+      const temp = this.currentTieStudents[index];
+      this.currentTieStudents[index] = this.currentTieStudents[index + 1];
+      this.currentTieStudents[index + 1] = temp;
+    }
+  }
+
+  // Método para confirmar el orden del grupo actual de empates
+  confirmTieOrder(): void {
+    // Actualizar el grupo actual con el nuevo orden
+    this.tiedGroups[this.currentTieGroupIndex].students = [...this.currentTieStudents];
+    
+    // Pasar al siguiente grupo si existe
+    if (this.currentTieGroupIndex < this.tiedGroups.length - 1) {
+      this.currentTieGroupIndex++;
+      this.currentTieStudents = [...this.tiedGroups[this.currentTieGroupIndex].students];
+    } else {
+      // Todos los grupos han sido resueltos, aplicar el nuevo orden
+      this.applyTieResolution();
+      this.closeTieResolutionModal();
+    }
+  }
+
+  // Método para aplicar la resolución de empates al array principal
+  applyTieResolution(): void {
+    // Crear un nuevo array con el orden resuelto
+    const resolvedOrder: Partial<RegistroEstudiante>[] = [];
+    
+    // Obtener estudiantes sin empates
+    const untiedStudents = this.registrosEstudiantes.filter(estudiante => {
+      const uve = estudiante.total_creditos || 0;
+      return !this.tiedGroups.some(group => group.uve === uve);
+    });
+    
+    // Combinar estudiantes sin empates y con empates resueltos, ordenados por UVE descendente
+    const allStudents = [...untiedStudents];
+    this.tiedGroups.forEach(group => {
+      allStudents.push(...group.students);
+    });
+    
+    // Reordenar por UVE descendente manteniendo el orden manual para empates
+    const sortedStudents = allStudents.sort((a, b) => {
+      const uveA = a.total_creditos || 0;
+      const uveB = b.total_creditos || 0;
+      
+      if (uveA === uveB) {
+        // Para estudiantes con la misma UVE, mantener el orden establecido manualmente
+        const groupA = this.tiedGroups.find(g => g.uve === uveA);
+        if (groupA) {
+          const indexA = groupA.students.indexOf(a);
+          const indexB = groupA.students.indexOf(b);
+          return indexA - indexB;
+        }
+        return 0;
+      }
+      
+      return uveB - uveA; // Descendente
+    });
+    
+    // Reasignar porcentajes de descuento según el nuevo orden
+    this.recalculateDiscountPercentages(sortedStudents);
+    
+    // Actualizar el array principal
+    this.registrosEstudiantes = sortedStudents;
+    this.manualOrderApplied = true;
+    
+    this.toastService.success(
+      'Orden Aplicado',
+      'El orden manual ha sido aplicado exitosamente. Los descuentos se han recalculado.',
+      4000
+    );
+  }
+
+  // Método para recalcular porcentajes de descuento
+  recalculateDiscountPercentages(sortedStudents: Partial<RegistroEstudiante>[]): void {
+    // Obtener los datos de apoyo familiar ordenados
+    const apoyoFamiliarData = this.apoyoFamiliarService.currentData
+      .sort((a: any, b: any) => a.orden - b.orden);
+    
+    sortedStudents.forEach((registro, index) => {
+      const apoyo = apoyoFamiliarData[index] || null;
+      registro.porcentaje_descuento = apoyo ? apoyo.porcentaje : 0;
+    });
+  }
+
+  // Método para cerrar el modal de resolución de empates
+  closeTieResolutionModal(): void {
+    this.showTieResolutionModal = false;
+    this.tiedGroups = [];
+    this.currentTieGroupIndex = 0;
+    this.currentTieStudents = [];
+  }
+
+  // Método para cancelar la resolución de empates
+  cancelTieResolution(): void {
+    this.closeTieResolutionModal();
+    this.toastService.warning(
+      'Resolución Cancelada',
+      'Se canceló la resolución de empates. Se mantiene el orden original.',
+      3000
+    );
+  }
+
+  // Método para reabrir el modal de resolución de empates
+  reopenTieResolution(): void {
+    this.detectAndHandleTies();
+  }
+
+  // Drag & Drop Methods
+  onDragStart(event: DragEvent, index: number): void {
+    this.draggedIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/html', ''); // Necesario para algunos navegadores
+    }
+  }
+
+  onDragOver(event: DragEvent, index: number): void {
+    event.preventDefault();
+    this.dragOverIndex = index;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
+
+  onDragLeave(): void {
+    this.dragOverIndex = null;
+  }
+
+  onDrop(event: DragEvent, dropIndex: number): void {
+    event.preventDefault();
+    
+    if (this.draggedIndex !== null && this.draggedIndex !== dropIndex) {
+      // Reordenar el array
+      const draggedStudent = this.currentTieStudents[this.draggedIndex];
+      
+      // Crear una nueva copia del array sin el elemento arrastrado
+      const newOrder = this.currentTieStudents.filter((_, index) => index !== this.draggedIndex);
+      
+      // Insertar el elemento en la nueva posición
+      newOrder.splice(dropIndex, 0, draggedStudent);
+      
+      // Actualizar el array
+      this.currentTieStudents = newOrder;
+    }
+    
+    // Resetear state
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  onDragEnd(): void {
+    this.draggedIndex = null;
+    this.dragOverIndex = null;
+  }
+
+  // Helper methods for template
+  getStudentsWithDiscount(): number {
+    return this.registrosEstudiantes.filter(r => (r.porcentaje_descuento || 0) > 0).length;
+  }
+
+  isStudentInTieGroup(student: Partial<RegistroEstudiante>): boolean {
+    if (!this.manualOrderApplied || !this.tiedGroups.length) {
+      return false;
+    }
+    
+    return this.tiedGroups.some(group => 
+      group.students.some(s => s.ci_estudiante === student.ci_estudiante)
+    );
+  }
+
+  constructor(
+    private toastService: ToastService, 
+    private dataService: RegistroIndividualDataService,
+    private apoyoFamiliarService: ApoyoFamiliarService
+  ) {}
 
   expandedItems: Set<number> = new Set();
   
