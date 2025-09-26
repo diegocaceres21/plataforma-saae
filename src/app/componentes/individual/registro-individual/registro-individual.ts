@@ -76,8 +76,6 @@ export class RegistroIndividual implements OnInit {
     
     if (this.semestreActual.length === 0) {
       console.warn('No se encontraron gestiones activas');
-    } else {
-      console.log(`Gestiones activas cargadas: ${this.semestreActual.map(g => g.gestion).join(', ')}`);
     }
   }
   
@@ -152,7 +150,6 @@ export class RegistroIndividual implements OnInit {
           }
         }
       } catch (error) {
-        console.log(`No se encontraron estudiantes con el criterio: ${query}`);
       }
       
       this.autocompleteState.results = searchResults;
@@ -327,7 +324,6 @@ export class RegistroIndividual implements OnInit {
             break; // Process one at a time
           } catch (error) {
             // User cancelled the career selection - stop processing completely
-            console.log('🚫 Proceso cancelado por el usuario en selección de carrera');
             return;
           }
         }
@@ -364,11 +360,9 @@ export class RegistroIndividual implements OnInit {
       }
     });
     
-    console.log('Final student records with complete information:', this.registrosEstudiantes);
     this.showSuccessMessage('Información completa cargada para todos los estudiantes');
     
     // Pasar datos al servicio compartido y navegar a la vista
-    console.log('📊 Pasando datos al servicio y navegando a vista-individual');
     this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);
   }
   
@@ -429,7 +423,6 @@ export class RegistroIndividual implements OnInit {
     }
 
     // Log para debugging
-    console.log(`Créditos acumulados de ${semestresEncontrados} gestiones: ${totalCreditos}`);
 
     return [totalCreditos, carrera];
   }
@@ -644,7 +637,6 @@ export class RegistroIndividual implements OnInit {
     }
     
     // Don't continue processing - user cancelled
-    console.log('🚫 Usuario canceló la selección de carrera, proceso detenido');
   }
 
   async continueCareerResolution(): Promise<void> {
@@ -664,7 +656,6 @@ export class RegistroIndividual implements OnInit {
           return; // Process one at a time
         } catch (error) {
           // User cancelled the career selection - stop processing completely
-          console.log('🚫 Proceso cancelado por el usuario en continueCareerResolution');
           return;
         }
       }

@@ -16,7 +16,6 @@ export class ApoyoFamiliarService {
   public error$: Observable<string | null> = this._error.asObservable();
 
   constructor() {
-    console.log('ApoyoFamiliarService initialized');
   }
 
   // Getter para acceso directo a los datos actuales
@@ -43,7 +42,6 @@ export class ApoyoFamiliarService {
         throw new Error('academicoAPI.getAllApoyoFamiliar not available');
       }
 
-      console.log('Loading apoyo familiar data...');
       const data = await window.academicoAPI.getAllApoyoFamiliar();
       
       // Ordenar por el campo 'orden' para mantener consistencia
@@ -63,7 +61,6 @@ export class ApoyoFamiliarService {
 
   // Método para refrescar los datos
   async refreshData(): Promise<void> {
-    console.log('Refreshing apoyo familiar data...');
     await this.loadApoyoFamiliarData();
   }
 
