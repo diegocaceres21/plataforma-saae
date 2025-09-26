@@ -24,6 +24,15 @@ export class GestionService {
     });
   }
 
+  get gestionesActivas(): Gestion[] {
+    // Ordenar por orden (asc) y luego por anio (desc) si aplica
+    return [...this._gestionData.value].sort((a, b) => {
+      if (a.anio !== b.anio) return b.anio - a.anio;
+      return a.gestion.localeCompare(b.gestion, 'es', { sensitivity: 'base' });
+    })
+    .filter(g => g.activo);
+  }
+
   get isLoading(): boolean {
     return this._isLoading.value;
   }

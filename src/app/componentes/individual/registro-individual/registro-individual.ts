@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,6 +14,7 @@ import { CarreraService } from '../../../servicios/carrera.service';
 import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
 import { ToastService } from '../../../servicios/toast';
 import { ToastContainerComponent } from '../../shared/toast-container/toast-container';
+import { GestionService } from '../../../servicios/gestion.service';
 
 @Component({
   selector: 'app-registro-individual',
@@ -22,13 +23,14 @@ import { ToastContainerComponent } from '../../shared/toast-container/toast-cont
   styleUrl: './registro-individual.scss'
 })
 
-export class RegistroIndividual {
+export class RegistroIndividual implements OnInit {
   // Single input for search
   searchQuery: string = '';
-  semestreActual: Gestion = { id: '581e078e-2c19-4d8f-a9f8-eb5ac388cb44', gestion: '2-2025', anio: 2024, tipo: 'Semestre', activo: true, visible: true };
+  semestreActual: Gestion[] = [];
+  //semestreActual: Gestion = { id: '581e078e-2c19-4d8f-a9f8-eb5ac388cb44', gestion: '2-2025', anio: 2024, tipo: 'Semestre', activo: true, visible: true };
   registrosEstudiantes: RegistroEstudiante[] = [];
   successMessage: string = '';
-  
+  gestionService = inject(GestionService)
   // Manual payment input state
   showManualPaymentModal: boolean = false;
   currentStudentForManualInput: string = '';
@@ -65,6 +67,18 @@ export class RegistroIndividual {
   
   constructor() {
     this.initializeSearchSubject();
+  }
+  
+  async ngOnInit() {
+    // Cargar gestiones activas al inicializar el componente
+    await this.gestionService.loadGestionData();
+    this.semestreActual = this.gestionService.getActiveGestiones();
+    
+    if (this.semestreActual.length === 0) {
+      console.warn('No se encontraron gestiones activas');
+    } else {
+      console.log(`Gestiones activas cargadas: ${this.semestreActual.map(g => g.gestion).join(', ')}`);
+    }
   }
   
   private initializeSearchSubject() {
@@ -255,7 +269,7 @@ export class RegistroIndividual {
         try {
           // Get kardex information
           const kardex = await window.academicoAPI.obtenerKardexEstudiante(registro.id_estudiante_siaan);
-          const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual.gestion);
+          const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual);
           
           // Get payment information
           const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan);
@@ -370,37 +384,59 @@ export class RegistroIndividual {
     });
   }
 
-  async obtenerInformacionKardex(kardex: any[], semestre_actual: string): Promise<[number, string]> {
+  async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string]> {
     let totalCreditos: number = 0;
     let carrera: string = '';
-    let semestreEncontrado = false;
+    let semestresEncontrados = 0;
+    
+    // Crear array de nombres de gestiones para buscar
+    const nombresGestiones = gestiones_activas.map(g => g.gestion);
 
     // Iterate over kardex in reverse
     for (let i = kardex.length - 1; i >= 0; i--) {
       const semestre = kardex[i];
+      const encabezadoSemestre = semestre.encabezado[0];
 
-      if (semestre.encabezado[0].includes(semestre_actual)) {
-        totalCreditos = parseInt(
+      // Verificar si este semestre corresponde a alguna de las gestiones activas
+      const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
+      
+      if (gestionEncontrada) {
+        const creditosSemestre = parseInt(
           semestre.tabla.datos[semestre.tabla.datos.length - 1][6].contenidoCelda[0].contenido,
           10
         );
-        // Remueve acentos de la carrera
-        carrera = semestre.encabezado[semestre.encabezado.length - 1]
-          .split(': ')
-          .pop()
-          ?.normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') || '';
-        semestreEncontrado = true;
-        break;
+        
+        // Acumular créditos
+        totalCreditos += creditosSemestre;
+        
+        // Obtener carrera (solo la primera vez)
+        if (!carrera) {
+          carrera = semestre.encabezado[semestre.encabezado.length - 1]
+            .split(': ')
+            .pop()
+            ?.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') || '';
+        }
+        
+        semestresEncontrados++;
       }
     }
 
-    // Si no se encontró el semestre, lanzar error
-    if (!semestreEncontrado) {
-      throw new Error(`No se encontró información para el semestre "${semestre_actual}" en el kardex del estudiante.`);
+    // Si no se encontró ningún semestre, lanzar error
+    if (semestresEncontrados === 0) {
+      const gestionsStr = nombresGestiones.join(', ');
+      throw new Error(`No se encontró información para las gestiones "${gestionsStr}" en el kardex del estudiante.`);
     }
 
+    // Log para debugging
+    console.log(`Créditos acumulados de ${semestresEncontrados} gestiones: ${totalCreditos}`);
+
     return [totalCreditos, carrera];
+  }
+
+  // Método helper para mostrar nombres de gestiones en el template
+  getGestionesNames(): string {
+    return this.semestreActual.map(g => g.gestion).join(', ');
   }
 
   async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number]> {
@@ -433,7 +469,12 @@ export class RegistroIndividual {
               for (const factura of detalleFactura) {
                 referencia = factura[1]?.contenidoCelda?.[0]?.contenido || "";
                 
-                if (referencia.includes(this.semestreActual.gestion)) {
+                // Verificar si la referencia incluye alguna de las gestiones activas
+                const gestionEncontrada = this.semestreActual.some(gestion => 
+                  referencia.includes(gestion.gestion)
+                );
+                
+                if (gestionEncontrada) {
                   if (referencia.includes("ESTANDAR") || referencia.includes("ESTÁNDAR")) {
                     planAccedido = "PLAN ESTANDAR";
                     pagoRealizado = parseFloat(
