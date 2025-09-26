@@ -2,7 +2,7 @@
 module.exports = {
   tarifario: {
     table: 'tarifario',
-    columns: ['id', 'tarifario', 'valor_credito', 'created_at', 'updated_at']
+    columns: ['id', 'tarifario', 'valor_credito', 'visible', 'created_at', 'updated_at']
   },
   departamento: {
     table: 'departamento',
@@ -10,12 +10,12 @@ module.exports = {
   },
   carrera: {
     table: 'carrera',
-    columns: ['id', 'carrera', 'id_tarifario', 'id_departamento', 'incluye_tecnologico', 'created_at', 'updated_at']
+    columns: ['id', 'carrera', 'id_tarifario', 'id_departamento', 'incluye_tecnologico', 'visible', 'created_at', 'updated_at']
   },
 
   gestion: {
     table: 'gestion',
-    columns: ['id', 'gestion', 'anio', 'orden', 'activo', 'visible', 'created_at', 'updated_at']
+    columns: ['id', 'gestion', 'anio', 'tipo', 'activo', 'visible', 'created_at', 'updated_at']
   },
   apoyo_familiar: {
     table: 'apoyo_familiar',
@@ -23,15 +23,15 @@ module.exports = {
   },
   solicitud: {
     table: 'solicitud',
-    columns: ['id', 'fecha', 'id_gestion', 'estado', 'cantidad_estudiantes', 'comentarios', 'created_at', 'updated_at']
+    columns: ['id', 'fecha', 'id_gestion', 'estado', 'cantidad_estudiantes', 'comentarios', 'visible', 'created_at', 'updated_at']
   },
   registro_estudiante: {
     table: 'registro_estudiante',
     columns: [
       'id', 'id_solicitud', 'id_estudiante_siaan', 'id_gestion', 'ci_estudiante', 'nombre_estudiante', 
       'carrera', 'valor_credito', 'total_creditos', 'credito_tecnologico', 'porcentaje_descuento', 
-      'monto_primer_pago', 'plan_primer_pago', 'referencia_primer_pago', 'total_semestre', 'registrado', 'comentarios', 
-      'created_at', 'updated_at'
+      'monto_primer_pago', 'plan_primer_pago', 'referencia_primer_pago', 'total_semestre', 'registrado', 'comentarios',
+      'visible', 'created_at', 'updated_at'
     ]
   }
 };

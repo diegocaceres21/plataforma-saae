@@ -1,0 +1,62 @@
+<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 font-sans">
+  <div class="w-full max-w-7xl bg-white rounded-2xl shadow-xl p-8 border border-gray-100 backdrop-blur-sm">
+    
+    <!-- Header -->
+    <div class="mb-8 py-4 text-center relative">
+      <!-- Back Button -->
+      <div class="absolute left-0 top-0">
+        <button 
+          (click)="volverAlMenu()"
+          class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 
+                 rounded-xl transition-all duration-200 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md
+                 font-medium text-sm group">
+          <svg class="w-4 h-4 mr-2 transition-transform duration-200 group-hover:-translate-x-1" 
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Volver al Menú
+        </button>
+      </div>
+      
+      <div class="absolute inset-0 bg-gradient-to-r from-blue-900/5 to-yellow-400/5 rounded-xl -z-10"></div>
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl mb-4 shadow-lg">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+        </svg>
+      </div>
+      <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Configuración del Sistema</h2>
+      <p class="text-gray-600 font-medium">Gestión de datos maestros: carreras, apoyos, gestiones y más</p>
+    </div>
+
+    <!-- Pestañas de navegación (subcomponente) -->
+    <app-tabs-navegacion></app-tabs-navegacion>
+
+    <!-- Loading state global -->
+    @if (isLoading) {
+      <div class="flex flex-col items-center justify-center py-16 text-gray-600">
+        <div class="h-8 w-8 border-4 border-gray-300 border-t-blue-600 rounded-full animate-spin mb-3"></div>
+        <p class="text-sm">Cargando datos...</p>
+      </div>
+    } @else {
+      <!-- Tabla de datos (subcomponente) -->
+      <app-tabla-configuracion
+        (nuevo)="onNuevoItem()"
+        (editar)="onEditarItem($event)"
+        (eliminar)="onEliminarItem($event)">
+      </app-tabla-configuracion>
+    }
+  </div>
+  
+  <!-- Modal de formulario (fuera del contenedor principal) -->
+  <app-formulario-configuracion
+    [mostrar]="mostrarFormulario"
+    [modoEdicion]="modoEdicion"
+    [itemEdicion]="itemEdicion"
+    (guardar)="onGuardarFormulario($event)"
+    (cancelarFormulario)="onCancelarFormulario()">
+  </app-formulario-configuracion>
+  
+  <!-- Toast Container -->
+  <app-toast-container></app-toast-container>
+</div>

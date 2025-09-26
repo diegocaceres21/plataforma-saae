@@ -3,7 +3,71 @@ const models = require('./models');
 
 function getAll(table) {
   return new Promise((resolve, reject) => {
-    pool.query(`SELECT * FROM ${table}`, [], (err, result) => {
+    let query = `SELECT * FROM ${table}`;
+    
+    // Ordenamiento específico para diferentes tablas
+    switch (table) {
+      case 'carrera':
+        query += ' ORDER BY carrera ASC';
+        break;
+      case 'departamento':
+        query += ' ORDER BY departamento ASC';
+        break;
+      case 'tarifario':
+        query += ' ORDER BY tarifario ASC';
+        break;
+      case 'gestion':
+        query += ' ORDER BY anio DESC, tipo ASC, gestion DESC';
+        break;
+      case 'apoyo_familiar':
+        query += ' ORDER BY orden ASC';
+        break;
+      default:
+        // Para otras tablas, mantener el orden por defecto
+        break;
+    }
+    
+    pool.query(query, [], (err, result) => {
+      if (err) reject(err);
+      else resolve(result.rows);
+    });
+  });
+}
+
+function getAllVisible(table) {
+  return new Promise((resolve, reject) => {
+    const model = models[Object.keys(models).find(key => models[key].table === table)];
+    
+    let query = `SELECT * FROM ${table}`;
+    
+    // Add visible filter only for tables that have visible column
+    if (model && model.columns.includes('visible')) {
+      query += ' WHERE visible = true';
+    }
+    
+    // Ordenamiento específico para diferentes tablas
+    switch (table) {
+      case 'carrera':
+        query += ' ORDER BY carrera ASC';
+        break;
+      case 'departamento':
+        query += ' ORDER BY departamento ASC';
+        break;
+      case 'tarifario':
+        query += ' ORDER BY tarifario ASC';
+        break;
+      case 'gestion':
+        query += ' ORDER BY anio DESC, tipo ASC, gestion DESC';
+        break;
+      case 'apoyo_familiar':
+        query += ' ORDER BY orden ASC';
+        break;
+      default:
+        // Para otras tablas, mantener el orden por defecto
+        break;
+    }
+    
+    pool.query(query, [], (err, result) => {
       if (err) reject(err);
       else resolve(result.rows);
     });
@@ -34,9 +98,9 @@ function create(table, data) {
 function update(table, id, data) {
   const cols = Object.keys(data);
   const vals = Object.values(data);
-  const setStr = cols.map(col => `${col} = $${vals.length + 1}`).join(', ');
+  const setStr = cols.map((col, index) => `${col} = $${index + 1}`).join(', ');
   return new Promise((resolve, reject) => {
-    pool.query(`UPDATE ${table} SET ${setStr} WHERE id = $1`, [...vals, id], (err, result) => {
+    pool.query(`UPDATE ${table} SET ${setStr} WHERE id = $${vals.length + 1}`, [...vals, id], (err, result) => {
       if (err) reject(err);
       else resolve({ id, ...data });
     });
@@ -94,4 +158,4 @@ function getBySolicitud(id_solicitud) {
   });
 }
 
-module.exports = { getAll, getById, create, update, remove, createMultiple, getBySolicitud };
+module.exports = { getAll, getAllVisible, getById, create, update, remove, createMultiple, getBySolicitud };

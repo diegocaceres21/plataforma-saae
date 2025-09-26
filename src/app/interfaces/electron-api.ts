@@ -8,6 +8,8 @@ declare global {
     academicoAPI?: {
       createGestion: (data: any) => Promise<any>;
       getAllGestion: () => Promise<any>;
+      getAllVisibleGestion: () => Promise<any>;
+      updateGestion: (id: string, data: any) => Promise<any>;
       
       // APIs for apoyo_familiar table
       getAllApoyoFamiliar: () => Promise<any>;
@@ -18,6 +20,7 @@ declare global {
       
       // APIs for tarifario table
       getAllTarifario: () => Promise<any>;
+      getAllVisibleTarifario: () => Promise<any>;
       getTarifarioById: (id: string) => Promise<any>;
       createTarifario: (data: any) => Promise<any>;
       updateTarifario: (id: string, data: any) => Promise<any>;
@@ -32,6 +35,7 @@ declare global {
       
       // APIs for carrera table
       getAllCarrera: () => Promise<any>;
+      getAllVisibleCarrera: () => Promise<any>;
       getCarreraById: (id: string) => Promise<any>;
       createCarrera: (data: any) => Promise<any>;
       updateCarrera: (id: string, data: any) => Promise<any>;
@@ -39,6 +43,7 @@ declare global {
       
       // APIs for solicitud table
       getAllSolicitud: () => Promise<any>;
+      getAllVisibleSolicitud: () => Promise<any>;
       getSolicitudById: (id: string) => Promise<any>;
       createSolicitud: (data: any) => Promise<any>;
       updateSolicitud: (id: string, data: any) => Promise<any>;
@@ -46,6 +51,7 @@ declare global {
       
       // APIs for registro_estudiante table
       getAllRegistroEstudiante: () => Promise<any>;
+      getAllVisibleRegistroEstudiante: () => Promise<any>;
       getRegistroEstudianteById: (id: string) => Promise<any>;
       getRegistroEstudiantesBySolicitud: (id_solicitud: string) => Promise<any>;
       createRegistroEstudiante: (data: any) => Promise<any>;
