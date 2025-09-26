@@ -353,14 +353,12 @@ export class VistaIndividual implements OnInit, OnDestroy {
         comentarios: `Solicitud generada automáticamente para ${this.registrosEstudiantes.length} estudiante(s)`
       };
 
-      console.log('📝 Creando solicitud:', solicitudData);
       const solicitud = await window.academicoAPI.createSolicitud(solicitudData);
       
       if (!solicitud || !solicitud.id) {
         throw new Error('No se pudo crear la solicitud');
       }
 
-      console.log('✅ Solicitud creada con ID:', solicitud.id);
 
       // Paso 2: Preparar los datos de los estudiantes con el ID de solicitud
       const registrosParaGuardar = this.registrosEstudiantes.map(registro => ({

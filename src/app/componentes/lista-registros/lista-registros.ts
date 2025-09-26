@@ -13,6 +13,8 @@ import { MultiSelectDropdownComponent, MultiSelectOption } from '../shared/multi
 import { CarreraService } from '../../servicios/carrera.service';
 import { GestionService } from '../../servicios/gestion.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
 import '../../interfaces/electron-api';
 
 interface RegistroConSolicitud extends RegistroEstudiante {
@@ -63,6 +65,15 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   // Configuración de filtrado
   mostrarSoloEstudiantesFiltrados = true; // false = mostrar toda la solicitud, true = solo estudiantes filtrados
 
+  // Vista detallada de solicitud
+  showDetailModal = false;
+  selectedSolicitud: SolicitudAgrupada | null = null;
+  expandedDetailItems: Set<number> = new Set();
+  
+  // Estados para exportación desde vista detallada
+  isExportingDetail = false;
+  isGeneratingPDFDetail = false;
+
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
   carreraOptions: MultiSelectOption[] = [];
@@ -112,11 +123,6 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       this.agruparPorSolicitud();
       
       this.aplicarFiltros();
-
-      console.log('📊 Datos cargados:', {
-        registros: this.registrosEstudiantes.length,
-        solicitudes: this.solicitudesAgrupadas.length
-      });
 
     } catch (error) {
       console.error('❌ Error cargando datos:', error);
@@ -390,15 +396,15 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   getEstadoBadgeClass(estado: string): string {
     switch (estado?.toLowerCase()) {
       case 'completado':
-        return 'badge-success';
+        return 'bg-green-500 text-white';
       case 'pendiente':
-        return 'badge-warning';
+        return 'bg-yellow-500 text-white';
       case 'procesado':
-        return 'badge-info';
+        return 'bg-blue-500 text-white';
       case 'cancelado':
-        return 'badge-danger';
+        return 'bg-red-500 text-white';
       default:
-        return 'badge-secondary';
+        return 'bg-gray-500 text-white';
     }
   }
 
@@ -508,5 +514,221 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   onDescuentoSelectionChange(selectedValues: string[]): void {
     this.filtroDescuento = selectedValues;
     this.aplicarFiltros();
+  }
+
+  // Métodos para vista detallada
+  openDetailModal(solicitudAgrupada: SolicitudAgrupada): void {
+    this.selectedSolicitud = { ...solicitudAgrupada };
+    this.showDetailModal = true;
+    this.expandedDetailItems.clear();
+    // Por defecto expandir todos los items para vista detallada
+    solicitudAgrupada.registros.forEach((_, index) => {
+      this.expandedDetailItems.add(index);
+    });
+  }
+
+  closeDetailModal(): void {
+    this.showDetailModal = false;
+    this.selectedSolicitud = null;
+    this.expandedDetailItems.clear();
+  }
+
+  toggleDetailAccordion(index: number): void {
+    if (this.expandedDetailItems.has(index)) {
+      this.expandedDetailItems.delete(index);
+    } else {
+      this.expandedDetailItems.add(index);
+    }
+  }
+
+  isDetailExpanded(index: number): boolean {
+    return this.expandedDetailItems.has(index);
+  }
+
+  // Helper methods para vista detallada
+  getStudentsWithDiscountInDetail(): number {
+    if (!this.selectedSolicitud) return 0;
+    return this.selectedSolicitud.registros.filter(r => (r.porcentaje_descuento || 0) > 0).length;
+  }
+
+  // Métodos de exportación para vista detallada
+  exportarDetalleExcel(): void {
+    if (!this.selectedSolicitud) {
+      this.toastService.warning('Sin Datos', 'No hay datos seleccionados para exportar');
+      return;
+    }
+
+    this.isExportingDetail = true;
+
+    try {
+      setTimeout(() => {
+        const registros = this.selectedSolicitud!.registros;
+        
+        // Crear datos para Excel
+        const datosExcel = registros.map(registro => ({
+          'CI Estudiante': registro.ci_estudiante || '',
+          'Nombre Completo': registro.nombre_estudiante || '',
+          'Carrera': registro.carrera || '',
+          'Total U.V.E.': registro.total_creditos || 0,
+          'Valor U.V.E.': registro.valor_credito || 0,
+          'Crédito Tecnológico': registro.credito_tecnologico || 0,
+          'Descuento (%)': registro.porcentaje_descuento ? (registro.porcentaje_descuento * 100).toFixed(1) + '%' : '0%',
+          'Plan de Pago': registro.plan_primer_pago || '',
+          'Monto Primer Pago': registro.monto_primer_pago || 0,
+          'Referencia': registro.referencia_primer_pago || '',
+          'Total Semestre': registro.total_semestre || 0,
+          'Registrado': registro.registrado ? 'Sí' : 'No'
+        }));
+
+        // Crear libro de trabajo
+        const libro = XLSX.utils.book_new();
+        const hoja = XLSX.utils.json_to_sheet(datosExcel);
+
+        // Configurar anchos de columnas
+        hoja['!cols'] = [
+          { wch: 18 }, // CI
+          { wch: 35 }, // Nombre
+          { wch: 30 }, // Carrera
+          { wch: 15 }, // UVE
+          { wch: 15 }, // Valor UVE
+          { wch: 20 }, // Crédito Tec
+          { wch: 15 }, // Descuento
+          { wch: 20 }, // Plan
+          { wch: 18 }, // Monto
+          { wch: 30 }, // Referencia
+          { wch: 18 }, // Total
+          { wch: 12 }  // Registrado
+        ];
+
+        XLSX.utils.book_append_sheet(libro, hoja, 'Detalle Solicitud');
+
+        // Generar nombre de archivo
+        const fecha = new Date();
+        const fechaFormateada = this.formatDateForFile(fecha);
+        const solicitudId = this.selectedSolicitud!.solicitud.id?.slice(-8) || 'solicitud';
+        const nombreArchivo = `detalle_solicitud_${solicitudId}_${fechaFormateada}.xlsx`;
+
+        XLSX.writeFile(libro, nombreArchivo);
+
+        this.isExportingDetail = false;
+        this.toastService.success(
+          'Exportación Exitosa',
+          `Archivo "${nombreArchivo}" descargado con ${registros.length} registros`,
+          3000
+        );
+      }, 1500);
+    } catch (error) {
+      this.isExportingDetail = false;
+      this.toastService.error(
+        'Error de Exportación',
+        'Error al generar el archivo Excel'
+      );
+    }
+  }
+
+  exportarDetallePDF(): void {
+    if (!this.selectedSolicitud) {
+      this.toastService.warning('Sin Datos', 'No hay datos seleccionados para exportar');
+      return;
+    }
+
+    this.isGeneratingPDFDetail = true;
+
+    try {
+      setTimeout(() => {
+        this.generateDetailPDFDocument();
+        this.isGeneratingPDFDetail = false;
+        this.toastService.success(
+          'PDF Generado',
+          'Archivo PDF descargado exitosamente'
+        );
+      }, 2000);
+    } catch (error) {
+      this.isGeneratingPDFDetail = false;
+      this.toastService.error(
+        'Error en PDF',
+        'Error al generar el archivo PDF'
+      );
+    }
+  }
+
+  private generateDetailPDFDocument(): void {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.width;
+    const margin = 15;
+    
+    // Encabezado
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('DETALLE DE SOLICITUD - APOYO FAMILIAR', pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const solicitudInfo = this.selectedSolicitud!.solicitud;
+    const fecha = new Date().toLocaleDateString('es-ES');
+    doc.text(`ID Solicitud: ${solicitudInfo.id?.slice(-12) || 'N/A'}`, margin, 35);
+    doc.text(`Fecha de generación: ${fecha}`, pageWidth - margin, 35, { align: 'right' });
+    doc.text(`Gestión: ${this.getNombreGestion(solicitudInfo.id_gestion)}`, margin, 42);
+    doc.text(`Total estudiantes: ${this.selectedSolicitud!.registros.length}`, pageWidth - margin, 42, { align: 'right' });
+
+    // Línea separadora
+    doc.setLineWidth(0.5);
+    doc.line(margin, 48, pageWidth - margin, 48);
+
+    let currentY = 60;
+    
+    // Procesar cada estudiante
+    this.selectedSolicitud!.registros.forEach((registro, index) => {
+      if (currentY > 180) { // Nueva página si es necesario
+        doc.addPage();
+        currentY = 20;
+      }
+      
+      currentY = this.addDetailStudentSection(doc, registro, currentY, pageWidth, margin, index + 1);
+      currentY += 10;
+    });
+
+    // Generar y descargar
+    const solicitudId = solicitudInfo.id?.slice(-8) || 'solicitud';
+    const fechaFormateada = this.formatDateForFile(new Date());
+    const nombreArchivo = `detalle_solicitud_${solicitudId}_${fechaFormateada}.pdf`;
+    
+    doc.save(nombreArchivo);
+  }
+
+  private addDetailStudentSection(doc: jsPDF, registro: RegistroConSolicitud, startY: number, pageWidth: number, margin: number, numeroEstudiante: number): number {
+    let currentY = startY;
+    
+    // Información del estudiante
+    doc.setFillColor(240, 248, 255);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 20, 'F');
+    doc.setDrawColor(59, 130, 246);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 20);
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 138);
+    doc.text(`ESTUDIANTE ${numeroEstudiante}`, margin + 5, currentY + 8);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+    
+    const col1X = margin + 5;
+    const col2X = pageWidth / 2;
+    
+    doc.text(`CI: ${registro.ci_estudiante}`, col1X, currentY + 14);
+    doc.text(`Nombre: ${registro.nombre_estudiante}`, col2X, currentY + 14);
+    doc.text(`U.V.E.: ${registro.total_creditos}`, col1X, currentY + 18);
+    doc.text(`Carrera: ${registro.carrera}`, col2X, currentY + 18);
+    
+    return currentY + 25;
+  }
+
+  private formatDateForFile(date: Date): string {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
   }
 }

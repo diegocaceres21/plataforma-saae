@@ -15,7 +15,6 @@ export class DepartamentoService {
   public error$: Observable<string | null> = this._error.asObservable();
 
   constructor() {
-    console.log('DepartamentoService initialized');
   }
 
   get currentData(): Departamento[] {
@@ -39,11 +38,9 @@ export class DepartamentoService {
         throw new Error('academicoAPI.getAllDepartamento not available');
       }
 
-      console.log('Loading departamento data...');
       const data = await window.academicoAPI.getAllDepartamento();
       
       this._departamentoData.next(data);
-      console.log('Departamento data loaded successfully:', data);
       
     } catch (error) {
       const errorMessage = `Error loading departamento data: ${error}`;
@@ -56,7 +53,6 @@ export class DepartamentoService {
   }
 
   async refreshData(): Promise<void> {
-    console.log('Refreshing departamento data...');
     await this.loadDepartamentoData();
   }
 
