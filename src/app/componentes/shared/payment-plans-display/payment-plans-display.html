@@ -1,0 +1,179 @@
+<!-- Plan de Pago Section -->
+<div class="mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg border border-gray-100">
+    
+    <!-- Plan de Pago -->
+    <div class="flex flex-col">
+      <span class="font-[Roboto] text-center text-sm font-medium text-gray-500 mb-2">Plan de Pago</span>
+      <span class="font-[Inter] text-center text-sm font-semibold text-black p-3 bg-gray-50 rounded-lg border border-gray-200">
+        {{ registro.plan_primer_pago }}
+      </span>
+    </div>
+
+    <!-- Monto -->
+    <div class="flex flex-col">
+      <span class="font-[Roboto] text-center text-sm font-medium text-gray-500 mb-2">Monto</span>
+      <span class="font-[Inter] text-center text-sm font-bold text-black p-3 bg-gray-50 rounded-lg border border-gray-200">
+        {{ registro.monto_primer_pago | currency:'BOB. ':'symbol':'1.0-0' }}
+      </span>
+    </div>
+
+    <!-- Referencia -->
+    <div class="flex flex-col md:col-span-2">
+      <span class="font-[Roboto] text-center text-sm font-medium text-gray-500 mb-2">Referencia</span>
+      <span class="font-[Roboto] text-sm text-gray-700 p-3 bg-gray-50 rounded-lg border border-gray-200 break-words">
+        {{ registro.referencia_primer_pago }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Plans Section -->
+<div class="space-y-6">
+  <div [ngClass]="(showBothPlans && hasDiscount) ? 'grid grid-cols-1 lg:grid-cols-2 gap-8' : 'flex justify-center'">
+    
+    <!-- Plan Original -->
+    @if (showBothPlans) {
+      <div class="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300" 
+           [ngClass]="!hasDiscount ? 'max-w-md' : ''">
+        <div class="flex items-center justify-center mb-6">
+          <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+            <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <h4 class="font-[Inter] text-xl font-bold text-gray-900">Plan Original</h4>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center pb-3 px-4 border-b border-gray-100">
+            <span class="font-[Roboto] text-sm font-medium text-gray-600">Derechos Académicos:</span>
+            <span class="font-[Inter] text-base font-bold text-gray-900">{{ derechosAcademicosOriginales | number:'1.2-2' }}</span>
+          </div>
+          
+          <div class="flex justify-between items-center pb-3 px-4 border-b border-gray-100">
+            <span class="font-[Roboto] text-sm font-medium text-gray-600">Crédito Tecnológico:</span>
+            <span class="font-[Inter] text-base font-bold text-gray-900">{{ registro.credito_tecnologico | number:'1.2-2' }}</span>
+          </div>
+
+          <div class="flex justify-between items-center py-4 border-2 border-gray-200 bg-gray-50 rounded-lg px-4 mt-4">
+            <span class="font-[Roboto] text-base font-bold text-gray-700">Monto Total:</span>
+            <span class="font-[Inter] text-base font-bold text-gray-900">
+              {{ totalOriginal | number:'1.2-2' }}
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center py-2 px-4">
+            <span class="font-[Roboto] text-sm font-medium text-gray-600">(Derecho de inscripción):</span>
+            <span class="font-[Inter] text-base font-semibold text-red-600">
+              ({{ registro.monto_primer_pago | number:'1.2-2' }})
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
+            <span class="font-[Roboto] text-base font-bold text-black">Saldo Semestre:</span>
+            <span class="font-[Inter] text-base font-bold text-black">
+              {{ saldoOriginal | number:'1.2-2' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+    
+    <!-- Plan con Descuento -->
+    @if (hasDiscount) {
+      <div class="bg-white rounded-2xl p-6 border-2 border-green-200 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
+        
+        <div class="flex items-center justify-center mb-6">
+          <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-3">
+            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+            </svg>
+          </div>
+          <h4 class="font-[Inter] text-xl font-bold text-black">Plan con Apoyo Familiar {{ (registro.porcentaje_descuento || 0) * 100 }}%</h4>
+        </div>
+        
+        <div class="space-y-2">
+          <div class="flex justify-between items-center pb-3 px-4 border-b border-green-100">
+            <span class="font-[Roboto] text-sm font-medium text-gray-700">Derechos Académicos:</span>
+            <div class="text-right">
+              <span class="text-xs text-gray-500 line-through mr-2">
+                {{ derechosAcademicosOriginales | number:'1.2-2' }}
+              </span>
+              <span class="font-[Inter] text-base font-bold text-black">{{ derechosAcademicosConDescuento | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          
+          <div class="flex justify-between items-center pb-3 px-4 border-b border-green-100">
+            <span class="font-[Roboto] text-sm font-medium text-gray-700">Crédito Tecnológico:</span>
+            <span class="font-[Inter] text-base font-bold text-black">{{ registro.credito_tecnologico | number:'1.2-2' }}</span>
+          </div>
+
+          <div class="flex justify-between items-center py-4 border-2 border-gray-200 bg-gray-50 rounded-lg px-4 mt-4">
+            <span class="font-[Roboto] text-base font-bold text-black">Monto Total:</span>
+            <span class="font-[Inter] text-base font-bold text-black">
+              {{ totalConDescuento | number:'1.2-2' }}
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center py-2 px-4">
+            <span class="font-[Roboto] text-sm font-medium text-gray-700">(Derecho de inscripción):</span>
+            <span class="font-[Inter] text-base font-semibold text-red-600">
+              ({{ registro.monto_primer_pago | number:'1.2-2' }})
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
+            <span class="font-[Roboto] text-base font-bold text-black">Saldo Semestre:</span>
+            <span class="font-[Inter] text-base font-bold text-black">
+              {{ saldoConDescuento | number:'1.2-2' }}
+            </span>
+          </div>
+          
+          <!-- Savings Information -->
+          <div class="mt-4 p-3 bg-yellow-100 rounded-lg border border-yellow-200">
+            <div class="flex items-center justify-center">
+              <svg class="w-6 h-6 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+              </svg>
+              <span class="font-[Roboto] text-base font-medium text-yellow-800">
+                Ahorro total: {{ ahorroDerechosAcademicos | number:'1.2-2' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Versión simplificada cuando showBothPlans es false -->
+    @if (!showBothPlans && hasDiscount) {
+      <div class="bg-white rounded-2xl p-6 border-2 border-green-200 shadow-lg max-w-md">
+        <h4 class="font-[Inter] text-lg font-bold text-gray-900 mb-4 text-center">
+          Plan con Descuento {{ (registro.porcentaje_descuento || 0) * 100 }}%
+        </h4>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600">Total U.V.E.:</span>
+            <span class="font-semibold">{{ registro.total_creditos }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600">Valor por U.V.E.:</span>
+            <span class="font-semibold">{{ registro.valor_credito | number:'1.2-2' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600">Descuento:</span>
+            <span class="font-semibold text-green-600">{{ (registro.porcentaje_descuento || 0) * 100 }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600">Total con descuento:</span>
+            <span class="font-bold text-lg text-green-700">{{ totalConDescuento | number:'1.2-2' }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-sm text-gray-600">Ahorro:</span>
+            <span class="font-bold text-yellow-600">{{ ahorroDerechosAcademicos | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</div>

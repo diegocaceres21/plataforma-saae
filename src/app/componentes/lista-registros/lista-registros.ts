@@ -10,6 +10,8 @@ import { ApoyoFamiliar } from '../../interfaces/apoyo-familiar';
 import { ToastService } from '../../servicios/toast';
 import { ToastContainerComponent } from '../shared/toast-container/toast-container';
 import { MultiSelectDropdownComponent, MultiSelectOption } from '../shared/multi-select-dropdown/multi-select-dropdown';
+import { StudentAccordionComponent } from '../shared/student-accordion/student-accordion';
+import { ExportActionsComponent } from '../shared/export-actions/export-actions';
 import { CarreraService } from '../../servicios/carrera.service';
 import { GestionService } from '../../servicios/gestion.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
@@ -29,7 +31,7 @@ interface SolicitudAgrupada {
 
 @Component({
   selector: 'app-lista-registros',
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent, StudentAccordionComponent, ExportActionsComponent],
   templateUrl: './lista-registros.html',
   styleUrl: './lista-registros.scss'
 })
@@ -73,6 +75,14 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   // Estados para exportación desde vista detallada
   isExportingDetail = false;
   isGeneratingPDFDetail = false;
+
+  // Edición inline de registros
+  editingRegistroId: string | null = null;
+  editForm = {
+    comentarios: '',
+    registrado: false
+  };
+  isSavingRegistro = false;
 
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
@@ -514,6 +524,85 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   onDescuentoSelectionChange(selectedValues: string[]): void {
     this.filtroDescuento = selectedValues;
     this.aplicarFiltros();
+  }
+
+  iniciarEdicion(registro: RegistroConSolicitud): void {
+    if (this.isSavingRegistro) {
+      return;
+    }
+
+    this.editingRegistroId = registro.id;
+    this.editForm = {
+      comentarios: registro.comentarios ?? '',
+      registrado: !!registro.registrado
+    };
+  }
+
+  cancelarEdicion(): void {
+    this.editingRegistroId = null;
+    this.editForm = {
+      comentarios: '',
+      registrado: false
+    };
+    this.isSavingRegistro = false;
+  }
+
+  async guardarEdicion(registro: RegistroConSolicitud): Promise<void> {
+    if (!registro?.id) {
+      this.toastService.error('Registro inválido', 'No se pudo identificar el registro a actualizar');
+      return;
+    }
+
+    if (!window.academicoAPI?.updateRegistroEstudiante) {
+      this.toastService.error('Funcionalidad no disponible', 'La API de actualización no está accesible en este momento');
+      return;
+    }
+
+    this.isSavingRegistro = true;
+
+    try {
+      const payload = {
+        comentarios: this.editForm.comentarios?.trim() || null,
+        registrado: this.editForm.registrado
+      };
+
+      await window.academicoAPI.updateRegistroEstudiante(registro.id, payload);
+
+      this.actualizarRegistroLocal(registro.id, {
+        comentarios: payload.comentarios ?? undefined,
+        registrado: payload.registrado
+      });
+
+      this.toastService.success('Registro actualizado', 'Los cambios se guardaron correctamente');
+      this.cancelarEdicion();
+    } catch (error) {
+      console.error('❌ Error actualizando registro:', error);
+      this.toastService.error('Error al guardar', 'No se pudieron guardar los cambios. Intente nuevamente.');
+      this.isSavingRegistro = false;
+    }
+  }
+
+  private actualizarRegistroLocal(registroId: string, cambios: Partial<RegistroEstudiante>): void {
+    const actualizarColeccion = (coleccion: SolicitudAgrupada[]) => {
+      coleccion.forEach(grupo => {
+        grupo.registros.forEach(item => {
+          if (item.id === registroId) {
+            Object.assign(item, cambios);
+          }
+        });
+      });
+    };
+
+    actualizarColeccion(this.solicitudesAgrupadas);
+    actualizarColeccion(this.solicitudesOriginales);
+
+    if (this.selectedSolicitud) {
+      this.selectedSolicitud.registros.forEach(item => {
+        if (item.id === registroId) {
+          Object.assign(item, cambios);
+        }
+      });
+    }
   }
 
   // Métodos para vista detallada
