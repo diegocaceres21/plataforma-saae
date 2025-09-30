@@ -73,6 +73,20 @@
           </app-multi-select-dropdown>
         </div>
 
+        <!-- Filtro por plan de pago -->
+        <div class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Plan de pago:</label>
+          <app-multi-select-dropdown
+            [options]="planOptions"
+            [ngModel]="filtroPlan"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar plan"
+            width="w-48"
+            dropdownId="plan-dropdown"
+            (ngModelChange)="onPlanSelectionChange($event)">
+          </app-multi-select-dropdown>
+        </div>
+
         <!-- Búsqueda por nombre o carnet -->
         <div class="flex flex-col grow min-w-[240px]">
           <label for="filtroBusqueda" class="text-sm font-medium text-slate-700 mb-1">Buscar estudiante:</label>
@@ -149,7 +163,7 @@
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Total U.V.E.</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Valor U.V.E.</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">% Descuento</th>
-              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Monto</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Plan de Pago</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Comentarios</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Estado Registro</th>
               <th class="px-4 py-3 text-left font-semibold">Acciones</th>
@@ -181,7 +195,9 @@
 
               <!-- Filas de estudiantes del grupo -->
               @for (registro of grupo.registros; track registro.id; let i = $index) {
-                <tr class="transition hover:bg-slate-50">
+                <tr class="transition hover:bg-slate-50" [ngClass]="{
+                  'ring-2 ring-indigo-200/80 bg-indigo-50/70 hover:bg-indigo-100': editingRegistroId === registro.id
+                }">
                   <!-- Información del estudiante -->
                   <td class="px-4 py-3 align-middle border-b border-slate-100">
                     <div class="space-y-0.5">
@@ -220,109 +236,42 @@
                   
                   <!-- Comentarios -->
                   <td class="px-4 py-3 align-middle border-b border-slate-100">
-                    @if (editingRegistroId === registro.id) {
-                      <div class="flex flex-col gap-2">
-                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Comentarios</label>
-                        <div class="relative">
-                          <textarea
-                            class="w-full rounded-2xl border border-slate-300 bg-slate-50/80 px-3 py-2 text-sm shadow-inner focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300/60 transition"
-                            rows="3"
-                            placeholder="Describe observaciones o notas relevantes..."
-                            [(ngModel)]="editForm.comentarios"
-                            [ngModelOptions]="{standalone: true}"></textarea>
-                          <div class="pointer-events-none absolute right-3 top-3 text-slate-300">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 20.25c4.556 0 8.25-3.694 8.25-8.25S16.556 3.75 12 3.75 3.75 7.444 3.75 12c0 2.265.932 4.312 2.439 5.811.373.372.566.838.563 1.302l-.013 1.497a.75.75 0 001.066.705l1.47-.633c.434-.187.904-.28 1.377-.28z" />
-                            </svg>
-                          </div>
-                        </div>
-                        <div class="flex justify-between text-[11px] text-slate-500">
-                          <span>Comparte detalles claros y concisos.</span>
-                          <span>{{ (editForm.comentarios || '').length }}/500</span>
-                        </div>
-                      </div>
-                    } @else {
-                      <div class="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-inner whitespace-pre-line" [class.italic]="!registro.comentarios">
-                        {{ registro.comentarios || 'Sin comentarios registrados' }}
-                      </div>
+                    <div class="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 shadow-inner whitespace-pre-line" [class.italic]="!registro.comentarios">
+                      {{ obtenerComentarioVisible(registro) }}
+                      @if (esComentarioLargo(registro)) {
+                      <button
+                        type="button"
+                        class="mt-2 text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                        (click)="toggleComentarioExpandido(registro)">
+                        {{ estaComentarioExpandido(registro.id) ? 'Ver menos' : 'Ver más' }}
+                      </button>
                     }
+                    </div>
+                    
                   </td>
 
                   <!-- Estado de registro -->
                   <td class="px-4 py-3 align-middle border-b border-slate-100 text-center">
-                    @if (editingRegistroId === registro.id) {
-                      <div class="flex flex-col gap-2">
-                        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Estado</label>
-                        <div class="relative">
-                          <select
-                            class="w-full appearance-none rounded-2xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/60 transition"
-                            [(ngModel)]="editForm.registrado"
-                            [ngModelOptions]="{standalone: true}">
-                            <option [ngValue]="true">Registrado</option>
-                            <option [ngValue]="false">Pendiente</option>
-                          </select>
-                          <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-indigo-400">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 9.75L12 13.5l3.75-3.75" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    } @else {
-                      <span 
-                        class="inline-block px-3 py-1 rounded-full text-xs font-semibold border"
-                        [ngClass]="registro.registrado 
-                          ? 'bg-green-100 text-green-700 border-green-300' 
-                          : 'bg-rose-100 text-rose-700 border-rose-300'">
-                        {{ registro.registrado ? 'Registrado' : 'Pendiente' }}
-                      </span>
-                    }
+                    <span 
+                      class="inline-block px-3 py-1 rounded-full text-xs font-semibold border"
+                      [ngClass]="registro.registrado 
+                        ? 'bg-green-100 text-green-700 border-green-300' 
+                        : 'bg-rose-100 text-rose-700 border-rose-300'">
+                      {{ registro.registrado ? 'Registrado' : 'Pendiente' }}
+                    </span>
                   </td>
 
                   <!-- Acciones -->
                   <td class="px-4 py-3 align-middle border-b border-slate-100 text-center">
-                    @if (editingRegistroId === registro.id) {
-                      <div class="flex flex-wrap items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          class="inline-flex items-center gap-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.02] hover:shadow-md disabled:opacity-60"
-                          (click)="guardarEdicion(registro)"
-                          [disabled]="isSavingRegistro">
-                          @if (isSavingRegistro) {
-                            <svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Guardando
-                          } @else {
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Guardar
-                          }
-                        </button>
-                        <button
-                          type="button"
-                          class="inline-flex items-center gap-1 rounded-2xl border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-                          (click)="cancelarEdicion()"
-                          [disabled]="isSavingRegistro">
-                          <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                          Cancelar
-                        </button>
-                      </div>
-                    } @else {
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.02] hover:shadow-md"
-                        (click)="iniciarEdicion(registro)">
-                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 4.487l1.651-1.652a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                        </svg>
-                        Editar
-                      </button>
-                    }
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1 rounded-2xl bg-gradient-to-r from-indigo-500 to-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.02] hover:shadow-md"
+                      (click)="abrirModalEdicion(registro)">
+                      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 4.487l1.651-1.652a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                      </svg>
+                      Editar
+                    </button>
                   </td>
                 </tr>
               }
@@ -491,3 +440,130 @@
     </div>
   }
 </div>
+
+<!-- Modal de edición de registro -->
+@if (showEditModal && registroEnEdicion) {
+  <div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 px-4 py-8">
+    <div class="w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50 px-6 py-4">
+        <div class="space-y-1">
+          <h3 class="text-lg font-semibold text-slate-800">Editar registro</h3>
+          <p class="text-sm font-medium text-slate-600">{{ registroEnEdicion!.nombre_estudiante }}</p>
+          <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+            <span class="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 border border-slate-200">
+              CI: {{ registroEnEdicion!.ci_estudiante || 'Carnet' }}
+            </span>
+            <span class="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 border border-slate-200">
+              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7l9 6 9-6-9-6-9 6zm0 8l9 6 9-6" />
+              </svg>
+              {{ registroEnEdicion!.carrera || 'Sin carrera' }}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:bg-slate-100"
+          (click)="cerrarModalEdicion()"
+          [disabled]="isSavingRegistro">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="px-6 py-6 space-y-6">
+        <div class="grid gap-6 md:grid-cols-2">
+          <div class="space-y-3">
+            <label class="text-sm font-medium text-slate-700">Comentarios</label>
+            <textarea
+              class="w-full min-h-[160px] rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-inner focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              placeholder="Anota observaciones o acuerdos relevantes..."
+              [(ngModel)]="editForm.comentarios"
+              [ngModelOptions]="{ standalone: true }"
+              maxlength="500">
+            </textarea>
+            <div class="flex items-center justify-between text-xs text-slate-500">
+              <span>Máximo 500 caracteres.</span>
+              <span [class.text-rose-500]="(editForm.comentarios || '').length > 500">{{ (editForm.comentarios || '').length }} / 500</span>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="space-y-3">
+              <label class="text-sm font-medium text-slate-700">Estado del registro</label>
+              <select
+                class="w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                [(ngModel)]="editForm.registrado"
+                [ngModelOptions]="{ standalone: true }">
+                <option [ngValue]="true">Registrado</option>
+                <option [ngValue]="false">Pendiente</option>
+              </select>
+              <p class="text-xs text-slate-500">
+                Usa "Registrado" cuando el proceso esté completado.
+              </p>
+            </div>
+
+            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-3">
+              <p class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Resumen</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                  <p class="text-[11px] text-slate-500">Total U.V.E.</p>
+                  <p class="text-sm font-semibold text-slate-700">{{ registroEnEdicion!.total_creditos }}</p>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[11px] text-slate-500">Monto primer pago</p>
+                  <p class="text-sm font-semibold text-slate-700">{{ registroEnEdicion!.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}</p>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[11px] text-slate-500">Descuento aplicado</p>
+                  <p class="text-sm font-semibold text-slate-700">{{ registroEnEdicion!.porcentaje_descuento * 100 }}%</p>
+                </div>
+                <div class="space-y-1">
+                  <p class="text-[11px] text-slate-500">Plan</p>
+                  <p class="text-sm font-semibold text-slate-700 truncate" title="{{ registroEnEdicion!.plan_primer_pago }}">{{ registroEnEdicion!.plan_primer_pago || '—' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          Los cambios se reflejan inmediatamente en la tabla.
+        </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            (click)="cerrarModalEdicion()"
+            [disabled]="isSavingRegistro">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            (click)="guardarEdicion()"
+            [disabled]="isSavingRegistro || (editForm.comentarios || '').length > 500">
+            @if (isSavingRegistro) {
+              <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Guardando
+            } @else {
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 13l4 4L19 7" />
+              </svg>
+              Guardar cambios
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

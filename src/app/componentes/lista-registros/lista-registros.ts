@@ -37,6 +37,7 @@ interface SolicitudAgrupada {
 })
 export class ListaRegistrosComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  private readonly COMMENT_PREVIEW_LIMIT = 100;
 
   // Datos principales
   registrosEstudiantes: RegistroEstudiante[] = [];
@@ -63,6 +64,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   filtroBusqueda = '';
   filtroCarrera: string[] = [];
   filtroDescuento: string[] = [];
+  filtroPlan: string[] = [];
   
   // Configuración de filtrado
   mostrarSoloEstudiantesFiltrados = true; // false = mostrar toda la solicitud, true = solo estudiantes filtrados
@@ -76,18 +78,22 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   isExportingDetail = false;
   isGeneratingPDFDetail = false;
 
-  // Edición inline de registros
+  // Modal de edición de registros
   editingRegistroId: string | null = null;
+  registroEnEdicion: RegistroConSolicitud | null = null;
   editForm = {
     comentarios: '',
     registrado: false
   };
   isSavingRegistro = false;
+  showEditModal = false;
+  comentariosExpandido = new Set<string>();
 
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
   carreraOptions: MultiSelectOption[] = [];
   descuentoOptions: MultiSelectOption[] = [];
+  planOptions: MultiSelectOption[] = [];
 
   // Paginación
   currentPage = 1;
@@ -173,6 +179,11 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         label: `${apoyo.porcentaje * 100}%`
       }));
 
+      this.planOptions = [
+        { value: 'Plan Estandar', label: 'Plan Estandar' },
+        { value: 'Plan Plus', label: 'Plan Plus' }
+      ];
+
     } catch (error) {
       console.error('❌ Error cargando datos de filtros:', error);
     } finally {
@@ -181,6 +192,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   }
 
   agruparPorSolicitud(): void {
+    this.comentariosExpandido.clear();
     // Crear un mapa de solicitudes por ID
     const solicitudesMap = new Map<string, Solicitud>();
     this.solicitudes.forEach(solicitud => {
@@ -219,7 +231,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
       return {
         solicitud: solicitud as Solicitud,
-        registros: registrosConSolicitud.sort((a, b) => a.nombre_estudiante.localeCompare(b.nombre_estudiante)),
+        registros: this.ordenarRegistrosPorDescuento(registrosConSolicitud),
         expanded: true // Por defecto expandido para formato tabla
       };
     }).sort((a, b) => new Date(b.solicitud.fecha).getTime() - new Date(a.solicitud.fecha).getTime());
@@ -277,6 +289,12 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     }
 
+    if (this.filtroPlan.length > 0) {
+      solicitudesFiltradas = solicitudesFiltradas.filter(item =>
+        item.registros.some(registro => this.coincidePlanFiltro(registro.plan_primer_pago))
+      );
+    }
+
     // Filtro por búsqueda (nombre o carnet)
     if (this.filtroBusqueda.trim()) {
       const busqueda = this.filtroBusqueda.toLowerCase().trim();
@@ -319,6 +337,11 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         );
       }
 
+      // Filtro por plan de pago
+      if (this.filtroPlan.length > 0) {
+        registrosFiltrados = registrosFiltrados.filter(registro => this.coincidePlanFiltro(registro.plan_primer_pago));
+      }
+
       // Filtro por búsqueda
       if (this.filtroBusqueda.trim()) {
         const busqueda = this.filtroBusqueda.toLowerCase().trim();
@@ -350,6 +373,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.filtroBusqueda = '';
     this.filtroCarrera = [];
     this.filtroDescuento = [];
+    this.filtroPlan = [];
     this.currentPage = 1;
     this.aplicarFiltros();
   }
@@ -526,20 +550,29 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.aplicarFiltros();
   }
 
-  iniciarEdicion(registro: RegistroConSolicitud): void {
+  onPlanSelectionChange(selectedValues: string[]): void {
+    this.filtroPlan = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  abrirModalEdicion(registro: RegistroConSolicitud): void {
     if (this.isSavingRegistro) {
       return;
     }
 
     this.editingRegistroId = registro.id;
+    this.registroEnEdicion = registro;
     this.editForm = {
       comentarios: registro.comentarios ?? '',
       registrado: !!registro.registrado
     };
+    this.showEditModal = true;
   }
 
-  cancelarEdicion(): void {
+  cerrarModalEdicion(): void {
+    this.showEditModal = false;
     this.editingRegistroId = null;
+    this.registroEnEdicion = null;
     this.editForm = {
       comentarios: '',
       registrado: false
@@ -547,7 +580,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.isSavingRegistro = false;
   }
 
-  async guardarEdicion(registro: RegistroConSolicitud): Promise<void> {
+  async guardarEdicion(): Promise<void> {
+    const registro = this.registroEnEdicion;
+
     if (!registro?.id) {
       this.toastService.error('Registro inválido', 'No se pudo identificar el registro a actualizar');
       return;
@@ -558,11 +593,18 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const comentariosFormateados = this.editForm.comentarios?.trim() ?? '';
+
+    if (comentariosFormateados.length > 500) {
+      this.toastService.warning('Comentarios muy extensos', 'Reduce el mensaje a un máximo de 500 caracteres antes de guardar.');
+      return;
+    }
+
     this.isSavingRegistro = true;
 
     try {
       const payload = {
-        comentarios: this.editForm.comentarios?.trim() || null,
+        comentarios: comentariosFormateados || null,
         registrado: this.editForm.registrado
       };
 
@@ -573,8 +615,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         registrado: payload.registrado
       });
 
-      this.toastService.success('Registro actualizado', 'Los cambios se guardaron correctamente');
-      this.cancelarEdicion();
+      this.toastService.success('Registro actualizado', 'Los cambios se guardaron correctamente', 3000);
+      this.cerrarModalEdicion();
     } catch (error) {
       console.error('❌ Error actualizando registro:', error);
       this.toastService.error('Error al guardar', 'No se pudieron guardar los cambios. Intente nuevamente.');
@@ -590,6 +632,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
             Object.assign(item, cambios);
           }
         });
+        grupo.registros = this.ordenarRegistrosPorDescuento(grupo.registros);
       });
     };
 
@@ -602,6 +645,18 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
           Object.assign(item, cambios);
         }
       });
+      this.selectedSolicitud.registros = this.ordenarRegistrosPorDescuento(this.selectedSolicitud.registros);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(cambios, 'comentarios')) {
+      this.sincronizarEstadoComentario(registroId, cambios.comentarios ?? null);
+    }
+  }
+
+  private sincronizarEstadoComentario(registroId: string, comentario?: string | null): void {
+    const texto = (comentario ?? '').trim();
+    if (!texto || texto.length <= this.COMMENT_PREVIEW_LIMIT) {
+      this.comentariosExpandido.delete(registroId);
     }
   }
 
@@ -819,5 +874,68 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
+  }
+
+  private normalizarPlan(plan?: string | null): string {
+    return (plan || '').toLowerCase().trim();
+  }
+
+  private coincidePlanFiltro(plan?: string | null): boolean {
+    const normalizado = this.normalizarPlan(plan);
+    if (!normalizado) {
+      return false;
+    }
+
+    return this.filtroPlan.some(valor => this.normalizarPlan(valor) === normalizado);
+  }
+
+  private ordenarRegistrosPorDescuento<T extends RegistroConSolicitud>(registros: T[]): T[] {
+    return [...registros].sort((a, b) => {
+      const descuentoA = a.porcentaje_descuento ?? 0;
+      const descuentoB = b.porcentaje_descuento ?? 0;
+
+      if (descuentoA !== descuentoB) {
+        return descuentoA - descuentoB;
+      }
+
+      return a.nombre_estudiante.localeCompare(b.nombre_estudiante);
+    });
+  }
+
+  estaComentarioExpandido(registroId?: string | null): boolean {
+    if (!registroId) {
+      return false;
+    }
+    return this.comentariosExpandido.has(registroId);
+  }
+
+  esComentarioLargo(registro: RegistroConSolicitud): boolean {
+    return (registro.comentarios?.trim().length || 0) > this.COMMENT_PREVIEW_LIMIT;
+  }
+
+  obtenerComentarioVisible(registro: RegistroConSolicitud): string {
+    const texto = (registro.comentarios || '').trim();
+    if (!texto) {
+      return 'Sin comentarios registrados';
+    }
+
+    if (!this.estaComentarioExpandido(registro.id) && texto.length > this.COMMENT_PREVIEW_LIMIT) {
+      return texto.slice(0, this.COMMENT_PREVIEW_LIMIT).trimEnd() + '…';
+    }
+
+    return texto;
+  }
+
+  toggleComentarioExpandido(registro: RegistroConSolicitud): void {
+    const registroId = registro.id;
+    if (!registroId) {
+      return;
+    }
+
+    if (this.comentariosExpandido.has(registroId)) {
+      this.comentariosExpandido.delete(registroId);
+    } else {
+      this.comentariosExpandido.add(registroId);
+    }
   }
 }
