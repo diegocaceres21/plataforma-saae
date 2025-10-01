@@ -1,3 +1,5 @@
+import { jsPDF } from 'jspdf';
+
 declare module 'jspdf' {
   interface jsPDF {
     lastAutoTable: {
@@ -18,4 +20,8 @@ declare module 'jspdf-autotable' {
     tableWidth?: string | number;
     columnStyles?: any;
   }
+
+  function autoTable(doc: jsPDF, options: UserOptions): jsPDF;
+
+  export default autoTable;
 }
