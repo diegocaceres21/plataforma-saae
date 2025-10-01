@@ -12,12 +12,15 @@ import { ToastContainerComponent } from '../shared/toast-container/toast-contain
 import { MultiSelectDropdownComponent, MultiSelectOption } from '../shared/multi-select-dropdown/multi-select-dropdown';
 import { StudentAccordionComponent } from '../shared/student-accordion/student-accordion';
 import { ExportActionsComponent } from '../shared/export-actions/export-actions';
+import { ExportConfigModalComponent } from '../shared/export-config-modal/export-config-modal';
 import { CarreraService } from '../../servicios/carrera.service';
 import { GestionService } from '../../servicios/gestion.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import '../../interfaces/electron-api';
+import { ExportConfig, ExportColumn } from '../../interfaces/export-config';
 
 interface RegistroConSolicitud extends RegistroEstudiante {
   solicitudInfo?: Solicitud;
@@ -31,7 +34,7 @@ interface SolicitudAgrupada {
 
 @Component({
   selector: 'app-lista-registros',
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent, StudentAccordionComponent, ExportActionsComponent],
+  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent, StudentAccordionComponent, ExportActionsComponent, ExportConfigModalComponent],
   templateUrl: './lista-registros.html',
   styleUrl: './lista-registros.scss'
 })
@@ -43,6 +46,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   registrosEstudiantes: RegistroEstudiante[] = [];
   solicitudesAgrupadas: SolicitudAgrupada[] = [];
   solicitudesOriginales: SolicitudAgrupada[] = [];
+  solicitudesFiltradasTotales: SolicitudAgrupada[] = [];
   gestiones: Gestion[] = [];
   carreras: Carrera[] = [];
   solicitudes: Solicitud[] = [];
@@ -88,6 +92,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   isSavingRegistro = false;
   showEditModal = false;
   comentariosExpandido = new Set<string>();
+  isExportingListadoExcel = false;
+  isGeneratingListadoPDF = false;
+  showListadoExportModal = false;
+  exportConfigListado: ExportConfig = this.crearConfigExportacionPorDefecto();
 
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
@@ -252,6 +260,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       // Modo: Mostrar toda la solicitud si al menos un estudiante cumple
       solicitudesFiltradas = this.aplicarFiltrosPorSolicitud(solicitudesFiltradas);
     }
+
+    this.solicitudesFiltradasTotales = solicitudesFiltradas;
 
     // Aplicar paginación
     this.totalItems = solicitudesFiltradas.length;
@@ -784,7 +794,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         this.isGeneratingPDFDetail = false;
         this.toastService.success(
           'PDF Generado',
-          'Archivo PDF descargado exitosamente'
+          'Archivo PDF descargado exitosamente',
+          3000
         );
       }, 2000);
     } catch (error) {
@@ -887,6 +898,337 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     }
 
     return this.filtroPlan.some(valor => this.normalizarPlan(valor) === normalizado);
+  }
+
+  // --- Exportación global ---
+
+  private obtenerTodasLasFilasFiltradas(): RegistroConSolicitud[] {
+    const registros: RegistroConSolicitud[] = [];
+    this.solicitudesFiltradasTotales.forEach(grupo => {
+      registros.push(...grupo.registros);
+    });
+    return registros;
+  }
+
+  hayDatosFiltrados(): boolean {
+    return this.solicitudesFiltradasTotales.length > 0;
+  }
+
+  exportarListadoExcel(): void {
+    if (this.isExportingListadoExcel) {
+      return;
+    }
+
+    if (!this.hayDatosFiltrados()) {
+      this.toastService.warning('Sin datos', 'Aplica filtros con resultados antes de exportar.');
+      return;
+    }
+
+    this.exportConfigListado = this.crearConfigExportacionPorDefecto();
+    this.showListadoExportModal = true;
+  }
+
+  cerrarModalExportListado(): void {
+    this.showListadoExportModal = false;
+  }
+
+  confirmarExportListado(config: ExportConfig): void {
+    this.showListadoExportModal = false;
+    this.generarExcelListado(config);
+  }
+
+  private generarExcelListado(config: ExportConfig): void {
+    const columnasActivas = this.obtenerColumnasActivas(config);
+
+    if (columnasActivas.length === 0) {
+      this.toastService.warning('Sin columnas', 'Selecciona al menos una columna para exportar.');
+      return;
+    }
+
+    this.isExportingListadoExcel = true;
+
+    try {
+      const libro = XLSX.utils.book_new();
+
+      const resumenDatos = this.obtenerResumenDatos();
+      const resumenSheet = XLSX.utils.json_to_sheet(resumenDatos, { header: ['Etiqueta', 'Detalle'] });
+      resumenSheet['!cols'] = [{ wch: 28 }, { wch: 80 }];
+      XLSX.utils.book_append_sheet(libro, resumenSheet, 'Resumen');
+
+      const filasDetalle = this.obtenerTodasLasFilasFiltradas();
+      const detalles = filasDetalle.map(registro => this.mapearRegistroADetalle(registro, columnasActivas));
+
+      const detalleSheet = XLSX.utils.json_to_sheet(detalles);
+      detalleSheet['!cols'] = columnasActivas.map(col => ({ wch: this.obtenerAnchoColumna(col.key) }));
+      XLSX.utils.book_append_sheet(libro, detalleSheet, 'Detalle estudiantes');
+
+      const baseNombre = config.fileName?.trim() || 'reporte_lista_registros';
+      const nombreNormalizado = this.sanitizarNombreArchivo(baseNombre) || 'reporte_lista_registros';
+      const nombreArchivo = `${nombreNormalizado}_${this.formatDateForFile(new Date())}.xlsx`;
+      XLSX.writeFile(libro, nombreArchivo);
+
+      this.toastService.success('Exportación completada', `Reporte Excel generado (${detalles.length} filas)`);
+    } catch (error) {
+      console.error('❌ Error exportando Excel listado:', error);
+      this.toastService.error('Error de exportación', 'No se pudo generar el archivo Excel.');
+    } finally {
+      this.isExportingListadoExcel = false;
+    }
+  }
+
+  private obtenerColumnasActivas(config: ExportConfig): ExportColumn[] {
+    return config.columns
+      .filter(col => col.enabled && (!col.isCalculated || config.includeCalculatedFields))
+      .map(col => ({ ...col }));
+  }
+
+  private mapearRegistroADetalle(registro: RegistroConSolicitud, columnas: ExportColumn[]): Record<string, unknown> {
+    const fila: Record<string, unknown> = {};
+    columnas.forEach(columna => {
+      fila[columna.label] = this.obtenerValorColumna(registro, columna.key);
+    });
+    return fila;
+  }
+
+  private obtenerValorColumna(registro: RegistroConSolicitud, key: string): string | number {
+    const porcentaje = registro.porcentaje_descuento || 0;
+    const valorCredito = registro.valor_credito || 0;
+    const totalCreditos = registro.total_creditos || 0;
+    const creditoTecnologico = registro.credito_tecnologico || 0;
+    const montoPrimerPago = registro.monto_primer_pago || 0;
+    const totalSemestre = registro.total_semestre || 0;
+
+    switch (key) {
+      case 'gestion':
+        return this.getNombreGestion(registro.id_gestion);
+      case 'fecha_solicitud':
+        return registro.solicitudInfo ? this.formatearFecha(registro.solicitudInfo.fecha) : '';
+      case 'id_solicitud':
+        return registro.id_solicitud ? registro.id_solicitud.slice(-8) : '';
+      case 'ci_estudiante':
+        return registro.ci_estudiante || '';
+      case 'nombre_estudiante':
+        return registro.nombre_estudiante || '';
+      case 'carrera':
+        return registro.carrera || '';
+      case 'total_creditos':
+        return totalCreditos;
+      case 'valor_credito':
+        return valorCredito;
+      case 'credito_tecnologico':
+        return creditoTecnologico;
+      case 'porcentaje_descuento':
+        return `${(porcentaje * 100).toFixed(1)}%`;
+      case 'monto_primer_pago':
+        return montoPrimerPago;
+      case 'plan_primer_pago':
+        return registro.plan_primer_pago || '';
+      case 'referencia_primer_pago':
+        return registro.referencia_primer_pago || '';
+      case 'total_semestre':
+        return totalSemestre;
+      case 'registrado':
+        return registro.registrado ? 'Sí' : 'No';
+      case 'comentarios':
+        return registro.comentarios || '';
+      case 'derechos_academicos_originales':
+        return valorCredito * totalCreditos;
+      case 'derechos_academicos_descuento':
+        return (valorCredito * totalCreditos) * (1 - porcentaje);
+      case 'ahorro_descuento':
+        return (valorCredito * totalCreditos) * porcentaje;
+      case 'saldo_semestre_original':
+        return totalSemestre - montoPrimerPago;
+      case 'saldo_semestre_descuento':
+        if (porcentaje > 0) {
+          const derechosConDescuento = (valorCredito * totalCreditos) * (1 - porcentaje);
+          return derechosConDescuento + creditoTecnologico - montoPrimerPago;
+        }
+        return totalSemestre - montoPrimerPago;
+      default:
+        const valorGenerico = (registro as unknown as Record<string, unknown>)[key];
+        if (typeof valorGenerico === 'number') {
+          return valorGenerico;
+        }
+        if (valorGenerico === null || valorGenerico === undefined) {
+          return '';
+        }
+        return String(valorGenerico);
+    }
+  }
+
+  private obtenerAnchoColumna(key: string): number {
+    const widths: Record<string, number> = {
+      gestion: 16,
+      fecha_solicitud: 18,
+      id_solicitud: 14,
+      ci_estudiante: 18,
+      nombre_estudiante: 35,
+      carrera: 30,
+      total_creditos: 15,
+      valor_credito: 18,
+      credito_tecnologico: 20,
+      porcentaje_descuento: 18,
+      monto_primer_pago: 20,
+      plan_primer_pago: 25,
+      referencia_primer_pago: 34,
+      total_semestre: 20,
+      registrado: 12,
+      comentarios: 40,
+      derechos_academicos_originales: 26,
+      derechos_academicos_descuento: 28,
+      ahorro_descuento: 22,
+      saldo_semestre_original: 24,
+      saldo_semestre_descuento: 26
+    };
+
+    return widths[key] ?? 20;
+  }
+
+  private sanitizarNombreArchivo(nombre: string): string {
+    return nombre
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9-_]+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_|_$/g, '')
+      .toLowerCase();
+  }
+
+  private crearConfigExportacionPorDefecto(): ExportConfig {
+    const columnas: ExportColumn[] = [
+      { key: 'gestion', label: 'Gestión', enabled: true },
+      { key: 'fecha_solicitud', label: 'Fecha de Solicitud', enabled: true },
+      { key: 'id_solicitud', label: 'ID Solicitud', enabled: true },
+      { key: 'ci_estudiante', label: 'Carnet de Identidad', enabled: true },
+      { key: 'nombre_estudiante', label: 'Nombre Completo', enabled: true },
+      { key: 'carrera', label: 'Carrera', enabled: true },
+      { key: 'plan_primer_pago', label: 'Plan de Pago', enabled: true },
+      { key: 'monto_primer_pago', label: 'Monto Primer Pago', enabled: true },
+      { key: 'porcentaje_descuento', label: 'Porcentaje Descuento', enabled: true },
+      { key: 'total_creditos', label: 'Total U.V.E.', enabled: true },
+      { key: 'valor_credito', label: 'Valor por U.V.E.', enabled: true },
+      { key: 'credito_tecnologico', label: 'Crédito Tecnológico', enabled: true },
+      { key: 'total_semestre', label: 'Total Semestre', enabled: true },
+      { key: 'referencia_primer_pago', label: 'Referencia Primer Pago', enabled: true },
+      { key: 'registrado', label: 'Registrado', enabled: true },
+      { key: 'comentarios', label: 'Comentarios', enabled: true },
+      { key: 'derechos_academicos_originales', label: 'Derechos Académicos Originales', enabled: true, isCalculated: true },
+      { key: 'derechos_academicos_descuento', label: 'Derechos Académicos con Descuento', enabled: true, isCalculated: true },
+      { key: 'ahorro_descuento', label: 'Ahorro por Descuento', enabled: true, isCalculated: true },
+      { key: 'saldo_semestre_original', label: 'Saldo Semestre Original', enabled: true, isCalculated: true },
+      { key: 'saldo_semestre_descuento', label: 'Saldo Semestre con Descuento', enabled: true, isCalculated: true }
+    ];
+
+    return {
+      columns: columnas.map(col => ({ ...col })),
+      includeCalculatedFields: true,
+      fileName: 'reporte_lista_registros'
+    };
+  }
+
+  exportarListadoPDF(): void {
+    if (this.isGeneratingListadoPDF) {
+      return;
+    }
+
+    if (!this.hayDatosFiltrados()) {
+      this.toastService.warning('Sin datos', 'Aplica filtros con resultados antes de exportar.');
+      return;
+    }
+
+    this.isGeneratingListadoPDF = true;
+
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      const generatedAt = new Date();
+      const tableMarginTop = 36;
+
+      const detalleFilas = this.obtenerDetallesParaExportacion();
+      const tableColumnas = [
+        { header: 'Gestión', dataKey: 'Gestion' },
+        { header: 'Fecha Registro', dataKey: 'FechaSolicitud' },
+        { header: 'CI', dataKey: 'CI' },
+        { header: 'Estudiante', dataKey: 'NombreEstudiante' },
+        { header: 'Carrera', dataKey: 'Carrera' },
+        { header: 'Total U.V.E.', dataKey: 'TotalUVE' },
+        { header: 'Plan de pago', dataKey: 'PlanPago' },
+        { header: '% Desc.', dataKey: 'PorcentajeDescuento' },
+        //{ header: 'Monto 1er Pago', dataKey: 'MontoPrimerPago' },
+        { header: 'Registrado', dataKey: 'Registrado' }
+      ];
+
+      autoTable(doc, {
+        head: [tableColumnas.map(col => col.header)],
+        body: detalleFilas.map(fila => tableColumnas.map(col => fila[col.dataKey as keyof typeof fila])),
+        margin: { top: tableMarginTop, left: 14, right: 14, bottom: 14 },
+        styles: { fontSize: 8, cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.2 },
+        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        didDrawPage: () => {
+          this.dibujarEncabezadoPDF(doc, pageWidth, generatedAt);
+        }
+      });
+
+      const nombreArchivo = `reporte_lista_registros_${this.formatDateForFile(new Date())}.pdf`;
+      doc.save(nombreArchivo);
+      this.toastService.success('PDF generado', 'Reporte global exportado correctamente.', 3000);
+    } catch (error) {
+      console.error('❌ Error exportando PDF listado:', error);
+      this.toastService.error('Error de exportación', 'No se pudo generar el archivo PDF.');
+    } finally {
+      this.isGeneratingListadoPDF = false;
+    }
+  }
+
+  private obtenerDetallesParaExportacion() {
+    const filas = this.obtenerTodasLasFilasFiltradas();
+    return filas.map(registro => ({
+      Gestion: this.getNombreGestion(registro.id_gestion),
+      FechaSolicitud: registro.solicitudInfo ? this.formatearFecha(registro.solicitudInfo.fecha) : '',
+      IdSolicitud: registro.id_solicitud ? registro.id_solicitud.slice(-8) : '',
+      CI: registro.ci_estudiante,
+      NombreEstudiante: registro.nombre_estudiante,
+      Carrera: registro.carrera,
+      PlanPago: registro.plan_primer_pago || 'No definido',
+      PorcentajeDescuento: `${((registro.porcentaje_descuento || 0) * 100).toFixed(1)}%`,
+      ValorUVE: registro.valor_credito,
+      TotalUVE: registro.total_creditos,
+      MontoPrimerPago: registro.monto_primer_pago,
+      Registrado: registro.registrado ? 'Sí' : 'No',
+      Comentarios: registro.comentarios || ''
+    }));
+  }
+
+  private obtenerResumenDatos(): Array<{ Etiqueta: string; Detalle: string }> {
+    const totalSolicitudes = this.solicitudesFiltradasTotales.length;
+    const totalEstudiantes = this.obtenerTodasLasFilasFiltradas().length;
+    const totalRegistrados = this.obtenerTodasLasFilasFiltradas().filter(r => r.registrado).length;
+
+    return [
+      { Etiqueta: 'Total de solicitudes', Detalle: totalSolicitudes.toString() },
+      { Etiqueta: 'Total de estudiantes', Detalle: totalEstudiantes.toString() },
+      { Etiqueta: 'Estudiantes registrados', Detalle: totalRegistrados.toString() }
+    ];
+  }
+
+  private dibujarEncabezadoPDF(doc: jsPDF, pageWidth: number, generatedAt: Date): void {
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageWidth, 24, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('REPORTE GENERAL - APOYO FAMILIAR', pageWidth / 2, 14, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Servicio Académico Administrativo Estudiantil', pageWidth / 2, 20, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${generatedAt.toLocaleString('es-BO')}`, pageWidth - 16, 22, { align: 'right' });
   }
 
   private ordenarRegistrosPorDescuento<T extends RegistroConSolicitud>(registros: T[]): T[] {

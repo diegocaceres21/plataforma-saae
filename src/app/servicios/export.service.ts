@@ -28,11 +28,11 @@ export class ExportService {
       { key: 'total_semestre', label: 'Total Semestre', enabled: true },
       { key: 'registrado', label: 'Registrado', enabled: false },
       { key: 'comentarios', label: 'Comentarios', enabled: false },
-      { key: 'derechos_academicos_originales', label: 'Derechos Académicos Originales', enabled: false },
-      { key: 'derechos_academicos_descuento', label: 'Derechos Académicos con Descuento', enabled: false },
-      { key: 'ahorro_descuento', label: 'Ahorro por Descuento', enabled: false },
-      { key: 'saldo_semestre_original', label: 'Saldo Semestre Original', enabled: false },
-      { key: 'saldo_semestre_descuento', label: 'Saldo Semestre con Descuento', enabled: false }
+      { key: 'derechos_academicos_originales', label: 'Derechos Académicos Originales', enabled: false, isCalculated: true },
+      { key: 'derechos_academicos_descuento', label: 'Derechos Académicos con Descuento', enabled: false, isCalculated: true },
+      { key: 'ahorro_descuento', label: 'Ahorro por Descuento', enabled: false, isCalculated: true },
+      { key: 'saldo_semestre_original', label: 'Saldo Semestre Original', enabled: false, isCalculated: true },
+      { key: 'saldo_semestre_descuento', label: 'Saldo Semestre con Descuento', enabled: false, isCalculated: true }
     ];
   }
 
