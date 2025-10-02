@@ -6,15 +6,20 @@ import { BehaviorSubject } from 'rxjs';
 })
 export class LoadingService {
   private loadingSubject = new BehaviorSubject<boolean>(false);
+  private messageSubject = new BehaviorSubject<string>('Cargando...');
   private loadingCount = 0;
 
   public loading$ = this.loadingSubject.asObservable();
+  public message$ = this.messageSubject.asObservable();
 
   /**
-   * Mostrar loading
+   * Mostrar loading con mensaje opcional
    */
-  show(): void {
+  show(message?: string): void {
     this.loadingCount++;
+    if (message) {
+      this.messageSubject.next(message);
+    }
     if (this.loadingCount === 1) {
       this.loadingSubject.next(true);
     }
@@ -28,6 +33,8 @@ export class LoadingService {
     if (this.loadingCount <= 0) {
       this.loadingCount = 0;
       this.loadingSubject.next(false);
+      // Reset message to default
+      this.messageSubject.next('Cargando...');
     }
   }
 
@@ -41,8 +48,13 @@ export class LoadingService {
   /**
    * Forzar estado de loading
    */
-  setLoading(loading: boolean): void {
+  setLoading(loading: boolean, message?: string): void {
     this.loadingCount = loading ? 1 : 0;
     this.loadingSubject.next(loading);
+    if (message) {
+      this.messageSubject.next(message);
+    } else if (!loading) {
+      this.messageSubject.next('Cargando...');
+    }
   }
 }
