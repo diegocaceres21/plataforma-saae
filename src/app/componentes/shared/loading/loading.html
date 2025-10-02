@@ -1,27 +1,28 @@
-<!-- Loading overlay that covers its parent container -->
-<div class="absolute inset-0 bg-black/40 backdrop-blur-sm  flex items-center justify-center z-50">
-  <div class="bg-white bg-opacity-50 backdrop-blur-sm rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-gray-200">
+<!-- Loading overlay that covers the entire viewport -->
+<div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 border border-gray-200">
     <div class="flex flex-col items-center gap-4">
       <!-- Animated UCB logo with spinning effect -->
       <div class="relative">
-        <div class="w-16 h-16 border-4 border-gray-200 rounded-full animate-spin border-t-blue-900"></div>
+        <div class="w-20 h-20 border-4 border-gray-200 rounded-full animate-spin border-t-blue-900"></div>
         <div class="absolute inset-0 flex items-center justify-center">
           <div class="flex gap-1">
-            <span class="text-lg font-bold text-blue-900">U</span>
-            <span class="text-lg font-bold text-yellow-400">C</span>
-            <span class="text-lg font-bold text-blue-900">B</span>
+            <span class="text-xl font-bold text-blue-900">U</span>
+            <span class="text-xl font-bold text-yellow-400">C</span>
+            <span class="text-xl font-bold text-blue-900">B</span>
           </div>
         </div>
       </div>
       
       <!-- Loading text with fade animation -->
       <div class="text-center">
-        <p class="font-[Roboto] text-blue-900 font-semibold animate-pulse">{{ message || 'Cargando...' }}</p>
-        <div class="flex justify-center mt-2">
-          <div class="flex gap-1">
-            <div class="w-2 h-2 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-            <div class="w-2 h-2 bg-blue-900 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-            <div class="w-2 h-2 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+        <p class="font-[Roboto] text-blue-900 font-semibold text-lg animate-pulse">{{ (loadingService.message$ | async) || 'Cargando...' }}</p>
+        <p class="text-sm text-slate-600 mt-1">Por favor, espera un momento</p>
+        <div class="flex justify-center mt-3">
+          <div class="flex gap-1.5">
+            <div class="w-2.5 h-2.5 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+            <div class="w-2.5 h-2.5 bg-blue-900 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+            <div class="w-2.5 h-2.5 bg-yellow-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
           </div>
         </div>
       </div>

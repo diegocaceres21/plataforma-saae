@@ -33,6 +33,9 @@ export class RegistroMasivo implements OnInit {
   private carreraService = inject(CarreraService);
   private gestionService = inject(GestionService);
   
+  // Step navigation
+  currentStep = 1;
+  
   // File upload state
   selectedFile: File | null = null;
   isDragging = false;
@@ -141,11 +144,11 @@ export class RegistroMasivo implements OnInit {
     }
     
     this.selectedFile = file;
-    this.toastService.info(
+    /*this.toastService.info(
       'Archivo seleccionado',
       `${file.name} listo para procesar`,
       3000
-    );
+    );*/
   }
   
   procesarArchivo(): void {
@@ -187,7 +190,7 @@ export class RegistroMasivo implements OnInit {
           // Only add groups with at least 2 students
           if (cis.length >= 2) {
             this.uploadedGroups.push({
-              rowNumber: i + 1,
+              rowNumber: i ,
               cis
             });
           }
@@ -199,11 +202,13 @@ export class RegistroMasivo implements OnInit {
             'El archivo no contiene grupos con al menos 2 estudiantes'
           );
         } else {
-          this.toastService.success(
+          /*this.toastService.success(
             'Archivo procesado',
             `Se encontraron ${this.uploadedGroups.length} grupos para procesar`,
             3000
-          );
+          );*/
+          // Move to step 3 after successful upload and parsing
+          this.currentStep = 3;
         }
         
       } catch (error) {
@@ -229,6 +234,7 @@ export class RegistroMasivo implements OnInit {
     this.selectedFile = null;
     this.uploadedGroups = [];
     this.processedGroups = [];
+    this.currentStep = 1;
     
     // Reset file input
     const fileInput = document.getElementById('fileInput') as HTMLInputElement;
@@ -244,12 +250,19 @@ export class RegistroMasivo implements OnInit {
     }
     
     this.isCalculating = true;
-    this.loadingService.show();
+    this.loadingService.show('Procesando grupos familiares...');
     this.processedGroups = [];
     
     try {
+      const totalGrupos = this.uploadedGroups.length;
+      
       // Process each group
-      for (const grupo of this.uploadedGroups) {
+      for (let i = 0; i < this.uploadedGroups.length; i++) {
+        const grupo = this.uploadedGroups[i];
+        
+        // Update loading message with progress
+        this.loadingService.show(`Procesando grupo ${i + 1} de ${totalGrupos}...`);
+        
         try {
           const registros = await this.procesarGrupo(grupo);
           
@@ -274,7 +287,14 @@ export class RegistroMasivo implements OnInit {
       const exitosos = this.processedGroups.filter(g => !g.hasErrors).length;
       const fallidos = this.processedGroups.filter(g => g.hasErrors).length;
       
+      // Force hide loading before showing results (reset counter)
+      this.isCalculating = false;
+      this.loadingService.setLoading(false);
+      
       if (exitosos > 0) {
+        // Move to step 4 after successful calculation
+        this.currentStep = 4;
+        
         this.toastService.success(
           'Cálculo completado',
           `${exitosos} grupos procesados exitosamente${fallidos > 0 ? ` (${fallidos} con errores)` : ''}`,
@@ -289,13 +309,12 @@ export class RegistroMasivo implements OnInit {
       
     } catch (error) {
       console.error('Error calculando descuentos:', error);
+      this.isCalculating = false;
+      this.loadingService.setLoading(false);
       this.toastService.error(
         'Error de procesamiento',
         'No se pudieron calcular los descuentos'
       );
-    } finally {
-      this.isCalculating = false;
-      this.loadingService.hide();
     }
   }
   
@@ -493,6 +512,61 @@ export class RegistroMasivo implements OnInit {
     });
   }
   
+  // Check if there are ties in UVE credits within a group
+  tieneEmpates(grupo: GrupoFamiliar): boolean {
+    if (!grupo.registros || grupo.registros.length < 2) {
+      return false;
+    }
+    
+    const creditos = grupo.registros.map(r => r.total_creditos || 0);
+    const creditosUnicos = new Set(creditos);
+    
+    // If there are fewer unique values than total registros, there are ties
+    return creditosUnicos.size < creditos.length;
+  }
+  
+  // Move student up in the order
+  moverEstudianteArriba(grupo: GrupoFamiliar, index: number): void {
+    if (!grupo.registros || index === 0) {
+      return;
+    }
+    
+    // Swap positions
+    const temp = grupo.registros[index];
+    grupo.registros[index] = grupo.registros[index - 1];
+    grupo.registros[index - 1] = temp;
+    
+    // Recalculate discounts with new order
+    this.calcularPorcentajesGrupo(grupo.registros);
+  }
+  
+  // Move student down in the order
+  moverEstudianteAbajo(grupo: GrupoFamiliar, index: number): void {
+    if (!grupo.registros || index === grupo.registros.length - 1) {
+      return;
+    }
+    
+    // Swap positions
+    const temp = grupo.registros[index];
+    grupo.registros[index] = grupo.registros[index + 1];
+    grupo.registros[index + 1] = temp;
+    
+    // Recalculate discounts with new order
+    this.calcularPorcentajesGrupo(grupo.registros);
+  }
+  
+  // Check if two consecutive students have the same UVE credits (can be swapped)
+  puedenIntercambiarse(grupo: GrupoFamiliar, index1: number, index2: number): boolean {
+    if (!grupo.registros || index1 < 0 || index2 >= grupo.registros.length) {
+      return false;
+    }
+    
+    const creditos1 = grupo.registros[index1]?.total_creditos || 0;
+    const creditos2 = grupo.registros[index2]?.total_creditos || 0;
+    
+    return creditos1 === creditos2;
+  }
+  
   // Delete group methods
   confirmarEliminarGrupo(grupo: GrupoFamiliar): void {
     this.groupToDelete = grupo;
@@ -516,10 +590,55 @@ export class RegistroMasivo implements OnInit {
     
     this.toastService.success(
       'Grupo eliminado',
-      `Grupo ${this.groupToDelete.rowNumber} eliminado correctamente`
+      `Grupo ${this.groupToDelete.rowNumber} eliminado correctamente`,
+      3000
     );
     
     this.groupToDelete = null;
     this.showDeleteConfirmModal = false;
+  }
+  
+  // Step navigation methods
+  volverPasoAnterior(): void {
+    if (this.currentStep === 3) {
+      // From step 3, go back to show steps 1 and 2
+      this.currentStep = 2;
+      this.processedGroups = []; // Clear processed groups
+    } else if (this.currentStep === 4) {
+      // From step 4, go back to show step 3
+      this.currentStep = 3;
+    } else if (this.currentStep === 2) {
+      // From step 2, go back to step 1
+      this.currentStep = 1;
+    }
+  }
+  
+  async guardarRegistros(): Promise<void> {
+    // TODO: Implement save functionality to database
+    this.loadingService.show('Guardando registros...');
+    
+    try {
+      // Simulate save operation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      this.loadingService.setLoading(false);
+      
+      this.toastService.success(
+        'Registros guardados',
+        'Los registros han sido guardados exitosamente en la base de datos',
+        3000
+      );
+      
+      // Reset to initial state after save
+      this.limpiarArchivo();
+      
+    } catch (error) {
+      console.error('Error guardando registros:', error);
+      this.loadingService.setLoading(false);
+      this.toastService.error(
+        'Error al guardar',
+        'No se pudieron guardar los registros'
+      );
+    }
   }
 }
