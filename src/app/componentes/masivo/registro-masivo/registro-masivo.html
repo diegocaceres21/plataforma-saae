@@ -33,8 +33,9 @@
           <div class="ml-4 flex-1">
             <h2 class="text-xl font-semibold text-slate-900 mb-2">Descarga la Plantilla Excel</h2>
             <p class="text-slate-600 mb-4">
-              La plantilla contiene 5 columnas para los carnets de identidad. Cada fila representa un grupo familiar (mínimo 2 estudiantes, máximo 5).
+              La plantilla contiene 5 columnas donde puedes ingresar el <strong>carnet de identidad o el nombre completo</strong> de cada estudiante. Cada fila representa un grupo familiar (mínimo 2 estudiantes, máximo 5).
             </p>
+            
             
             <button
               type="button"
@@ -313,7 +314,12 @@
                         </thead>
                         <tbody class="text-sm divide-y divide-slate-100">
                           @for (registro of grupo.registros; track registro.id; let idx = $index) {
-                            <tr class="hover:bg-slate-50" [ngClass]="{'bg-red-200 hover:bg-red-100': registro.plan_primer_pago === 'PLAN PLUS'}">
+                            <tr class="hover:bg-slate-50" 
+                                [ngClass]="{
+                                  'bg-red-200 hover:bg-red-100': registro.plan_primer_pago === 'PLAN PLUS',
+                                  'bg-orange-100 hover:bg-orange-50': tieneCIDuplicado(registro),
+                                  'bg-yellow-50 hover:bg-yellow-100': registro.sin_kardex
+                                }">
                               <!-- Reorder buttons column (only show if there are ties) -->
                               @if (tieneEmpates(grupo)) {
                                 <td class="px-2 py-3 text-center">
@@ -346,8 +352,38 @@
                                 </td>
                               }
                               
-                              <td class="px-4 py-3 font-mono text-xs">{{ registro.ci_estudiante }}</td>
-                              <td class="px-4 py-3">{{ registro.nombre_estudiante }}</td>
+                              <td class="px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                  <span class="font-mono text-xs">{{ registro.ci_estudiante }}</span>
+                                  @if (tieneCIDuplicado(registro)) {
+                                    <button
+                                      type="button"
+                                      (click)="mostrarModalDuplicados(registro.ci_estudiante)"
+                                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-200 text-orange-800 hover:bg-orange-300 transition-colors cursor-pointer"
+                                      title="CI duplicado - Click para gestionar">
+                                      ⚠️ Duplicado
+                                    </button>
+                                  }
+                                  @if (registro.sin_kardex) {
+                                    <button
+                                      type="button"
+                                      (click)="iniciarReemplazo(grupo, registro)"
+                                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-200 text-yellow-800 hover:bg-yellow-300 transition-colors cursor-pointer"
+                                      [title]="registro.comentarios || 'Click para reemplazar o eliminar'">
+                                      @if (registro.nombre_estudiante === 'Estudiante no encontrado') {
+                                        ❌ No encontrado
+                                      } @else {
+                                        ⚠️ Sin kardex
+                                      }
+                                    </button>
+                                  }
+                                </div>
+                              </td>
+                              <td class="px-4 py-3">
+                                <span [class.text-red-600]="registro.nombre_estudiante === 'Estudiante no encontrado'">
+                                  {{ registro.nombre_estudiante }}
+                                </span>
+                              </td>
                               <td class="px-4 py-3 text-xs">{{ registro.carrera }}</td>
                               <td class="px-4 py-3 text-right font-medium">{{ registro.total_creditos }}</td>
                               <td class="px-4 py-3 text-right">
@@ -391,6 +427,107 @@
                 Guardar Todos los Grupos
               </button>
             </div>
+            
+            <!-- Replace Student Modal (for sin_kardex students) -->
+            @if (grupoToEdit && registroToReplace && registroToReplace.sin_kardex) {
+              <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                  <!-- Modal Header -->
+                  <div class="bg-yellow-50 border-b border-yellow-200 px-6 py-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                          <svg class="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 class="text-lg font-semibold text-slate-900">
+                            @if (registroToReplace.nombre_estudiante === 'Estudiante no encontrado') {
+                              Estudiante no encontrado en el sistema
+                            } @else {
+                              Estudiante sin registro en gestiones
+                            }
+                          </h3>
+                          <p class="text-sm text-slate-600">Grupo {{ grupoToEdit.rowNumber }}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        (click)="cancelarReemplazo()"
+                        class="text-slate-400 hover:text-slate-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <!-- Modal Body -->
+                  <div class="px-6 py-4 max-h-[calc(90vh-200px)] overflow-y-auto">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                      <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div class="flex-1">
+                          <p class="text-sm font-medium text-yellow-800 mb-1">
+                            @if (registroToReplace.nombre_estudiante === 'Estudiante no encontrado') {
+                              El CI <strong>{{ registroToReplace.ci_estudiante }}</strong> no existe en el sistema académico.
+                            } @else {
+                              El estudiante <strong>{{ registroToReplace.nombre_estudiante }}</strong> (CI: {{ registroToReplace.ci_estudiante }}) no tiene registro en las gestiones activas.
+                            }
+                          </p>
+                          <p class="text-xs text-yellow-700">
+                            Reemplázalo por otro estudiante válido o elimínalo del grupo.
+                          </p>
+                          @if (registroToReplace.comentarios) {
+                            <p class="text-xs text-red-600 mt-2 font-mono">
+                              {{ registroToReplace.comentarios }}
+                            </p>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- Replace Form -->
+                    <div class="space-y-3">
+                      <label class="block text-sm font-medium text-slate-700 mb-2">
+                        Buscar estudiante de reemplazo:
+                      </label>
+                      <app-student-autocomplete
+                        placeholder="Buscar por carnet o nombre"
+                        [excludedCIs]="getExcludedCIsForReplace()"
+                        [disabled]="isReplacingStudent"
+                        (studentSelected)="reemplazarEstudiante($event)"
+                      ></app-student-autocomplete>
+                      
+                      <!-- Action buttons -->
+                      <div class="flex gap-2 mt-4">
+                        <button
+                          type="button"
+                          (click)="eliminarEstudianteDeGrupo(grupoToEdit, registroToReplace)"
+                          [disabled]="isReplacingStudent"
+                          class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors">
+                          <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                          </svg>
+                          Eliminar del Grupo
+                        </button>
+                        
+                        <button
+                          type="button"
+                          (click)="cancelarReemplazo()"
+                          [disabled]="isReplacingStudent"
+                          class="flex-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
           </div>
         </div>
       </div>
@@ -453,6 +590,118 @@
             (click)="eliminarGrupo()"
             class="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
             Eliminar Grupo
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  }
+  
+  <!-- Duplicate CI Modal -->
+  @if (showDuplicateModal && duplicateCIInfo) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        
+        <!-- Modal Header -->
+        <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="flex-shrink-0 w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mr-4">
+                <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-slate-900">Carnet Duplicado Detectado</h3>
+                <p class="text-sm text-slate-600 mt-1">CI: <strong>{{ duplicateCIInfo.ci }}</strong> aparece en múltiples grupos</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              (click)="cerrarModalDuplicados()"
+              class="text-slate-400 hover:text-slate-600 transition-colors">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-6">
+          <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+            <p class="text-sm text-orange-800">
+              <strong>⚠️ No se puede guardar con carnets duplicados.</strong> 
+              Debes eliminar uno de los grupos o reemplazar al estudiante duplicado por otro.
+            </p>
+          </div>
+          
+          <div class="space-y-4">
+            @for (item of duplicateCIInfo.grupos; track item.grupo.rowNumber) {
+              <div class="border border-slate-300 rounded-lg overflow-hidden">
+                <!-- Group info -->
+                <div class="bg-slate-100 px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <h4 class="font-semibold text-slate-900">Grupo {{ item.grupo.rowNumber }}</h4>
+                    <p class="text-xs text-slate-600 mt-1">
+                      <strong>{{ item.registro.nombre_estudiante }}</strong>
+                    </p>
+                    <p class="text-xs text-slate-500">
+                      {{ item.registro.carrera }} | {{ item.registro.total_creditos }} U.V.E. | 
+                      Descuento: {{ (item.registro.porcentaje_descuento * 100).toFixed(0) }}%
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    (click)="eliminarGrupoPorDuplicado(item.grupo)"
+                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors">
+                    Eliminar Grupo
+                  </button>
+                </div>
+                
+                <!-- Replace option -->
+                @if (grupoToEdit?.rowNumber === item.grupo.rowNumber) {
+                  <div class="bg-blue-50 px-4 py-4 border-t border-slate-200">
+                    <p class="text-sm font-medium text-slate-900 mb-3">Reemplazar estudiante por:</p>
+                    <div class="space-y-3">
+                      <app-student-autocomplete
+                        placeholder="Buscar estudiante por carnet o nombre"
+                        [excludedCIs]="getExcludedCIsForReplace()"
+                        [disabled]="isReplacingStudent"
+                        (studentSelected)="reemplazarEstudiante($event)"
+                      ></app-student-autocomplete>
+                      
+                      <button
+                        type="button"
+                        (click)="cancelarReemplazo()"
+                        [disabled]="isReplacingStudent"
+                        class="w-full px-4 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-50 text-slate-700 text-sm font-medium rounded-lg transition-colors">
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="px-4 py-3 border-t border-slate-200">
+                    <button
+                      type="button"
+                      (click)="iniciarReemplazo(item.grupo, item.registro)"
+                      class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      O reemplazar por otro estudiante →
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4">
+          <button
+            type="button"
+            (click)="cerrarModalDuplicados()"
+            class="w-full px-4 py-2.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors">
+            Cerrar
           </button>
         </div>
         
