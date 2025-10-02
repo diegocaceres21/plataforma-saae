@@ -318,7 +318,8 @@
                                 [ngClass]="{
                                   'bg-red-200 hover:bg-red-100': registro.plan_primer_pago === 'PLAN PLUS',
                                   'bg-orange-100 hover:bg-orange-50': tieneCIDuplicado(registro),
-                                  'bg-yellow-50 hover:bg-yellow-100': registro.sin_kardex
+                                  'bg-yellow-50 hover:bg-yellow-100': registro.sin_kardex,
+                                  'bg-amber-50 hover:bg-amber-100': registro.sin_pago && !registro.sin_kardex
                                 }">
                               <!-- Reorder buttons column (only show if there are ties) -->
                               @if (tieneEmpates(grupo)) {
@@ -375,6 +376,15 @@
                                       } @else {
                                         ⚠️ Sin kardex
                                       }
+                                    </button>
+                                  }
+                                  @if (registro.sin_pago && !registro.sin_kardex) {
+                                    <button
+                                      type="button"
+                                      (click)="ingresarDatosPagoManual(grupo, registro)"
+                                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-200 text-amber-800 hover:bg-amber-300 transition-colors cursor-pointer"
+                                      title="Sin plan de pago - Click para ingresar manualmente">
+                                      💳 Sin plan de pago
                                     </button>
                                   }
                                 </div>
@@ -708,6 +718,15 @@
       </div>
     </div>
   }
+  
+  <!-- Manual Payment Modal -->
+  <app-manual-payment-modal
+    [isOpen]="showManualPaymentModal"
+    [studentName]="currentStudentForManualInput"
+    [studentCI]="currentStudentCIForManualInput"
+    (onSubmit)="onManualPaymentSubmit($event)"
+    (onCancel)="onManualPaymentCancel()">
+  </app-manual-payment-modal>
   
   <!-- Toast Container -->
   <app-toast-container></app-toast-container>

@@ -1,0 +1,81 @@
+@if (isOpen) {
+  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-8 border border-gray-200">
+      <div class="text-center mb-6">
+        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100 mb-4">
+          <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 font-[Inter]">Información de Pago No Encontrada</h3>
+        <p class="text-sm text-gray-600 mt-2">
+          No se pudo encontrar automáticamente la información de pago para 
+          @if (studentName && studentCI) {
+            <strong>{{ studentName }}</strong> (CI: {{ studentCI }}).
+          } @else if (studentName) {
+            <strong>{{ studentName }}</strong>.
+          } @else {
+            este estudiante.
+          }
+          Por favor, ingresa los datos manualmente.
+        </p>
+      </div>
+      
+      <form class="space-y-4" (ngSubmit)="handleSubmit()">
+        <div>
+          <label for="referencia" class="block text-sm font-medium text-gray-700 mb-1">Referencia de Pago</label>
+          <input 
+            type="text" 
+            id="referencia"
+            name="referencia"
+            [(ngModel)]="paymentData.referencia"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="Ej: PRIMER PAGO ESTANDAR TUPURAYA 1-2024"
+            required>
+        </div>
+        
+        <div>
+          <label for="planAccedido" class="block text-sm font-medium text-gray-700 mb-1">Plan Accedido</label>
+          <select 
+            id="planAccedido"
+            name="planAccedido"
+            [(ngModel)]="paymentData.planAccedido"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            required>
+            <option value="PLAN ESTANDAR">PLAN ESTANDAR</option>
+            <option value="PLAN PLUS">PLAN PLUS</option>
+            <option value="OTRO">OTRO</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="pagoRealizado" class="block text-sm font-medium text-gray-700 mb-1">Monto Pagado (Bs.)</label>
+          <input 
+            type="number" 
+            id="pagoRealizado"
+            name="pagoRealizado"
+            [(ngModel)]="paymentData.pagoRealizado"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            placeholder="0.00"
+            min="0"
+            step="0.01"
+            required>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button 
+            type="button"
+            (click)="handleCancel()"
+            class="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+            Cancelar
+          </button>
+          <button 
+            type="submit"
+            class="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

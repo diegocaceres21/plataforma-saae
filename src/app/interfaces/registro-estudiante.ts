@@ -19,4 +19,5 @@ export interface RegistroEstudiante {
     created_at?: string;
     updated_at?: string;
     sin_kardex?: boolean; // True si no se encontró información en las gestiones activas
+    sin_pago?: boolean; // True si no se encontró plan de pago en el sistema
 }

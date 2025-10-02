@@ -12,6 +12,7 @@ import { Gestion } from '../../../interfaces/gestion';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { StudentAutocompleteComponent } from '../../shared/student-autocomplete/student-autocomplete';
 import { StudentSearchResult } from '../../../interfaces/student-search';
+import { ManualPaymentModalComponent, ManualPaymentData } from '../../shared/manual-payment-modal/manual-payment-modal';
 import * as XLSX from 'xlsx';
 import '../../../interfaces/electron-api';
 
@@ -25,7 +26,7 @@ interface GrupoFamiliar {
 
 @Component({
   selector: 'app-registro-masivo',
-  imports: [CommonModule, FormsModule, RouterLink, ToastContainerComponent, StudentAutocompleteComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ToastContainerComponent, StudentAutocompleteComponent, ManualPaymentModalComponent],
   templateUrl: './registro-masivo.html',
   styleUrl: './registro-masivo.scss'
 })
@@ -65,6 +66,12 @@ export class RegistroMasivo implements OnInit {
   grupoToEdit: GrupoFamiliar | null = null;
   registroToReplace: RegistroEstudiante | null = null;
   isReplacingStudent = false;
+  
+  // Manual payment modal
+  showManualPaymentModal = false;
+  currentStudentForManualInput = '';
+  currentStudentCIForManualInput = '';
+  private manualPaymentResolve: ((data: ManualPaymentData | null) => void) | null = null;
   
   async ngOnInit() {
     await this.gestionService.loadGestionData();
@@ -402,7 +409,7 @@ export class RegistroMasivo implements OnInit {
         // Only calculate career info if we have valid kardex data
         if (!sinKardex) {
           // Get payment information
-          const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(idEstudiante);
+          const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
           
           // Get career info from service
           const carreras = this.carreraService.currentData;
@@ -436,8 +443,9 @@ export class RegistroMasivo implements OnInit {
             referencia_primer_pago: referencia,
             total_semestre: totalSemestre,
             registrado: false,
-            comentarios: '',
-            sin_kardex: false
+            comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
+            sin_kardex: false,
+            sin_pago: sinPago
           };
           
           registros.push(registro);
@@ -552,13 +560,15 @@ export class RegistroMasivo implements OnInit {
     return [totalCreditos, carrera, false]; // false = tiene kardex válido
   }
   
-  private async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number]> {
+  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean]> {
     let referencia = "";
     let planAccedido = "";
     let pagoRealizado = 0;
+    let sinPago = false;
     
     if (!window.academicoAPI) {
-      return [referencia, 'No encontrado', pagoRealizado];
+      // No API available - mark as sin_pago
+      return [referencia, 'No encontrado', pagoRealizado, true];
     }
     
     try {
@@ -616,8 +626,13 @@ export class RegistroMasivo implements OnInit {
       console.error('Error obteniendo plan de pago:', error);
     }
     
-    // Return empty values if not found (will be handled in UI)
-    return [referencia, planAccedido || 'No encontrado', pagoRealizado];
+    // If no payment found, mark as sin_pago
+    if (!planAccedido) {
+      sinPago = true;
+    }
+    
+    // Return values with sin_pago flag
+    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago];
   }
   
   private calcularPorcentajesGrupo(registros: RegistroEstudiante[]): void {
@@ -785,7 +800,7 @@ export class RegistroMasivo implements OnInit {
       }
       
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(idEstudiante);
+      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
       
       // Get career info
       const carreras = this.carreraService.currentData;
@@ -815,7 +830,8 @@ export class RegistroMasivo implements OnInit {
       this.registroToReplace.referencia_primer_pago = referencia;
       this.registroToReplace.total_semestre = totalSemestre;
       this.registroToReplace.sin_kardex = false;
-      this.registroToReplace.comentarios = '';
+      this.registroToReplace.sin_pago = sinPago;
+      this.registroToReplace.comentarios = sinPago ? 'Sin plan de pago encontrado' : '';
       
       // Recalculate discounts for the group
       if (this.grupoToEdit.registros) {
@@ -939,6 +955,68 @@ export class RegistroMasivo implements OnInit {
     
     this.groupToDelete = null;
     this.showDeleteConfirmModal = false;
+  }
+  
+  // Manual payment modal methods
+  private showManualPaymentInput(studentName: string, studentCI: string): Promise<ManualPaymentData | null> {
+    return new Promise((resolve) => {
+      this.currentStudentForManualInput = studentName;
+      this.currentStudentCIForManualInput = studentCI;
+      this.showManualPaymentModal = true;
+      this.manualPaymentResolve = resolve;
+    });
+  }
+  
+  onManualPaymentSubmit(data: ManualPaymentData): void {
+    if (this.manualPaymentResolve) {
+      this.manualPaymentResolve(data);
+      this.manualPaymentResolve = null;
+    }
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
+  }
+  
+  onManualPaymentCancel(): void {
+    if (this.manualPaymentResolve) {
+      this.manualPaymentResolve(null);
+      this.manualPaymentResolve = null;
+    }
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
+  }
+  
+  // Method to manually enter payment data for a student without payment plan
+  async ingresarDatosPagoManual(grupo: GrupoFamiliar, registro: RegistroEstudiante): Promise<void> {
+    try {
+      // Show manual payment modal
+      const manualData = await this.showManualPaymentInput(
+        registro.nombre_estudiante,
+        registro.ci_estudiante
+      );
+      
+      if (manualData) {
+        // Update the registro with manual payment data
+        registro.referencia_primer_pago = manualData.referencia;
+        registro.plan_primer_pago = manualData.planAccedido;
+        registro.monto_primer_pago = manualData.pagoRealizado;
+        registro.sin_pago = false;
+        registro.comentarios = '';
+        
+        this.toastService.success(
+          'Datos de pago actualizados',
+          `Plan de pago ingresado para ${registro.nombre_estudiante}`,
+          3000
+        );
+      }
+    } catch (error) {
+      console.error('Error ingresando datos de pago:', error);
+      this.toastService.error(
+        'Error',
+        'No se pudo ingresar los datos de pago'
+      );
+    }
   }
   
   // Step navigation methods
