@@ -5,10 +5,9 @@ import { FormsModule } from '@angular/forms';
 import { LoadingService } from '../../../servicios/loading';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { Gestion } from '../../../interfaces/gestion';
-import { StudentSearchResult, StudentAutocompleteState } from '../../../interfaces/student-search';
+import { StudentSearchResult } from '../../../interfaces/student-search';
+import { StudentAutocompleteComponent } from '../../shared/student-autocomplete/student-autocomplete';
 import '../../../interfaces/electron-api'; // Importar tipos de Electron
-import { Subject, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
 import { CarreraService } from '../../../servicios/carrera.service';
 import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
@@ -18,19 +17,17 @@ import { GestionService } from '../../../servicios/gestion.service';
 
 @Component({
   selector: 'app-registro-individual',
-  imports: [RouterLink, CommonModule, FormsModule, ToastContainerComponent],
+  imports: [RouterLink, CommonModule, FormsModule, ToastContainerComponent, StudentAutocompleteComponent],
   templateUrl: './registro-individual.html',
   styleUrl: './registro-individual.scss'
 })
 
 export class RegistroIndividual implements OnInit {
-  // Single input for search
-  searchQuery: string = '';
   semestreActual: Gestion[] = [];
-  //semestreActual: Gestion = { id: '581e078e-2c19-4d8f-a9f8-eb5ac388cb44', gestion: '2-2025', anio: 2024, tipo: 'Semestre', activo: true, visible: true };
   registrosEstudiantes: RegistroEstudiante[] = [];
   successMessage: string = '';
   gestionService = inject(GestionService)
+  
   // Manual payment input state
   showManualPaymentModal: boolean = false;
   currentStudentForManualInput: string = '';
@@ -51,23 +48,11 @@ export class RegistroIndividual implements OnInit {
   selectedCareerForStudent: string = '';
   originalCareerFromKardex: string = '';
   
-  // Single autocomplete state
-  autocompleteState: StudentAutocompleteState = {
-    query: '', results: [], isLoading: false, isOpen: false, selectedIndex: -1
-  };
-  
-  // Single search subject for debouncing
-  private searchSubject = new Subject<string>();
-  
   public loadingService = inject(LoadingService);
   private apoyoFamiliarService = inject(ApoyoFamiliarService);
   private carreraService = inject(CarreraService);
   private dataService = inject(RegistroIndividualDataService);
   private toastService = inject(ToastService);
-  
-  constructor() {
-    this.initializeSearchSubject();
-  }
   
   async ngOnInit() {
     // Cargar gestiones activas al inicializar el componente
@@ -79,102 +64,18 @@ export class RegistroIndividual implements OnInit {
     }
   }
   
-  private initializeSearchSubject() {
-    // Initialize single search subject for debounced API calls
-    this.searchSubject.pipe(
-      debounceTime(300), // Wait 300ms after user stops typing
-      distinctUntilChanged(),
-      switchMap((query) => 
-        of(query).pipe(
-          switchMap(async (searchQuery) => {
-            await this.searchStudents(searchQuery);
-            return searchQuery;
-          }),
-          catchError(error => {
-            console.error('Search error:', error);
-            this.autocompleteState.isLoading = false;
-            this.autocompleteState.results = [];
-            return of(query);
-          })
-        )
-      )
-    ).subscribe();
-  }
-  
-  onInputChange(query: string) {
-    this.searchQuery = query;
-    this.autocompleteState.query = query;
-    
-    if (query.trim().length >= 2) {
-      this.autocompleteState.isLoading = true;
-      this.autocompleteState.isOpen = true;
-      this.searchSubject.next(query.trim());
-    } else {
-      this.autocompleteState.isOpen = false;
-      this.autocompleteState.results = [];
-      this.autocompleteState.isLoading = false;
-    }
-  }
-  
   // Check if procesar button should be enabled (at least 2 students)
   get canProcess(): boolean {
     return this.registrosEstudiantes.length >= 2;
   }
   
-  private async searchStudents(query: string): Promise<void> {
-    try {
-      if (!window.academicoAPI?.obtenerPersonasPorCarnet) {
-        throw new Error('academicoAPI not available');
-      }
-      
-      // Use the new API that returns multiple results - ONLY basic info for autocomplete
-      const searchResults: StudentSearchResult[] = [];
-      
-      try {
-        const personas = await window.academicoAPI.obtenerPersonasPorCarnet(query);
-        
-        // Only process basic information for fast autocomplete
-        // Filter out students that are already in the list
-        for (const persona of personas) {
-          const carnet = persona.documentoIdentidad || persona.carnet || query;
-          const isAlreadyAdded = this.registrosEstudiantes.some(r => r.ci_estudiante === carnet);
-          
-          if (!isAlreadyAdded) {
-            searchResults.push({
-              id: persona.id,
-              carnet: carnet,
-              nombre: persona.nombreCompleto || persona.nombre || 'Nombre no disponible',
-              carrera: 'Información se cargará al procesar', // Placeholder text
-              creditos: 0 // Will be loaded when processing
-            });
-          }
-        }
-      } catch (error) {
-      }
-      
-      this.autocompleteState.results = searchResults;
-      this.autocompleteState.isLoading = false;
-      
-    } catch (error) {
-      console.error('Error searching students:', error);
-      this.autocompleteState.results = [];
-      this.autocompleteState.isLoading = false;
-    }
+  // Get CIs of already added students for autocomplete exclusion
+  getExcludedCIs(): string[] {
+    return this.registrosEstudiantes.map(r => r.ci_estudiante);
   }
   
-  selectStudent(student: StudentSearchResult) {
-    // Clear the input and close autocomplete
-    this.searchQuery = '';
-    this.autocompleteState.query = '';
-    this.autocompleteState.isOpen = false;
-    this.autocompleteState.selectedIndex = -1;
-    this.autocompleteState.results = [];
-    
-    // Store basic student info - detailed info will be loaded when processing
-    this.addBasicStudentToResults(student);
-  }
-  
-  private addBasicStudentToResults(student: StudentSearchResult) {
+  // Handle student selection from autocomplete
+  onStudentSelected(student: StudentSearchResult) {
     // Check if student already exists in results
     const existingIndex = this.registrosEstudiantes.findIndex(r => r.ci_estudiante === student.carnet);
     
@@ -182,62 +83,11 @@ export class RegistroIndividual implements OnInit {
       ci_estudiante: student.carnet,
       nombre_estudiante: student.nombre,
       id_estudiante_siaan: student.id,
-      /*carrera: 'Pendiente de cargar...',
-      total_creditos: 0,
-      plan_primer_pago: 'Pendiente de cargar...',
-      monto_primer_pago: 0,
-      referencia_primer_pago: 'Pendiente de cargar...',*/
     };
     
-    if (existingIndex !== -1) {
-      this.registrosEstudiantes[existingIndex] = registro as RegistroEstudiante;
-      //this.showSuccessMessage(`${student.nombre} seleccionado - información se cargará al procesar`);
-    } else {
+    if (existingIndex === -1) {
       this.registrosEstudiantes.push(registro as RegistroEstudiante);
-      //this.showSuccessMessage(`${student.nombre} agregado - información se cargará al procesar`);
     }
-  }
-  
-  private showSuccessMessage(message: string) {
-    this.successMessage = message;
-    setTimeout(() => {
-      this.successMessage = '';
-    }, 3000);
-  }
-  
-  onInputKeyDown(event: KeyboardEvent) {
-    const state = this.autocompleteState;
-    
-    if (!state.isOpen || state.results.length === 0) return;
-    
-    switch (event.key) {
-      case 'ArrowDown':
-        event.preventDefault();
-        state.selectedIndex = Math.min(state.selectedIndex + 1, state.results.length - 1);
-        break;
-      case 'ArrowUp':
-        event.preventDefault();
-        state.selectedIndex = Math.max(state.selectedIndex - 1, -1);
-        break;
-      case 'Enter':
-        event.preventDefault();
-        if (state.selectedIndex >= 0) {
-          this.selectStudent(state.results[state.selectedIndex]);
-        }
-        break;
-      case 'Escape':
-        state.isOpen = false;
-        state.selectedIndex = -1;
-        break;
-    }
-  }
-  
-  closeAutocomplete() {
-    // Delay closing to allow click events on dropdown items
-    setTimeout(() => {
-      this.autocompleteState.isOpen = false;
-      this.autocompleteState.selectedIndex = -1;
-    }, 150);
   }
   
   removeStudentFromResults(carnet: string) {
@@ -359,8 +209,6 @@ export class RegistroIndividual implements OnInit {
         registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
       }
     });
-    
-    this.showSuccessMessage('Información completa cargada para todos los estudiantes');
     
     // Pasar datos al servicio compartido y navegar a la vista
     this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);

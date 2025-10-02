@@ -18,4 +18,5 @@ export interface RegistroEstudiante {
     comentarios?: string;
     created_at?: string;
     updated_at?: string;
+    sin_kardex?: boolean; // True si no se encontró información en las gestiones activas
 }

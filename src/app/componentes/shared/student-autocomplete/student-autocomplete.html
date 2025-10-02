@@ -1,0 +1,58 @@
+<div class="relative">
+  <input 
+    type="text" 
+    class="font-[Inter] w-full py-3 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all duration-200" 
+    [placeholder]="placeholder"
+    [value]="autocompleteState.query"
+    [disabled]="disabled"
+    (input)="onInputChange($any($event.target).value)"
+    (keydown)="onInputKeyDown($event)"
+    (blur)="closeAutocomplete()"
+    (focus)="autocompleteState.isOpen = autocompleteState.results.length > 0"
+    name="studentSearch" 
+    autocomplete="off">
+  
+  <!-- Loading indicator -->
+  @if (autocompleteState.isLoading) {
+    <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+      <svg class="animate-spin h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+    </div>
+  }
+  
+  <!-- Autocomplete Dropdown -->
+  @if (autocompleteState.isOpen && !disabled) {
+    <div class="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 autocomplete-dropdown max-h-80 overflow-y-auto">
+      @if (autocompleteState.results.length > 0) {
+        @for (student of autocompleteState.results; track student.id; let i = $index) {
+          <div 
+            class="px-4 py-3 cursor-pointer hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+            [class.bg-blue-100]="autocompleteState.selectedIndex === i"
+            (mousedown)="selectStudent(student)"
+            (mouseenter)="autocompleteState.selectedIndex = i">
+            <div class="flex flex-col">
+              <div class="font-semibold text-gray-900">
+                {{ student.nombre }}
+              </div>
+              <div class="text-sm text-gray-600 flex justify-between">
+                <span>CI: {{ student.carnet }}</span>
+              </div>
+            </div>
+          </div>
+        }
+      } @else if (!autocompleteState.isLoading && autocompleteState.query.length >= 2) {
+        <div class="px-4 py-3 text-gray-500 text-center">
+          <div class="flex flex-col items-center">
+            <svg class="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0118 12c0-3.042-1.135-5.824-3-7.938l-3 2.647z"></path>
+            </svg>
+            <span>No se encontraron estudiantes</span>
+            <span class="text-xs">con el criterio "{{ autocompleteState.query }}"</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>
