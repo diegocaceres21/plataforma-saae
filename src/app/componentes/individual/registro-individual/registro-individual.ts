@@ -7,6 +7,7 @@ import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { Gestion } from '../../../interfaces/gestion';
 import { StudentSearchResult } from '../../../interfaces/student-search';
 import { StudentAutocompleteComponent } from '../../shared/student-autocomplete/student-autocomplete';
+import { ManualPaymentModalComponent, ManualPaymentData } from '../../shared/manual-payment-modal/manual-payment-modal';
 import '../../../interfaces/electron-api'; // Importar tipos de Electron
 import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
 import { CarreraService } from '../../../servicios/carrera.service';
@@ -17,7 +18,7 @@ import { GestionService } from '../../../servicios/gestion.service';
 
 @Component({
   selector: 'app-registro-individual',
-  imports: [RouterLink, CommonModule, FormsModule, ToastContainerComponent, StudentAutocompleteComponent],
+  imports: [RouterLink, CommonModule, FormsModule, ToastContainerComponent, StudentAutocompleteComponent, ManualPaymentModalComponent],
   templateUrl: './registro-individual.html',
   styleUrl: './registro-individual.scss'
 })
@@ -31,11 +32,7 @@ export class RegistroIndividual implements OnInit {
   // Manual payment input state
   showManualPaymentModal: boolean = false;
   currentStudentForManualInput: string = '';
-  manualPaymentData = {
-    referencia: '',
-    planAccedido: '',
-    pagoRealizado: 0
-  };
+  currentStudentCIForManualInput: string = '';
   
   // Kardex error modal state
   showKardexErrorModalFlag: boolean = false;
@@ -355,18 +352,13 @@ export class RegistroIndividual implements OnInit {
 
   private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number]> {
     return new Promise((resolve) => {
-      // Find student name for display
+      // Find student name and CI for display
       const student = this.registrosEstudiantes.find(r => r.id_estudiante_siaan === id_estudiante);
-      const studentName = student?.nombre_estudiante || id_estudiante;
-      
-      // Reset manual input data
-      this.manualPaymentData = {
-        referencia: '',
-        planAccedido: 'PLAN ESTANDAR', // Default value
-        pagoRealizado: 0
-      };
+      const studentName = student?.nombre_estudiante || '';
+      const studentCI = student?.ci_estudiante || '';
       
       this.currentStudentForManualInput = studentName;
+      this.currentStudentCIForManualInput = studentCI;
       this.showManualPaymentModal = true;
       
       // Store the resolve function to be called when modal is submitted
@@ -376,12 +368,12 @@ export class RegistroIndividual implements OnInit {
   
   private manualPaymentResolve: ((value: [string, string, number]) => void) | null = null;
   
-  onManualPaymentSubmit(): void {
+  onManualPaymentSubmit(data: ManualPaymentData): void {
     if (this.manualPaymentResolve) {
       const result: [string, string, number] = [
-        this.manualPaymentData.referencia,
-        this.manualPaymentData.planAccedido,
-        this.manualPaymentData.pagoRealizado
+        data.referencia,
+        data.planAccedido,
+        data.pagoRealizado
       ];
       
       this.manualPaymentResolve(result);
@@ -390,6 +382,7 @@ export class RegistroIndividual implements OnInit {
     
     this.showManualPaymentModal = false;
     this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
   }
   
   onManualPaymentCancel(): void {
@@ -401,6 +394,7 @@ export class RegistroIndividual implements OnInit {
     
     this.showManualPaymentModal = false;
     this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
   }
   
   // Kardex error modal methods
