@@ -174,8 +174,8 @@
                 <ul class="font-[Roboto] text-xs text-yellow-600 ml-4 list-disc space-y-1">
                   <li><strong>Arrastrando y soltando:</strong> Haga clic y arrastre cualquier tarjeta a la posición deseada</li>
                   <li><strong>Usando las flechas:</strong> Use los botones ↑ ↓ para mover estudiantes uno por uno</li>
-                  <li><strong>Posición 1:</strong> Mayor descuento disponible</li>
-                  <li><strong>Posición 2:</strong> Segundo mayor descuento, y así sucesivamente...</li>
+                  <li><strong>Posición 1:</strong> Menor descuento disponible</li>
+                  <li><strong>Posición 2:</strong> Segundo menor descuento, y así sucesivamente...</li>
                 </ul>
               </div>
             </div>
@@ -233,9 +233,9 @@
                           </div>
                           <div class="font-[Roboto] text-xs text-gray-500">
                             @if ($index === 0) {
-                              Mayor descuento
-                            } @else {
                               Menor descuento
+                            } @else {
+                              Mayor descuento
                             }
                           </div>
                         </div>
