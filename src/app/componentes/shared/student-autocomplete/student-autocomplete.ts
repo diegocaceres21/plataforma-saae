@@ -41,34 +41,48 @@ export class StudentAutocompleteComponent implements OnInit, OnDestroy {
     this.searchSubject.pipe(
       debounceTime(300),
       distinctUntilChanged(),
-      switchMap((query) => 
-        of(query).pipe(
-          switchMap(async (searchQuery) => {
-            await this.searchStudents(searchQuery);
-            return searchQuery;
-          }),
-          catchError(error => {
+      switchMap(async (query) => {
+        // Always execute search if query is not empty
+        if (query && query.trim().length > 0) {
+          try {
+            await this.searchStudents(query.trim());
+          } catch (error) {
             console.error('Search error:', error);
             this.autocompleteState.isLoading = false;
             this.autocompleteState.results = [];
-            return of(query);
-          })
-        )
-      )
+          }
+        } else {
+          // Empty query - clear results
+          this.autocompleteState.isLoading = false;
+          this.autocompleteState.results = [];
+          this.autocompleteState.isOpen = false;
+        }
+        return query;
+      }),
+      catchError(error => {
+        console.error('Search pipeline error:', error);
+        this.autocompleteState.isLoading = false;
+        this.autocompleteState.results = [];
+        return of('');
+      })
     ).subscribe();
   }
   
   onInputChange(query: string) {
     this.autocompleteState.query = query;
     
-    if (query.trim().length >= 2) {
+    if (query.trim().length > 0) {
+      // Set loading state and open dropdown
       this.autocompleteState.isLoading = true;
       this.autocompleteState.isOpen = true;
-      this.searchSubject.next(query.trim());
+      // Trigger search with debounce
+      this.searchSubject.next(query);
     } else {
+      // Empty input - clear everything
       this.autocompleteState.isOpen = false;
       this.autocompleteState.results = [];
       this.autocompleteState.isLoading = false;
+      this.searchSubject.next(''); // Clear the subject
     }
   }
   
