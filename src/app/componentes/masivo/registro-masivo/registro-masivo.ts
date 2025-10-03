@@ -24,6 +24,15 @@ interface GrupoFamiliar {
   errorMessage?: string;
 }
 
+interface ResultadoGuardadoGrupo {
+  grupo: GrupoFamiliar;
+  exito: boolean;
+  id_solicitud?: string;
+  estudiantes_guardados?: number;
+  error?: string;
+  detalles?: string;
+}
+
 @Component({
   selector: 'app-registro-masivo',
   imports: [CommonModule, FormsModule, RouterLink, ToastContainerComponent, StudentAutocompleteComponent, ManualPaymentModalComponent],
@@ -72,6 +81,22 @@ export class RegistroMasivo implements OnInit {
   currentStudentForManualInput = '';
   currentStudentCIForManualInput = '';
   private manualPaymentResolve: ((data: ManualPaymentData | null) => void) | null = null;
+  
+  // Add student to group modal
+  showAgregarEstudianteModal = false;
+  grupoParaAgregar: GrupoFamiliar | null = null;
+  excludedCIsForAgregar: string[] = [];
+  isAddingStudent = false;
+  
+  // Delete student confirmation modal
+  showDeleteStudentModal = false;
+  estudianteToDelete: RegistroEstudiante | null = null;
+  grupoToDeleteFrom: GrupoFamiliar | null = null;
+  
+  // Save results modal
+  showResumenModal = false;
+  resultadosGuardado: ResultadoGuardadoGrupo[] = [];
+  mostrarDetallesError: { [key: number]: boolean } = {};
   
   async ngOnInit() {
     await this.gestionService.loadGestionData();
@@ -886,6 +911,27 @@ export class RegistroMasivo implements OnInit {
     this.cerrarModalDuplicados();
   }
   
+  // Delete student confirmation methods
+  confirmarEliminarEstudiante(grupo: GrupoFamiliar, registro: RegistroEstudiante): void {
+    this.grupoToDeleteFrom = grupo;
+    this.estudianteToDelete = registro;
+    this.showDeleteStudentModal = true;
+  }
+  
+  cancelarEliminarEstudiante(): void {
+    this.showDeleteStudentModal = false;
+    this.estudianteToDelete = null;
+    this.grupoToDeleteFrom = null;
+  }
+  
+  ejecutarEliminarEstudiante(): void {
+    if (!this.grupoToDeleteFrom || !this.estudianteToDelete) {
+      return;
+    }
+    
+    this.eliminarEstudianteDeGrupo(this.grupoToDeleteFrom, this.estudianteToDelete);
+  }
+  
   // Remove individual student from group
   eliminarEstudianteDeGrupo(grupo: GrupoFamiliar, registro: RegistroEstudiante): void {
     if (!grupo.registros) {
@@ -895,21 +941,17 @@ export class RegistroMasivo implements OnInit {
     // Filter out the student
     grupo.registros = grupo.registros.filter(r => r.id !== registro.id);
     
-    // If group has less than 2 students, remove the entire group
-    if (grupo.registros.length < 2) {
+    // If group has no students left, remove the entire group
+    if (grupo.registros.length === 0) {
       this.processedGroups = this.processedGroups.filter(
         g => g.rowNumber !== grupo.rowNumber
       );
       
       this.toastService.warning(
         'Grupo eliminado',
-        `Grupo ${grupo.rowNumber} eliminado por tener menos de 2 estudiantes`,
+        `Grupo ${grupo.rowNumber} eliminado porque no tiene estudiantes`,
         3000
       );
-      
-      // Close modal and reset
-      this.grupoToEdit = null;
-      this.registroToReplace = null;
     } else {
       // Recalculate discounts for remaining students
       this.calcularPorcentajesGrupo(grupo.registros);
@@ -919,11 +961,14 @@ export class RegistroMasivo implements OnInit {
         `${registro.nombre_estudiante} eliminado del grupo ${grupo.rowNumber}`,
         3000
       );
-      
-      // Close modal and reset
-      this.grupoToEdit = null;
-      this.registroToReplace = null;
     }
+    
+    // Close modal and reset
+    this.showDeleteStudentModal = false;
+    this.estudianteToDelete = null;
+    this.grupoToDeleteFrom = null;
+    this.grupoToEdit = null;
+    this.registroToReplace = null;
   }
   
   // Delete group methods
@@ -1019,6 +1064,154 @@ export class RegistroMasivo implements OnInit {
     }
   }
   
+  // Add student to existing group methods
+  iniciarAgregarEstudiante(grupo: GrupoFamiliar): void {
+    if (!grupo.registros) {
+      return;
+    }
+    
+    // Get all CIs from all groups to exclude
+    const allCIs = this.processedGroups
+      .filter(g => g.registros)
+      .flatMap(g => g.registros!.map(r => r.ci_estudiante));
+    
+    this.grupoParaAgregar = grupo;
+    this.excludedCIsForAgregar = allCIs;
+    this.showAgregarEstudianteModal = true;
+  }
+  
+  cerrarModalAgregarEstudiante(): void {
+    this.showAgregarEstudianteModal = false;
+    this.grupoParaAgregar = null;
+    this.excludedCIsForAgregar = [];
+    this.isAddingStudent = false;
+  }
+  
+  async agregarEstudianteAGrupo(student: StudentSearchResult): Promise<void> {
+    if (!this.grupoParaAgregar || !this.grupoParaAgregar.registros || this.isAddingStudent) {
+      return;
+    }
+    
+    this.isAddingStudent = true;
+    this.loadingService.show('Agregando estudiante al grupo...');
+    
+    try {
+      const idEstudiante = student.id;
+      const ciEstudiante = student.carnet;
+      const nombreEstudiante = student.nombre;
+      
+      if (!window.academicoAPI) {
+        throw new Error('API académica no disponible');
+      }
+      
+      // Get kardex information
+      const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
+      const [totalCreditos, carrera, sinKardex] = await this.obtenerInformacionKardex(kardex);
+      
+      if (sinKardex) {
+        throw new Error(`El estudiante ${nombreEstudiante} no tiene registro en las gestiones activas`);
+      }
+      
+      // Get payment information
+      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(
+        idEstudiante, 
+        nombreEstudiante, 
+        ciEstudiante
+      );
+      
+      // Get career info
+      const carreras = this.carreraService.currentData;
+      const carreraInfo = carreras.find(c => 
+        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 
+        carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      );
+      
+      if (!carreraInfo) {
+        throw new Error(`Carrera no encontrada en sistema: ${carrera}`);
+      }
+      
+      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
+      const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
+      
+      // Create new registro
+      const nuevoRegistro: RegistroEstudiante = {
+        id: crypto.randomUUID(),
+        id_solicitud: '',
+        id_gestion: this.semestreActual[0]?.id || '',
+        id_estudiante_siaan: idEstudiante,
+        ci_estudiante: ciEstudiante,
+        nombre_estudiante: nombreEstudiante,
+        carrera,
+        total_creditos: totalCreditos,
+        valor_credito: valorCredito,
+        credito_tecnologico: creditoTecnologico,
+        porcentaje_descuento: 0,
+        monto_primer_pago: pagoRealizado,
+        plan_primer_pago: planAccedido,
+        referencia_primer_pago: referencia,
+        total_semestre: totalSemestre,
+        registrado: false,
+        comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
+        sin_kardex: false,
+        sin_pago: sinPago
+      };
+      
+      // Add to group
+      this.grupoParaAgregar.registros.push(nuevoRegistro);
+      
+      // Recalculate discounts
+      this.calcularPorcentajesGrupo(this.grupoParaAgregar.registros);
+      
+      this.loadingService.setLoading(false);
+      
+      this.toastService.success(
+        'Estudiante agregado',
+        `${nombreEstudiante} ha sido agregado al grupo ${this.grupoParaAgregar.rowNumber}`,
+        3000
+      );
+      
+      // Close modal
+      this.cerrarModalAgregarEstudiante();
+      
+    } catch (error) {
+      console.error('Error agregando estudiante:', error);
+      this.loadingService.setLoading(false);
+      this.toastService.error(
+        'Error al agregar',
+        error instanceof Error ? error.message : 'No se pudo agregar el estudiante'
+      );
+    } finally {
+      this.isAddingStudent = false;
+    }
+  }
+  
+  // Add new empty group
+  agregarNuevoGrupo(): void {
+    // Get next row number
+    const maxRowNumber = this.processedGroups.length > 0 
+      ? Math.max(...this.processedGroups.map(g => g.rowNumber))
+      : 0;
+    
+    const nuevoGrupo: GrupoFamiliar = {
+      rowNumber: maxRowNumber + 1,
+      cis: [],
+      registros: [],
+      hasErrors: false
+    };
+    
+    this.processedGroups.push(nuevoGrupo);
+    
+    // Immediately open the add student modal for this new group
+    this.iniciarAgregarEstudiante(nuevoGrupo);
+    
+    this.toastService.info(
+      'Nuevo grupo creado',
+      `Grupo ${nuevoGrupo.rowNumber} creado. Agregue al menos 2 estudiantes.`,
+      4000
+    );
+  }
+  
   // Step navigation methods
   volverPasoAnterior(): void {
     if (this.currentStep === 3) {
@@ -1034,32 +1227,260 @@ export class RegistroMasivo implements OnInit {
     }
   }
   
+  // Validation methods for saving
+  get tieneErroresEnGrupos(): boolean {
+    if (this.processedGroups.length === 0) {
+      return true; // No groups to save
+    }
+    
+    return this.processedGroups.some(grupo => {
+      if (!grupo.registros || grupo.registros.length < 2) {
+        return true; // Group must have at least 2 students
+      }
+      
+      return grupo.registros.some(registro => 
+        registro.sin_kardex || 
+        registro.sin_pago || 
+        registro.nombre_estudiante === 'Estudiante no encontrado' ||
+        this.tieneCIDuplicado(registro)
+      );
+    });
+  }
+  
+  obtenerResumenErrores(): {
+    gruposConMenosDe2: number;
+    estudiantesSinKardex: number;
+    estudiantesSinPago: number;
+    estudiantesNoEncontrados: number;
+    duplicados: number;
+    totalEstudiantes: number;
+    totalGrupos: number;
+  } {
+    let gruposConMenosDe2 = 0;
+    let estudiantesSinKardex = 0;
+    let estudiantesSinPago = 0;
+    let estudiantesNoEncontrados = 0;
+    const cisVistos = new Set<string>();
+    let duplicados = 0;
+    let totalEstudiantes = 0;
+    
+    this.processedGroups.forEach(grupo => {
+      if (!grupo.registros || grupo.registros.length < 2) {
+        gruposConMenosDe2++;
+      }
+      
+      grupo.registros?.forEach(registro => {
+        totalEstudiantes++;
+        
+        if (registro.sin_kardex) {
+          estudiantesSinKardex++;
+        }
+        
+        if (registro.sin_pago && !registro.sin_kardex) {
+          estudiantesSinPago++;
+        }
+        
+        if (registro.nombre_estudiante === 'Estudiante no encontrado') {
+          estudiantesNoEncontrados++;
+        }
+        
+        if (cisVistos.has(registro.ci_estudiante)) {
+          duplicados++;
+        } else {
+          cisVistos.add(registro.ci_estudiante);
+        }
+      });
+    });
+    
+    return {
+      gruposConMenosDe2,
+      estudiantesSinKardex,
+      estudiantesSinPago,
+      estudiantesNoEncontrados,
+      duplicados,
+      totalEstudiantes,
+      totalGrupos: this.processedGroups.length
+    };
+  }
+  
   async guardarRegistros(): Promise<void> {
-    // TODO: Implement save functionality to database
-    this.loadingService.show('Guardando registros...');
+    // Validate before saving
+    if (this.tieneErroresEnGrupos) {
+      const resumen = this.obtenerResumenErrores();
+      let mensaje = 'No se puede guardar. Errores encontrados:\n';
+      
+      if (resumen.gruposConMenosDe2 > 0) {
+        mensaje += `\n• ${resumen.gruposConMenosDe2} grupo(s) con menos de 2 estudiantes`;
+      }
+      if (resumen.estudiantesNoEncontrados > 0) {
+        mensaje += `\n• ${resumen.estudiantesNoEncontrados} estudiante(s) no encontrado(s)`;
+      }
+      if (resumen.estudiantesSinKardex > 0) {
+        mensaje += `\n• ${resumen.estudiantesSinKardex} estudiante(s) sin kardex`;
+      }
+      if (resumen.estudiantesSinPago > 0) {
+        mensaje += `\n• ${resumen.estudiantesSinPago} estudiante(s) sin plan de pago`;
+      }
+      if (resumen.duplicados > 0) {
+        mensaje += `\n• ${resumen.duplicados} estudiante(s) duplicado(s)`;
+      }
+      
+      this.toastService.error(
+        'No se puede guardar',
+        'Por favor, corrija todos los errores antes de guardar',
+        5000
+      );
+      
+      return;
+    }
+    
+    if (!window.academicoAPI) {
+      this.toastService.error(
+        'Error',
+        'API de base de datos no disponible'
+      );
+      return;
+    }
+    
+    // Start saving process
+    this.loadingService.show('Guardando registros en la base de datos...');
+    this.resultadosGuardado = [];
+    
+    let gruposExitosos = 0;
+    let gruposFallidos = 0;
     
     try {
-      // Simulate save operation
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Process each group
+      for (const grupo of this.processedGroups) {
+        try {
+          if (!grupo.registros || grupo.registros.length === 0) {
+            continue;
+          }
+          
+          // Create solicitud for this family group
+          const solicitudData = {
+            fecha: new Date().toISOString().split('T')[0], // Only date part (YYYY-MM-DD)
+            id_gestion: this.semestreActual[0]?.id || '',
+            estado: 'PENDIENTE',
+            cantidad_estudiantes: grupo.registros.length,
+            comentarios: `Grupo familiar ${grupo.rowNumber}`,
+            visible: true
+          };
+          
+          const solicitudResult = await window.academicoAPI.createSolicitud(solicitudData);
+          
+          if (!solicitudResult || !solicitudResult.id) {
+            throw new Error('No se pudo crear la solicitud');
+          }
+          
+          const id_solicitud = solicitudResult.id;
+          
+          // Prepare student records with solicitud ID
+          // Only include fields that exist in the database schema
+          const registrosParaGuardar = grupo.registros.map(registro => ({
+            id_solicitud: id_solicitud,
+            id_estudiante_siaan: registro.id_estudiante_siaan,
+            id_gestion: registro.id_gestion,
+            ci_estudiante: registro.ci_estudiante,
+            nombre_estudiante: registro.nombre_estudiante,
+            carrera: registro.carrera,
+            valor_credito: registro.valor_credito,
+            total_creditos: registro.total_creditos,
+            credito_tecnologico: registro.credito_tecnologico,
+            porcentaje_descuento: registro.porcentaje_descuento,
+            monto_primer_pago: registro.monto_primer_pago,
+            plan_primer_pago: registro.plan_primer_pago,
+            referencia_primer_pago: registro.referencia_primer_pago,
+            total_semestre: registro.total_semestre,
+            registrado: true,
+            comentarios: registro.comentarios || '',
+            visible: true
+          }));
+          
+          // Save all students in this group
+          const registrosResult = await window.academicoAPI.createMultipleRegistroEstudiante(registrosParaGuardar);
+          
+          // Success
+          gruposExitosos++;
+          this.resultadosGuardado.push({
+            grupo: grupo,
+            exito: true,
+            id_solicitud: id_solicitud,
+            estudiantes_guardados: grupo.registros.length
+          });
+          
+        } catch (error) {
+          // Failed to save this group
+          gruposFallidos++;
+          const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+          
+          this.resultadosGuardado.push({
+            grupo: grupo,
+            exito: false,
+            error: 'Error al guardar el grupo',
+            detalles: errorMessage
+          });
+          
+          console.error(`Error guardando grupo ${grupo.rowNumber}:`, error);
+        }
+      }
       
       this.loadingService.setLoading(false);
       
-      this.toastService.success(
-        'Registros guardados',
-        'Los registros han sido guardados exitosamente en la base de datos',
-        3000
-      );
+      // Show results modal
+      this.showResumenModal = true;
       
-      // Reset to initial state after save
-      this.limpiarArchivo();
+      // Show appropriate toast
+      if (gruposFallidos === 0) {
+        this.toastService.success(
+          'Guardado exitoso',
+          `Se guardaron correctamente ${gruposExitosos} grupo(s) familiar(es)`,
+          5000
+        );
+      } else if (gruposExitosos === 0) {
+        this.toastService.error(
+          'Error al guardar',
+          `No se pudo guardar ningún grupo. Revise los detalles.`,
+          5000
+        );
+      } else {
+        this.toastService.warning(
+          'Guardado parcial',
+          `${gruposExitosos} grupo(s) guardado(s), ${gruposFallidos} fallido(s)`,
+          5000
+        );
+      }
       
     } catch (error) {
-      console.error('Error guardando registros:', error);
+      console.error('Error general guardando registros:', error);
       this.loadingService.setLoading(false);
       this.toastService.error(
         'Error al guardar',
-        'No se pudieron guardar los registros'
+        'Ocurrió un error inesperado durante el guardado'
       );
     }
+  }
+  
+  // Results modal methods
+  cerrarResumenModal(): void {
+    this.showResumenModal = false;
+    
+    // If all groups were saved successfully, clean the form
+    const todosExitosos = this.resultadosGuardado.every(r => r.exito);
+    if (todosExitosos) {
+      this.limpiarArchivo();
+    }
+  }
+  
+  toggleDetallesError(grupoIndex: number): void {
+    this.mostrarDetallesError[grupoIndex] = !this.mostrarDetallesError[grupoIndex];
+  }
+  
+  get gruposExitosos(): ResultadoGuardadoGrupo[] {
+    return this.resultadosGuardado.filter(r => r.exito);
+  }
+  
+  get gruposFallidos(): ResultadoGuardadoGrupo[] {
+    return this.resultadosGuardado.filter(r => !r.exito);
   }
 }

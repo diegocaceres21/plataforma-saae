@@ -265,6 +265,18 @@
                           </span>
                         }
                         
+                        <!-- Add Student Button -->
+                        <button
+                          type="button"
+                          (click)="iniciarAgregarEstudiante(grupo)"
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors duration-200"
+                          title="Agregar estudiante al grupo">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                          </svg>
+                          <span>Agregar</span>
+                        </button>
+                        
                         <!-- Delete Button -->
                         <button
                           type="button"
@@ -310,6 +322,7 @@
                             <th class="px-4 py-2 text-right font-semibold text-slate-700">Descuento</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Plan Pago</th>
                             <th class="px-4 py-2 text-right font-semibold text-slate-700">Monto Pago</th>
+                            <th class="px-4 py-2 text-center font-semibold text-slate-700 w-20">Acciones</th>
                           </tr>
                         </thead>
                         <tbody class="text-sm divide-y divide-slate-100">
@@ -405,6 +418,17 @@
                               <td class="px-4 py-3 text-right font-medium">
                                 {{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}
                               </td>
+                              <td class="px-4 py-3 text-center">
+                                <button
+                                  type="button"
+                                  (click)="confirmarEliminarEstudiante(grupo, registro)"
+                                  class="inline-flex items-center justify-center p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors duration-200"
+                                  title="Eliminar estudiante del grupo">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                  </svg>
+                                </button>
+                              </td>
                             </tr>
                           }
                         </tbody>
@@ -414,6 +438,93 @@
                 </div>
               }
             </div>
+            
+            <!-- Add New Group Button -->
+            <div class="mt-6 flex justify-center">
+              <button
+                type="button"
+                (click)="agregarNuevoGrupo()"
+                class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+                <span>Agregar Nuevo Grupo Familiar</span>
+              </button>
+            </div>
+            
+            <!-- Validation Errors Panel -->
+            @if (tieneErroresEnGrupos) {
+              <div class="mt-6 bg-red-50 border-2 border-red-200 rounded-xl p-5">
+                <div class="flex items-start gap-4">
+                  <div class="flex-shrink-0">
+                    <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                      <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                      </svg>
+                    </div>
+                  </div>
+                  <div class="flex-1">
+                    <h4 class="text-lg font-semibold text-red-900 mb-2">No se puede guardar - Errores encontrados</h4>
+                    <p class="text-sm text-red-700 mb-3">Por favor, corrija los siguientes problemas antes de guardar:</p>
+                    
+                    @let resumen = obtenerResumenErrores();
+                    
+                    <div class="space-y-2">
+                      @if (resumen.gruposConMenosDe2 > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.gruposConMenosDe2 }}</strong> grupo(s) con menos de 2 estudiantes</span>
+                        </div>
+                      }
+                      
+                      @if (resumen.estudiantesNoEncontrados > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.estudiantesNoEncontrados }}</strong> estudiante(s) no encontrado(s) en el sistema</span>
+                        </div>
+                      }
+                      
+                      @if (resumen.estudiantesSinKardex > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.estudiantesSinKardex }}</strong> estudiante(s) sin registro en gestiones activas</span>
+                        </div>
+                      }
+                      
+                      @if (resumen.estudiantesSinPago > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.estudiantesSinPago }}</strong> estudiante(s) sin plan de pago registrado</span>
+                        </div>
+                      }
+                      
+                      @if (resumen.duplicados > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.duplicados }}</strong> estudiante(s) con CI duplicado</span>
+                        </div>
+                      }
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-red-200">
+                      <p class="text-xs text-red-600 font-medium">
+                        💡 Usa los badges de colores para identificar y corregir cada error en los grupos.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            }
             
             <!-- Action Buttons -->
             <div class="flex gap-3 mt-6">
@@ -430,11 +541,18 @@
               <button
                 type="button"
                 (click)="guardarRegistros()"
-                class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
+                [disabled]="tieneErroresEnGrupos"
+                [class.opacity-50]="tieneErroresEnGrupos"
+                [class.cursor-not-allowed]="tieneErroresEnGrupos"
+                class="flex-1 inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg disabled:hover:from-green-600 disabled:hover:to-green-500">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
                 </svg>
-                Guardar Todos los Grupos
+                @if (tieneErroresEnGrupos) {
+                  <span>Corrija los errores para guardar</span>
+                } @else {
+                  <span>Guardar Todos los Grupos</span>
+                }
               </button>
             </div>
             
@@ -719,6 +837,190 @@
     </div>
   }
   
+  <!-- Add Student to Group Modal -->
+  @if (showAgregarEstudianteModal && grupoParaAgregar) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+        <!-- Modal Header -->
+        <div class="bg-emerald-50 border-b border-emerald-200 px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-slate-900">Agregar Estudiante al Grupo</h3>
+                <p class="text-sm text-slate-600">Grupo {{ grupoParaAgregar.rowNumber }} - {{ grupoParaAgregar.registros?.length || 0 }} estudiante(s) actual(es)</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              (click)="cerrarModalAgregarEstudiante()"
+              [disabled]="isAddingStudent"
+              class="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-6">
+          <div class="mb-4">
+            <p class="text-sm text-slate-600 mb-2">
+              Busca y selecciona un estudiante para agregar al grupo. El estudiante debe estar registrado en el sistema académico.
+            </p>
+            @if (grupoParaAgregar.registros && grupoParaAgregar.registros.length < 2) {
+              <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+                <svg class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+                </svg>
+                <div class="text-sm text-yellow-800">
+                  <p class="font-medium">Grupo requiere al menos 2 estudiantes</p>
+                  <p class="text-xs mt-1">Agrega al menos {{ 2 - (grupoParaAgregar.registros.length || 0) }} estudiante(s) más para poder guardar este grupo.</p>
+                </div>
+              </div>
+            }
+          </div>
+          
+          <!-- Student Autocomplete -->
+          <app-student-autocomplete
+            [excludedCIs]="excludedCIsForAgregar"
+            (studentSelected)="agregarEstudianteAGrupo($event)"
+            [disabled]="isAddingStudent">
+          </app-student-autocomplete>
+          
+          <!-- Current Students in Group -->
+          @if (grupoParaAgregar.registros && grupoParaAgregar.registros.length > 0) {
+            <div class="mt-6">
+              <h4 class="text-sm font-semibold text-slate-700 mb-3">Estudiantes en el grupo:</h4>
+              <div class="space-y-2 max-h-48 overflow-y-auto">
+                @for (registro of grupoParaAgregar.registros; track registro.id) {
+                  <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-slate-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <p class="text-sm font-medium text-slate-900">{{ registro.nombre_estudiante }}</p>
+                        <p class="text-xs text-slate-500">CI: {{ registro.ci_estudiante }} • {{ registro.carrera }}</p>
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-sm font-semibold text-slate-700">{{ registro.total_creditos }} UVE</p>
+                      <p class="text-xs text-emerald-600">{{ (registro.porcentaje_descuento * 100).toFixed(0) }}% desc.</p>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 flex justify-end">
+          <button
+            type="button"
+            (click)="cerrarModalAgregarEstudiante()"
+            [disabled]="isAddingStudent"
+            class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors disabled:opacity-50">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+  
+  <!-- Delete Student Confirmation Modal -->
+  @if (showDeleteStudentModal && estudianteToDelete && grupoToDeleteFrom) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
+        
+        <!-- Modal Header -->
+        <div class="flex items-center mb-4">
+          <div class="flex-shrink-0 w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mr-4">
+            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-slate-900">Confirmar Eliminación</h3>
+            <p class="text-sm text-slate-600 mt-1">Esta acción no se puede deshacer</p>
+          </div>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="mb-6">
+          <p class="text-slate-700 mb-3">
+            ¿Estás seguro de que deseas eliminar a <strong>{{ estudianteToDelete.nombre_estudiante }}</strong> del <strong>Grupo {{ grupoToDeleteFrom.rowNumber }}</strong>?
+          </p>
+          
+          <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+            <div class="flex items-center gap-3 mb-2">
+              <svg class="w-5 h-5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+              </svg>
+              <div class="flex-1">
+                <p class="text-sm font-medium text-slate-900">{{ estudianteToDelete.nombre_estudiante }}</p>
+                <p class="text-xs text-slate-500">CI: {{ estudianteToDelete.ci_estudiante }} • {{ estudianteToDelete.carrera }}</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-between text-xs text-slate-600 mt-2 pt-2 border-t border-slate-200">
+              <span>{{ estudianteToDelete.total_creditos }} UVE</span>
+              <span>{{ (estudianteToDelete.porcentaje_descuento * 100).toFixed(0) }}% descuento</span>
+              <span>{{ estudianteToDelete.plan_primer_pago }}</span>
+            </div>
+          </div>
+          
+          @if (grupoToDeleteFrom.registros && grupoToDeleteFrom.registros.length === 1) {
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3 flex items-start gap-2">
+              <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+              </svg>
+              <div class="text-sm text-amber-800">
+                <p class="font-medium">Este es el último estudiante del grupo</p>
+                <p class="text-xs mt-1">Al eliminarlo, el grupo completo será eliminado.</p>
+              </div>
+            </div>
+          } @else if (grupoToDeleteFrom.registros && grupoToDeleteFrom.registros.length === 2) {
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3 flex items-start gap-2">
+              <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+              </svg>
+              <div class="text-sm text-blue-800">
+                <p class="font-medium">El grupo quedará con 1 estudiante</p>
+                <p class="text-xs mt-1">Los porcentajes de descuento se recalcularán automáticamente.</p>
+              </div>
+            </div>
+          }
+        </div>
+        
+        <!-- Modal Actions -->
+        <div class="flex gap-3">
+          <button
+            type="button"
+            (click)="cancelarEliminarEstudiante()"
+            class="flex-1 px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg transition-colors duration-200">
+            Cancelar
+          </button>
+          
+          <button
+            type="button"
+            (click)="ejecutarEliminarEstudiante()"
+            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-md hover:shadow-lg">
+            Eliminar Estudiante
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  }
+  
   <!-- Manual Payment Modal -->
   <app-manual-payment-modal
     [isOpen]="showManualPaymentModal"
@@ -727,6 +1029,196 @@
     (onSubmit)="onManualPaymentSubmit($event)"
     (onCancel)="onManualPaymentCancel()">
   </app-manual-payment-modal>
+  
+  <!-- Save Results Modal -->
+  @if (showResumenModal && resultadosGuardado.length > 0) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        
+        <!-- Modal Header -->
+        <div class="bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-5">
+          <div class="flex items-center justify-between text-white">
+            <div>
+              <h3 class="text-2xl font-bold">Resumen de Guardado</h3>
+              <p class="text-sm text-blue-100 mt-1">Resultado del registro masivo en la base de datos</p>
+            </div>
+            <button
+              type="button"
+              (click)="cerrarResumenModal()"
+              class="text-white hover:bg-white/20 rounded-lg p-2 transition-colors">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Statistics Summary -->
+        <div class="px-6 py-4 bg-slate-50 border-b border-slate-200">
+          <div class="grid grid-cols-3 gap-4">
+            <div class="text-center p-3 bg-white rounded-lg border border-slate-200">
+              <div class="text-3xl font-bold text-slate-700">{{ resultadosGuardado.length }}</div>
+              <div class="text-sm text-slate-600 mt-1">Total Grupos</div>
+            </div>
+            <div class="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+              <div class="text-3xl font-bold text-green-700">{{ gruposExitosos.length }}</div>
+              <div class="text-sm text-green-600 mt-1">✓ Guardados</div>
+            </div>
+            <div class="text-center p-3 bg-red-50 rounded-lg border border-red-200">
+              <div class="text-3xl font-bold text-red-700">{{ gruposFallidos.length }}</div>
+              <div class="text-sm text-red-600 mt-1">✗ Fallidos</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Results List -->
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          
+          <!-- Successful Groups -->
+          @if (gruposExitosos.length > 0) {
+            <div class="mb-6">
+              <h4 class="text-lg font-semibold text-green-700 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+                Grupos Guardados Exitosamente
+              </h4>
+              
+              <div class="space-y-2">
+                @for (resultado of gruposExitosos; track resultado.grupo.rowNumber) {
+                  <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                          <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                          </svg>
+                        </div>
+                        <div>
+                          <p class="font-semibold text-slate-900">Grupo {{ resultado.grupo.rowNumber }}</p>
+                          <p class="text-sm text-slate-600">{{ resultado.estudiantes_guardados }} estudiante(s) registrado(s)</p>
+                        </div>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-xs text-slate-500">ID Solicitud</p>
+                        <p class="text-sm font-mono text-slate-700">{{ resultado.id_solicitud }}</p>
+                      </div>
+                    </div>
+                    
+                    <!-- Student Names -->
+                    @if (resultado.grupo.registros && resultado.grupo.registros.length > 0) {
+                      <div class="mt-3 pt-3 border-t border-green-200">
+                        <div class="flex flex-wrap gap-2">
+                          @for (registro of resultado.grupo.registros; track registro.id) {
+                            <span class="inline-flex items-center px-2 py-1 bg-white rounded text-xs text-slate-700 border border-green-200">
+                              {{ registro.nombre_estudiante }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          
+          <!-- Failed Groups -->
+          @if (gruposFallidos.length > 0) {
+            <div>
+              <h4 class="text-lg font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                </svg>
+                Grupos con Errores
+              </h4>
+              
+              <div class="space-y-2">
+                @for (resultado of gruposFallidos; track resultado.grupo.rowNumber; let idx = $index) {
+                  <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                      <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg class="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                        </svg>
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center justify-between mb-2">
+                          <div>
+                            <p class="font-semibold text-slate-900">Grupo {{ resultado.grupo.rowNumber }}</p>
+                            <p class="text-sm text-red-700 font-medium">{{ resultado.error }}</p>
+                          </div>
+                          <button
+                            type="button"
+                            (click)="toggleDetallesError(idx)"
+                            class="text-red-600 hover:text-red-800 text-sm font-medium flex items-center gap-1">
+                            @if (mostrarDetallesError[idx]) {
+                              <span>Ocultar detalles</span>
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
+                              </svg>
+                            } @else {
+                              <span>Ver detalles</span>
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                              </svg>
+                            }
+                          </button>
+                        </div>
+                        
+                        <!-- Error Details (Expandable) -->
+                        @if (mostrarDetallesError[idx]) {
+                          <div class="mt-3 p-3 bg-white rounded border border-red-200">
+                            <p class="text-xs font-semibold text-slate-700 mb-1">Detalles del Error:</p>
+                            <p class="text-sm text-slate-600 font-mono">{{ resultado.detalles }}</p>
+                            
+                            @if (resultado.grupo.registros && resultado.grupo.registros.length > 0) {
+                              <div class="mt-3 pt-3 border-t border-red-200">
+                                <p class="text-xs font-semibold text-slate-700 mb-2">Estudiantes en el grupo:</p>
+                                <div class="space-y-1">
+                                  @for (registro of resultado.grupo.registros; track registro.id) {
+                                    <div class="text-xs text-slate-600 flex items-center gap-2">
+                                      <svg class="w-3 h-3 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                                      </svg>
+                                      <span>{{ registro.nombre_estudiante }} ({{ registro.ci_estudiante }})</span>
+                                    </div>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 border-t border-slate-200 flex justify-between items-center">
+          <div class="text-sm text-slate-600">
+            @if (gruposFallidos.length > 0) {
+              <p class="font-medium text-amber-700">⚠️ Algunos grupos no se guardaron. Revise los errores arriba.</p>
+            } @else {
+              <p class="font-medium text-green-700">✓ Todos los grupos se guardaron exitosamente</p>
+            }
+          </div>
+          <button
+            type="button"
+            (click)="cerrarResumenModal()"
+            class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors">
+            Cerrar
+          </button>
+        </div>
+        
+      </div>
+    </div>
+  }
   
   <!-- Toast Container -->
   <app-toast-container></app-toast-container>
