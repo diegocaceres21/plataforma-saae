@@ -163,8 +163,24 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     try {
       this.isLoadingFiltros = true;
 
-      this.gestiones = this.gestionService.currentData || [];
-      this.carreras = this.carreraService.currentData || [];
+      // Filtrar solo gestiones semestrales y ordenarlas según criterio de BD
+      const todasLasGestiones = this.gestionService.currentData || [];
+      this.gestiones = todasLasGestiones
+        .filter(gestion => gestion.tipo === 'Semestre')
+        .sort((a, b) => {
+          // ORDER BY anio DESC, tipo ASC, gestion DESC
+          if (a.anio !== b.anio) {
+            return b.anio - a.anio; // DESC (mayor a menor)
+          }
+          if (a.tipo !== b.tipo) {
+            return a.tipo.localeCompare(b.tipo); // ASC
+          }
+          return b.gestion.localeCompare(a.gestion); // DESC
+        });
+      
+      // Filtrar solo carreras visibles
+      const todasLasCarreras = this.carreraService.currentData || [];
+      this.carreras = todasLasCarreras.filter(carrera => carrera.visible === true);
 
       // Cargar apoyos familiares desde la API
       if (window.academicoAPI) {
