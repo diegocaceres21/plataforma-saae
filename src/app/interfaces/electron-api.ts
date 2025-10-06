@@ -66,6 +66,13 @@ declare global {
       obtenerDetalleFactura: (numero_maestro: string, id_regional: string, orden: number) => Promise<any>;
       obtenerNombreCompleto: (id_estudiante: string) => Promise<any>;
       obtenerPersonasPorCarnet: (carnet: string) => Promise<any>;
+      logInSiaan: (credentials: any) => Promise<{ message?: string; token?: string; tokenExpiry?: string; error?: string }>;
+      setExternalTokens: (data: { token?: string; uniqueCode?: string; tokenExpiry?: string }) => Promise<{ success: boolean; error?: string }>;
+    };
+    authAPI?: {
+      login: (username: string, password: string) => Promise<{ token?: string; user?: any; error?: string }>;
+      verify: (token: string) => Promise<{ valid: boolean; payload?: any; error?: string }>;
+      register: (data: { username: string; nombre: string; password: string; rol?: string }) => Promise<{ user?: any; error?: string }>;
     };
   }
 }

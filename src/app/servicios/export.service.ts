@@ -1,9 +1,12 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { RegistroEstudiante } from '../interfaces/registro-estudiante';
 import { ExportConfig, ExportColumn } from '../interfaces/export-config';
 import { ToastService } from './toast';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import { LOGO_BASE64 } from '../constantes/logo-base64';
+
+// Logo Base64 centralizado
 
 @Injectable({
   providedIn: 'root'
@@ -142,22 +145,35 @@ export class ExportService {
   }
 
   private addPDFHeader(doc: jsPDF, pageWidth: number, margin: number, title: string): void {
+    const logoWidth = 28; // mm
+    const logoHeight = 28; // mm (ajustado al tamaño aproximado del original)
+    const yTop = 6; // margen superior visual
+
+    try {
+      doc.addImage(LOGO_BASE64, 'PNG', margin, yTop - 2, logoWidth, logoHeight, undefined, 'FAST');
+    } catch {
+      // si falla el logo, continuar sin interrumpir
+    }
+
+    // Ajustar centro óptico considerando el espacio ocupado por el logo
+    const textCenterX = pageWidth / 2 + logoWidth / 4; // pequeño corrimiento a la derecha para equilibrio visual
+
     // Título principal
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text(title, pageWidth / 2, 20, { align: 'center' });
-    
+    doc.text(title, textCenterX, 18, { align: 'center' });
+
     // Subtítulo
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('Revisión Individual', pageWidth / 2, 28, { align: 'center' });
-    
-    // Fecha de generación
+    doc.text('Revisión Individual', textCenterX, 26, { align: 'center' });
+
+    // Fecha de generación a la derecha
     doc.setFontSize(10);
-    doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`, 
-              pageWidth - margin, 20, { align: 'right' });
-    
-    // Línea separadora
+    doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`,
+      pageWidth - margin, 18, { align: 'right' });
+
+    // Línea separadora (debajo del bloque del logo y textos)
     doc.setLineWidth(0.5);
     doc.line(margin, 33, pageWidth - margin, 33);
   }

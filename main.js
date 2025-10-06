@@ -4,6 +4,7 @@ require('dotenv').config();
 const { app, BrowserWindow, screen, ipcMain } = require('electron');
 const registerRoutes = require('./electron-backend/routes');
 const externalApi = require('./electron-backend/externalApi');
+const { setExternalTokens } = require('./electron-backend/tokenStore');
 const path = require('path');
 // Example: require your HTTP client for external API requests
 //const axios = require('axios');
@@ -108,6 +109,25 @@ ipcMain.handle('api:obtenerPersonasPorCarnet', async (event, carnet) => {
     return await externalApi.personas.obtenerPersonasPorCarnet(carnet);
   } catch (error) {
     throw error;
+  }
+});
+
+// IPC handler for logInSiaan (external auth)
+ipcMain.handle('api:logInSiaan', async (event, credentials) => {
+  try {
+    return await externalApi.auth.logInSiaan(credentials);
+  } catch (error) {
+    return { error: error.message };
+  }
+});
+
+// IPC handler to set external tokens (from renderer after login SIAAN)
+ipcMain.handle('api:setExternalTokens', async (event, data) => {
+  try {
+    setExternalTokens(data || {});
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 });
 

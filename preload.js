@@ -70,4 +70,13 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   obtenerDetalleFactura: (numero_maestro, id_regional, orden) => ipcRenderer.invoke('api:obtenerDetalleFactura', numero_maestro, id_regional, orden),
   obtenerNombreCompleto: (id_estudiante) => ipcRenderer.invoke('api:obtenerNombreCompleto', id_estudiante),
   obtenerPersonasPorCarnet: (carnet) => ipcRenderer.invoke('api:obtenerPersonasPorCarnet', carnet),
+  logInSiaan: (credentials) => ipcRenderer.invoke('api:logInSiaan', credentials),
+  setExternalTokens: (data) => ipcRenderer.invoke('api:setExternalTokens', data),
+});
+
+// Auth API
+contextBridge.exposeInMainWorld('authAPI', {
+  login: (username, password) => ipcRenderer.invoke('auth:login', username, password),
+  verify: (token) => ipcRenderer.invoke('auth:verify', token),
+  register: (data) => ipcRenderer.invoke('auth:register', data),
 });
