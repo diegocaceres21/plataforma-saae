@@ -16,7 +16,6 @@ export class App implements OnInit {
   public loadingService = inject(LoadingService);
 
   async ngOnInit() {
-    console.log(sessionStorage.getItem('auth_jwt'));
     // All base data loads are handled in APP_INITIALIZER now.
   }
 }
