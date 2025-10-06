@@ -1,17 +1,25 @@
 const axios = require('axios');
 
-// Configuration - these should be set in environment variables or config
-const TOKEN = process.env.UCB_TOKEN || 'your_token_here';
-const UNIQUE_CODE = process.env.UCB_UNIQUE_CODE || 'your_unique_code_here';
+// Tokens dinámicos provistos desde el renderer y almacenados en tokenStore
+const { getExternalTokens } = require('../tokenStore');
+
+function buildHeaders() {
+  const { token, uniqueCode } = getExternalTokens();
+  if (!token || !uniqueCode) {
+    // Se mantiene comportamiento: podríamos lanzar error temprano
+    // pero lo dejamos para que cada función maneje su propio mensaje.
+  }
+  return {
+    'Token': token || 'missing-token',
+    'Uniquecode': uniqueCode || 'missing-unique-code'
+  };
+}
 
 async function obtenerIDPersona(carnet) {
   try {
     const url = `https://backend2.ucb.edu.bo/Authentication/api/v1/Personas/ObtenerPersonasPorRegional?idRegional=PJh5GJydX69ABmU3tKVdpQ==&criterioBusqueda=${carnet}&tipoResultado=Objeto`;
 
-    const headers = {
-      'Token': TOKEN,
-      'Uniquecode': UNIQUE_CODE
-    };
+    const headers = buildHeaders();
     const response = await axios.get(url, { headers });
     if (response.status === 200) {
       const jsonData = response.data;
@@ -35,10 +43,7 @@ async function obtenerPersonasPorCarnet(carnet) {
   try {
     const url = `https://backend2.ucb.edu.bo/Authentication/api/v1/Personas/ObtenerPersonasPorRegional?idRegional=PJh5GJydX69ABmU3tKVdpQ==&criterioBusqueda=${carnet}&tipoResultado=Objeto`;
 
-    const headers = {
-      'Token': TOKEN,
-      'Uniquecode': UNIQUE_CODE
-    };
+    const headers = buildHeaders();
 
     const response = await axios.get(url, { headers });
     if (response.status === 200) {
@@ -58,10 +63,7 @@ async function obtenerKardexEstudiante(id_estudiante) {
   try {
     const url = `https://backend.ucb.edu.bo/Academico/api/v1/Academico/Procesos/Kardex/ObtenerKardexEstudiante?idPersona=${id_estudiante}&idCarrera=4mo9gjV/hDzYrnuqH0/IHA==&esEclesial=0&idRegional=PJh5GJydX69ABmU3tKVdpQ==`;
 
-    const headers = {
-      'Token': TOKEN,
-      'Uniquecode': UNIQUE_CODE
-    };
+    const headers = buildHeaders();
 
     const response = await axios.get(url, { headers });
 
@@ -87,10 +89,7 @@ async function obtenerPagosRealizados(id_estudiante) {
   try {
     const url = `https://backend.ucb.edu.bo/Academico/api/v1/Caja/Integracion/ObtenerFacturaPersona?idPersona=${id_estudiante}&idRegional=PJh5GJydX69ABmU3tKVdpQ==&tamanoDePagina=20`;
 
-    const headers = {
-      'Token': TOKEN,
-      'Uniquecode': UNIQUE_CODE
-    };
+    const headers = buildHeaders();
 
     const response = await axios.get(url, { headers });
 
@@ -116,10 +115,7 @@ async function obtenerDetalleFactura(numero_maestro, id_regional, orden) {
   try {
     const url = `https://backend.ucb.edu.bo/Academico/api/v1/Caja/Integracion/ObtenerFacturaDetalle?numeroMaestro=${numero_maestro}&idRegional=${id_regional}&orden=${orden}`;
 
-    const headers = {
-      'Token': TOKEN,
-      'Uniquecode': UNIQUE_CODE
-    };
+    const headers = buildHeaders();
 
     const response = await axios.get(url, { headers });
 

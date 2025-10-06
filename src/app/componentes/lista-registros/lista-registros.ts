@@ -21,6 +21,8 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import '../../interfaces/electron-api';
 import { ExportConfig, ExportColumn } from '../../interfaces/export-config';
+// Logo institucional centralizado reutilizado para encabezados de reportes PDF
+import { LOGO_BASE64 } from '../../constantes/logo-base64';
 
 interface RegistroConSolicitud extends RegistroEstudiante {
   solicitudInfo?: Solicitud;
@@ -1230,17 +1232,35 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   }
 
   private dibujarEncabezadoPDF(doc: jsPDF, pageWidth: number, generatedAt: Date): void {
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, pageWidth, 24, 'F');
+    const headerHeight = 24;
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
 
-    doc.setTextColor(255, 255, 255);
+    const img = new Image();
+    img.src = "logo-ucb-cba.png"; 
+    // Logo
+    const logoWidth = 35; // mm
+    const logoHeight = 22; // mm (proporción aproximada)
+    const logoX = 12; // un poco a la derecha del borde
+    const logoY = 3; // centrado verticalmente dentro del rectángulo
+    try {
+      doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    } catch {
+      // continuar aunque falle el logo
+    }
+
+    // Posicionar textos desplazados a la derecha del logo
+    const textStartX = logoX + logoWidth + 8; // margen después del logo
+    const centerOffset = (textStartX + (pageWidth - 16)) / 2; // equilibrio visual
+
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('REPORTE GENERAL - APOYO FAMILIAR', pageWidth / 2, 14, { align: 'center' });
+    doc.text('REPORTE GENERAL - APOYO FAMILIAR', centerOffset, 14, { align: 'center' });
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text('Servicio Académico Administrativo Estudiantil', pageWidth / 2, 20, { align: 'center' });
+    doc.text('Servicio Académico Administrativo Estudiantil', centerOffset, 20, { align: 'center' });
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');

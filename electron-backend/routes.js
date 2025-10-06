@@ -20,6 +20,27 @@ function registerRoutes(ipcMain) {
   ipcMain.handle('registro_estudiante:getBySolicitud', async (event, id_solicitud) => {
     return await controllers.getBySolicitud(id_solicitud);
   });
+
+  // Autenticación
+  ipcMain.handle('auth:login', async (event, username, password) => {
+    try {
+      return await controllers.authenticateUser(username, password);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('auth:verify', async (event, token) => {
+    return await controllers.verifyToken(token);
+  });
+
+  ipcMain.handle('auth:register', async (event, data) => {
+    try {
+      return await controllers.registerUser(data);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
 }
 
 module.exports = registerRoutes;

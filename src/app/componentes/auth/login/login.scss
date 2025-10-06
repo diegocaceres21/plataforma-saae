@@ -1,0 +1,24 @@
+.login-wrapper {
+  background: linear-gradient(135deg, #ffffff 0%, #f5f8fb 60%, #edf2f7 100%);
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 10%, rgba(255,205,0,0.18), transparent 60%),
+              radial-gradient(circle at 10% 90%, rgba(0,53,102,0.15), transparent 65%);
+  pointer-events: none;
+}
+
+.title {
+  font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.subtitle {
+  font-family: 'Inter', 'Roboto', sans-serif;
+}
+
+.loader {
+  border-radius: 9999px;
+}

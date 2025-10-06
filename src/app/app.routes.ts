@@ -4,9 +4,11 @@ import { RegistroMasivo } from './componentes/masivo/registro-masivo/registro-ma
 import { MainIndividual } from './componentes/individual/main-individual/main-individual';
 import { ListaRegistrosComponent } from './componentes/lista-registros/lista-registros';
 import { ConfiguracionComponent } from './componentes/configuracion/configuracion';
+import { LoginComponent } from './componentes/auth/login/login';
 
 export const routes: Routes = [
-    { path: '', redirectTo: '/menu', pathMatch: 'full' },
+    { path: '', redirectTo: '/login', pathMatch: 'full' },
+    { path: 'login', component: LoginComponent },
     { path: 'menu', component: Menu },
     { path: 'registro-individual', component: MainIndividual },
     { path: 'registro-masivo', component: RegistroMasivo },

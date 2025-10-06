@@ -1,5 +1,11 @@
 const pool = require('./db');
 const models = require('./models');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Clave JWT: usar variable de entorno JWT_SECRET en producción
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_EXP_HOURS = 8; // expiración estándar
 
 function getAll(table) {
   return new Promise((resolve, reject) => {
@@ -159,3 +165,74 @@ function getBySolicitud(id_solicitud) {
 }
 
 module.exports = { getAll, getAllVisible, getById, create, update, remove, createMultiple, getBySolicitud };
+/**
+ * Autentica usuario verificando username y password.
+ * Devuelve { token, user: { id, username, rol } }
+ */
+async function authenticateUser(username, password) {
+  if (!username || !password) {
+    throw new Error('Credenciales incompletas');
+  }
+  const query = 'SELECT id, username, password_hash, rol, activo FROM usuario WHERE username = $1 LIMIT 1';
+  const result = await pool.query(query, [username]);
+  
+  if (result.rows.length === 0) {
+    throw new Error('Usuario o contraseña inválidos');
+  }
+  const user = result.rows[0];
+  if (!user.activo) {
+    throw new Error('Usuario inactivo');
+  }
+  const ok = await bcrypt.compare(password, user.password_hash);
+  console.log(ok);
+  if (!ok) {
+    throw new Error('Usuario o contraseña inválidos');
+  }
+  const payload = { sub: user.id, username: user.username, rol: user.rol };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: `${JWT_EXP_HOURS}h` });
+  return { token, user: { id: user.id, username: user.username, rol: user.rol } };
+}
+
+/**
+ * Verifica un token JWT y devuelve payload básico.
+ */
+async function verifyToken(token) {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return { valid: true, payload: decoded };
+  } catch (err) {
+    return { valid: false, error: err.message };
+  }
+}
+
+module.exports.authenticateUser = authenticateUser;
+module.exports.verifyToken = verifyToken;
+/**
+ * Registra un nuevo usuario.
+ * @param {{username:string,password:string,rol?:string}} data
+ * Reglas:
+ *  - username único (min 3, max 60)
+ *  - password min 6 chars
+ *  - rol opcional (default 'usuario')
+ */
+async function registerUser(data) {
+  const { username, nombre, password, rol } = data || {};
+  if (!username || !nombre || !password) throw new Error('username, nombre y password requeridos');
+  if (username.length < 3) throw new Error('username demasiado corto');
+  if (password.length < 6) throw new Error('password demasiado corto');
+  const role = rol && rol.trim() ? rol.trim() : 'usuario';
+
+  // Verificar duplicado
+  const exists = await pool.query('SELECT 1 FROM usuario WHERE username = $1', [username]);
+  if (exists.rows.length > 0) throw new Error('username ya existe');
+
+  const hash = await bcrypt.hash(password, 10);
+  const insert = await pool.query(
+    'INSERT INTO usuario (username, nombre, password_hash, rol) VALUES ($1,$2,$3,$4) RETURNING id, username, nombre, rol, created_at',
+    [username, nombre, hash, role]
+  );
+  const user = insert.rows[0];
+  return { user };
+}
+
+module.exports.registerUser = registerUser;
