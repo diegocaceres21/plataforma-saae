@@ -80,3 +80,13 @@ contextBridge.exposeInMainWorld('authAPI', {
   verify: (token) => ipcRenderer.invoke('auth:verify', token),
   register: (data) => ipcRenderer.invoke('auth:register', data),
 });
+
+// Expose User Management API
+contextBridge.exposeInMainWorld('userAPI', {
+  getAllUsers: () => ipcRenderer.invoke('user:getAll'),
+  getUserById: (id) => ipcRenderer.invoke('user:getById', id),
+  createUser: (data) => ipcRenderer.invoke('user:create', data),
+  updateUser: (id, data) => ipcRenderer.invoke('user:update', id, data),
+  changePassword: (id, newPassword) => ipcRenderer.invoke('user:changePassword', id, newPassword),
+  deleteUser: (id) => ipcRenderer.invoke('user:delete', id),
+});

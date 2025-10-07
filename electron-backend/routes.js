@@ -41,6 +41,55 @@ function registerRoutes(ipcMain) {
       return { error: err.message };
     }
   });
+
+  // Gestión de usuarios
+  ipcMain.handle('user:getAll', async () => {
+    try {
+      return await controllers.getAllUsers();
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('user:getById', async (event, id) => {
+    try {
+      return await controllers.getUserById(id);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('user:create', async (event, data) => {
+    try {
+      return await controllers.createUser(data);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('user:update', async (event, id, data) => {
+    try {
+      return await controllers.updateUser(id, data);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('user:changePassword', async (event, id, newPassword) => {
+    try {
+      return await controllers.changeUserPassword(id, newPassword);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
+
+  ipcMain.handle('user:delete', async (event, id) => {
+    try {
+      return await controllers.deleteUser(id);
+    } catch (err) {
+      return { error: err.message };
+    }
+  });
 }
 
 module.exports = registerRoutes;

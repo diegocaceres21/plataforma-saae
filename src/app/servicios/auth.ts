@@ -99,4 +99,19 @@ export class AuthService {
     }
     return true;
   }
+
+  isAdmin(): boolean {
+    const auth = this.getAuth();
+    return auth ? auth.user.rol === 'admin' : false;
+  }
+
+  getUserRole(): string | null {
+    const auth = this.getAuth();
+    return auth ? auth.user.rol : null;
+  }
+
+  getUser(): any | null {
+    const auth = this.getAuth();
+    return auth ? auth.user : null;
+  }
 }
