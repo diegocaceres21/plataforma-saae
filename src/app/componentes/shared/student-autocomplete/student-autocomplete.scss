@@ -1,11 +1,45 @@
-.autocomplete-dropdown {
-  animation: fadeIn 0.15s ease-in;
+// Portal dropdown styles - escapes parent overflow constraints
+.autocomplete-dropdown-portal {
+  position: fixed;
+  z-index: 9999 !important; // Ensures it's on top of everything
+  pointer-events: auto;
 }
 
-@keyframes fadeIn {
+.autocomplete-dropdown {
+  animation: fadeInSlide 0.15s ease-out;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1);
+  
+  // Ensure dropdown can scroll independently
+  overflow-y: auto;
+  overflow-x: hidden;
+  
+  // Smooth scrolling
+  scroll-behavior: smooth;
+  
+  // Custom scrollbar
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 0 8px 8px 0;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+    
+    &:hover {
+      background: #a0aec0;
+    }
+  }
+}
+
+@keyframes fadeInSlide {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;

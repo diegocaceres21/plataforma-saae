@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnInit, OnDestroy } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, of } from 'rxjs';
@@ -13,7 +13,8 @@ import '../../../interfaces/electron-api';
   templateUrl: './student-autocomplete.html',
   styleUrl: './student-autocomplete.scss'
 })
-export class StudentAutocompleteComponent implements OnInit, OnDestroy {
+export class StudentAutocompleteComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('searchInput', { read: ElementRef }) searchInput!: ElementRef<HTMLInputElement>;
   @Input() placeholder: string = 'Buscar estudiante por carnet o nombre';
   @Input() excludedCIs: string[] = []; // CIs to exclude from results
   @Input() disabled: boolean = false;
@@ -27,14 +28,64 @@ export class StudentAutocompleteComponent implements OnInit, OnDestroy {
     selectedIndex: -1
   };
   
+  dropdownPosition = {
+    top: 0,
+    left: 0,
+    width: 0
+  };
+  
   private searchSubject = new Subject<string>();
+  private scrollListener?: () => void;
+  private resizeListener?: () => void;
   
   ngOnInit() {
     this.initializeSearchSubject();
   }
   
+  ngAfterViewInit() {
+    this.setupPositionListeners();
+  }
+  
   ngOnDestroy() {
     this.searchSubject.complete();
+    this.removePositionListeners();
+  }
+  
+  private setupPositionListeners() {
+    this.scrollListener = () => this.updateDropdownPosition();
+    this.resizeListener = () => this.updateDropdownPosition();
+    
+    window.addEventListener('scroll', this.scrollListener, true);
+    window.addEventListener('resize', this.resizeListener);
+  }
+  
+  private removePositionListeners() {
+    if (this.scrollListener) {
+      window.removeEventListener('scroll', this.scrollListener, true);
+    }
+    if (this.resizeListener) {
+      window.removeEventListener('resize', this.resizeListener);
+    }
+  }
+  
+  private updateDropdownPosition() {
+    if (!this.searchInput?.nativeElement) {
+      return;
+    }
+    
+    const rect = this.searchInput.nativeElement.getBoundingClientRect();
+    this.dropdownPosition = {
+      top: rect.bottom + 4, // 4px gap below input
+      left: rect.left,
+      width: rect.width
+    };
+  }
+  
+  onInputFocus() {
+    this.updateDropdownPosition();
+    if (this.autocompleteState.results.length > 0) {
+      this.autocompleteState.isOpen = true;
+    }
   }
   
   private initializeSearchSubject() {
@@ -75,6 +126,7 @@ export class StudentAutocompleteComponent implements OnInit, OnDestroy {
       // Set loading state and open dropdown
       this.autocompleteState.isLoading = true;
       this.autocompleteState.isOpen = true;
+      this.updateDropdownPosition(); // Update position when opening
       // Trigger search with debounce
       this.searchSubject.next(query);
     } else {
