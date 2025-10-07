@@ -1,5 +1,6 @@
 <div class="relative">
   <input 
+    #searchInput
     type="text" 
     class="font-[Inter] w-full py-3 px-4 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition-all duration-200" 
     [placeholder]="placeholder"
@@ -8,7 +9,7 @@
     (input)="onInputChange($any($event.target).value)"
     (keydown)="onInputKeyDown($event)"
     (blur)="closeAutocomplete()"
-    (focus)="autocompleteState.isOpen = autocompleteState.results.length > 0"
+    (focus)="onInputFocus()"
     name="studentSearch" 
     autocomplete="off">
   
@@ -21,10 +22,18 @@
       </svg>
     </div>
   }
-  
-  <!-- Autocomplete Dropdown -->
-  @if (autocompleteState.isOpen && !disabled) {
-    <div class="absolute z-50 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 autocomplete-dropdown max-h-80 overflow-y-auto">
+</div>
+
+<!-- Autocomplete Dropdown (Portal - Fixed Position) -->
+@if (autocompleteState.isOpen && !disabled) {
+  <div 
+    class="autocomplete-dropdown-portal"
+    [style.position]="'fixed'"
+    [style.top.px]="dropdownPosition.top"
+    [style.left.px]="dropdownPosition.left"
+    [style.width.px]="dropdownPosition.width"
+    [style.z-index]="9999">
+    <div class="bg-white rounded-lg shadow-xl border border-gray-200 autocomplete-dropdown max-h-80 overflow-y-auto">
       @if (autocompleteState.results.length > 0) {
         @for (student of autocompleteState.results; track student.id; let i = $index) {
           <div 
@@ -54,5 +63,5 @@
         </div>
       }
     </div>
-  }
-</div>
+  </div>
+}
