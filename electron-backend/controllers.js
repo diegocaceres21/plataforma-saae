@@ -173,7 +173,7 @@ async function authenticateUser(username, password) {
   if (!username || !password) {
     throw new Error('Credenciales incompletas');
   }
-  const query = 'SELECT id, username, password_hash, rol, activo FROM usuario WHERE username = $1 LIMIT 1';
+  const query = 'SELECT id, username, nombre, password_hash, rol, activo FROM usuario WHERE username = $1 LIMIT 1';
   const result = await pool.query(query, [username]);
   
   if (result.rows.length === 0) {
@@ -184,13 +184,12 @@ async function authenticateUser(username, password) {
     throw new Error('Usuario inactivo');
   }
   const ok = await bcrypt.compare(password, user.password_hash);
-  console.log(ok);
   if (!ok) {
     throw new Error('Usuario o contraseña inválidos');
   }
-  const payload = { sub: user.id, username: user.username, rol: user.rol };
+  const payload = { sub: user.id, username: user.username, nombre: user.nombre, rol: user.rol };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: `${JWT_EXP_HOURS}h` });
-  return { token, user: { id: user.id, username: user.username, rol: user.rol } };
+  return { token, user: { id: user.id, username: user.username, nombre: user.nombre, rol: user.rol } };
 }
 
 /**
@@ -236,3 +235,197 @@ async function registerUser(data) {
 }
 
 module.exports.registerUser = registerUser;
+
+// === Funciones de Gestión de Usuarios ===
+
+/**
+ * Obtiene todos los usuarios
+ */
+async function getAllUsers() {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, nombre, rol, activo, created_at, updated_at FROM usuario ORDER BY created_at DESC'
+    );
+    return { users: result.rows };
+  } catch (error) {
+    throw new Error(`Error al obtener usuarios: ${error.message}`);
+  }
+}
+
+/**
+ * Obtiene un usuario por ID
+ */
+async function getUserById(id) {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, nombre, rol, activo, created_at, updated_at FROM usuario WHERE id = $1',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    return { user: result.rows[0] };
+  } catch (error) {
+    throw new Error(`Error al obtener usuario: ${error.message}`);
+  }
+}
+
+/**
+ * Crea un nuevo usuario
+ */
+async function createUser(data) {
+  const { username, nombre, password, rol } = data || {};
+  
+  if (!username || !nombre || !password) {
+    throw new Error('username, nombre y password son requeridos');
+  }
+  
+  if (username.length < 3) {
+    throw new Error('El username debe tener al menos 3 caracteres');
+  }
+  
+  if (password.length < 6) {
+    throw new Error('La contraseña debe tener al menos 6 caracteres');
+  }
+  
+  const role = rol && rol.trim() ? rol.trim() : 'usuario';
+  
+  try {
+    // Verificar que el username no exista
+    const exists = await pool.query('SELECT 1 FROM usuario WHERE username = $1', [username]);
+    if (exists.rows.length > 0) {
+      throw new Error('El nombre de usuario ya existe');
+    }
+    
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO usuario (username, nombre, password_hash, rol) VALUES ($1, $2, $3, $4) RETURNING id, username, nombre, rol, activo, created_at, updated_at',
+      [username, nombre, hash, role]
+    );
+    
+    return { user: result.rows[0] };
+  } catch (error) {
+    throw new Error(`Error al crear usuario: ${error.message}`);
+  }
+}
+
+/**
+ * Actualiza un usuario
+ */
+async function updateUser(id, data) {
+  const { username, nombre, rol, activo } = data || {};
+  
+  if (!username && !nombre && !rol && activo === undefined) {
+    throw new Error('Al menos un campo debe ser proporcionado para actualizar');
+  }
+  
+  try {
+    // Verificar que el usuario existe
+    const userExists = await pool.query('SELECT 1 FROM usuario WHERE id = $1', [id]);
+    if (userExists.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    // Si se está actualizando el username, verificar que no exista
+    if (username) {
+      const usernameExists = await pool.query('SELECT 1 FROM usuario WHERE username = $1 AND id != $2', [username, id]);
+      if (usernameExists.rows.length > 0) {
+        throw new Error('El nombre de usuario ya existe');
+      }
+    }
+    
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (username) {
+      updates.push(`username = $${paramCount++}`);
+      values.push(username);
+    }
+    
+    if (nombre) {
+      updates.push(`nombre = $${paramCount++}`);
+      values.push(nombre);
+    }
+    
+    if (rol) {
+      updates.push(`rol = $${paramCount++}`);
+      values.push(rol);
+    }
+    
+    if (activo !== undefined) {
+      updates.push(`activo = $${paramCount++}`);
+      values.push(activo);
+    }
+    
+    updates.push(`updated_at = $${paramCount++}`);
+    values.push(new Date());
+    
+    values.push(id); // Para el WHERE
+    
+    const query = `UPDATE usuario SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING id, username, nombre, rol, activo, created_at, updated_at`;
+    const result = await pool.query(query, values);
+    
+    return { user: result.rows[0] };
+  } catch (error) {
+    throw new Error(`Error al actualizar usuario: ${error.message}`);
+  }
+}
+
+/**
+ * Cambia la contraseña de un usuario
+ */
+async function changeUserPassword(id, newPassword) {
+  if (!newPassword) {
+    throw new Error('La nueva contraseña es requerida');
+  }
+  
+  if (newPassword.length < 6) {
+    throw new Error('La contraseña debe tener al menos 6 caracteres');
+  }
+  
+  try {
+    // Verificar que el usuario existe
+    const userExists = await pool.query('SELECT 1 FROM usuario WHERE id = $1', [id]);
+    if (userExists.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query(
+      'UPDATE usuario SET password_hash = $1, updated_at = $2 WHERE id = $3',
+      [hash, new Date(), id]
+    );
+    
+    return { success: true };
+  } catch (error) {
+    throw new Error(`Error al cambiar contraseña: ${error.message}`);
+  }
+}
+
+/**
+ * Elimina un usuario
+ */
+async function deleteUser(id) {
+  try {
+    // Verificar que el usuario existe
+    const userExists = await pool.query('SELECT 1 FROM usuario WHERE id = $1', [id]);
+    if (userExists.rows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    await pool.query('DELETE FROM usuario WHERE id = $1', [id]);
+    return { success: true };
+  } catch (error) {
+    throw new Error(`Error al eliminar usuario: ${error.message}`);
+  }
+}
+
+module.exports.getAllUsers = getAllUsers;
+module.exports.getUserById = getUserById;
+module.exports.createUser = createUser;
+module.exports.updateUser = updateUser;
+module.exports.changeUserPassword = changeUserPassword;
+module.exports.deleteUser = deleteUser;

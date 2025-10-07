@@ -74,6 +74,14 @@ declare global {
       verify: (token: string) => Promise<{ valid: boolean; payload?: any; error?: string }>;
       register: (data: { username: string; nombre: string; password: string; rol?: string }) => Promise<{ user?: any; error?: string }>;
     };
+    userAPI?: {
+      getAllUsers: () => Promise<{ users?: any[]; error?: string }>;
+      getUserById: (id: number) => Promise<{ user?: any; error?: string }>;
+      createUser: (data: { username: string; nombre: string; password: string; rol: string }) => Promise<{ user?: any; error?: string }>;
+      updateUser: (id: number, data: { username?: string; nombre?: string; rol?: string; activo?: boolean }) => Promise<{ user?: any; error?: string }>;
+      changePassword: (id: number, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+      deleteUser: (id: number) => Promise<{ success: boolean; error?: string }>;
+    };
   }
 }
 
