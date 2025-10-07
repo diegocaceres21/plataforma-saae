@@ -145,14 +145,17 @@ export class ExportService {
   }
 
   private addPDFHeader(doc: jsPDF, pageWidth: number, margin: number, title: string): void {
-    const logoWidth = 28; // mm
-    const logoHeight = 28; // mm (ajustado al tamaño aproximado del original)
-    const yTop = 6; // margen superior visual
-
+    const img = new Image();
+    img.src = "logo-ucb-cba.png"; 
+    // Logo
+    const logoWidth = 35; // mm
+    const logoHeight = 22; // mm (proporción aproximada)
+    const logoX = 12; // un poco a la derecha del borde
+    const logoY = 3; // centrado verticalmente dentro del rectángulo
     try {
-      doc.addImage(LOGO_BASE64, 'PNG', margin, yTop - 2, logoWidth, logoHeight, undefined, 'FAST');
+      doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
     } catch {
-      // si falla el logo, continuar sin interrumpir
+      // continuar aunque falle el logo
     }
 
     // Ajustar centro óptico considerando el espacio ocupado por el logo
