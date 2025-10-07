@@ -16,9 +16,14 @@ import { ManualPaymentModalComponent, ManualPaymentData } from '../../shared/man
 import * as XLSX from 'xlsx';
 import '../../../interfaces/electron-api';
 
+interface EstudianteCriterio {
+  carnet?: string;
+  nombre?: string;
+}
+
 interface GrupoFamiliar {
   rowNumber: number;
-  cis: string[];
+  estudiantes: EstudianteCriterio[];
   registros?: RegistroEstudiante[];
   hasErrors?: boolean;
   errorMessage?: string;
@@ -112,19 +117,25 @@ export class RegistroMasivo implements OnInit {
       // Create workbook with template structure
       const wb = XLSX.utils.book_new();
       
-      // Define template headers
-      const headers = ['CI o Nombre Hermano 1', 'CI o Nombre Hermano 2', 'CI o Nombre Hermano 3', 'CI o Nombre Hermano 4', 'CI o Nombre Hermano 5'];
+      // Define template headers - 2 columns per student (carnet and nombre)
+      const headers = [
+        'Carnet Hermano 1', 'Nombre Hermano 1',
+        'Carnet Hermano 2', 'Nombre Hermano 2',
+        'Carnet Hermano 3', 'Nombre Hermano 3',
+        'Carnet Hermano 4', 'Nombre Hermano 4',
+        'Carnet Hermano 5', 'Nombre Hermano 5'
+      ];
       
       // Create worksheet from headers
       const ws = XLSX.utils.aoa_to_sheet([headers]);
       
-      // Set column widths
+      // Set column widths - narrower for carnets, wider for names
       ws['!cols'] = [
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 },
-        { wch: 20 }
+        { wch: 15 }, { wch: 25 }, // Hermano 1
+        { wch: 15 }, { wch: 25 }, // Hermano 2
+        { wch: 15 }, { wch: 25 }, // Hermano 3
+        { wch: 15 }, { wch: 25 }, // Hermano 4
+        { wch: 15 }, { wch: 25 }  // Hermano 5
       ];
       
       // Add worksheet to workbook
@@ -223,20 +234,30 @@ export class RegistroMasivo implements OnInit {
         for (let i = 1; i < jsonData.length; i++) {
           const row = jsonData[i];
           
-          // Extract CIs from row (filter empty cells)
-          const cis: string[] = [];
-          for (let col = 0; col < 5; col++) {
-            const cellValue = row[col];
-            if (cellValue !== undefined && cellValue !== null && String(cellValue).trim() !== '') {
-              cis.push(String(cellValue).trim());
+          // Extract estudiantes from row - 2 columns per student (carnet, nombre)
+          const estudiantes: EstudianteCriterio[] = [];
+          for (let studentIndex = 0; studentIndex < 5; studentIndex++) {
+            const carnetCol = studentIndex * 2; // Columns 0, 2, 4, 6, 8
+            const nombreCol = studentIndex * 2 + 1; // Columns 1, 3, 5, 7, 9
+            
+            const carnet = row[carnetCol] !== undefined && row[carnetCol] !== null && String(row[carnetCol]).trim() !== '' 
+              ? String(row[carnetCol]).trim() 
+              : undefined;
+            const nombre = row[nombreCol] !== undefined && row[nombreCol] !== null && String(row[nombreCol]).trim() !== '' 
+              ? String(row[nombreCol]).trim() 
+              : undefined;
+            
+            // Only add student if at least one field (carnet or nombre) is provided
+            if (carnet || nombre) {
+              estudiantes.push({ carnet, nombre });
             }
           }
           
           // Only add groups with at least 2 students
-          if (cis.length >= 2) {
+          if (estudiantes.length >= 2) {
             this.uploadedGroups.push({
-              rowNumber: i ,
-              cis
+              rowNumber: i,
+              estudiantes
             });
           }
         }
@@ -383,10 +404,35 @@ export class RegistroMasivo implements OnInit {
       throw new Error('API de Académico no disponible');
     }
     
-    for (const criterio of grupo.cis) {
+    for (const estudiante of grupo.estudiantes) {
+      // Definir criterio de búsqueda para mensajes de error
+      let criterioBusqueda = '';
+      if (estudiante.carnet && estudiante.nombre) {
+        criterioBusqueda = `${estudiante.carnet} (${estudiante.nombre})`;
+      } else {
+        criterioBusqueda = estudiante.carnet || estudiante.nombre || 'Sin criterio';
+      }
+      
       try {
-        // Search for student by CI or name (the API accepts both)
-        const personas = await window.academicoAPI.obtenerPersonasPorCarnet(criterio);
+        // Búsqueda prioritaria: primero por carnet, luego por nombre
+        let personas: any[] = [];
+        let encontradoPor: 'carnet' | 'nombre' | undefined;
+        
+        // 1. Intentar búsqueda por carnet si está disponible
+        if (estudiante.carnet && estudiante.carnet.trim() !== '') {
+          personas = await window.academicoAPI.obtenerPersonasPorCarnet(estudiante.carnet.trim());
+          if (personas.length > 0) {
+            encontradoPor = 'carnet';
+          }
+        }
+        
+        // 2. Si no encontró por carnet, intentar por nombre completo
+        if (personas.length === 0 && estudiante.nombre && estudiante.nombre.trim() !== '') {
+          personas = await window.academicoAPI.obtenerPersonasPorCarnet(estudiante.nombre.trim());
+          if (personas.length > 0) {
+            encontradoPor = 'nombre';
+          }
+        }
         
         if (personas.length === 0) {
           // Student not found - create placeholder record
@@ -395,8 +441,8 @@ export class RegistroMasivo implements OnInit {
             id_solicitud: '',
             id_gestion: this.semestreActual[0]?.id || '',
             id_estudiante_siaan: '',
-            ci_estudiante: criterio,
-            nombre_estudiante: 'Estudiante no encontrado',
+            ci_estudiante: estudiante.carnet || criterioBusqueda,
+            nombre_estudiante: estudiante.nombre || 'Estudiante no encontrado',
             carrera: 'No encontrado',
             total_creditos: 0,
             valor_credito: 0,
@@ -407,8 +453,12 @@ export class RegistroMasivo implements OnInit {
             referencia_primer_pago: 'N/A',
             total_semestre: 0,
             registrado: false,
-            comentarios: `No se encontró registro para: ${criterio}`,
-            sin_kardex: true // Mark as problematic
+            comentarios: `No se encontró registro para: ${criterioBusqueda}`,
+            sin_kardex: true, // Mark as problematic
+            // Criterios de búsqueda usados
+            criterio_carnet: estudiante.carnet,
+            criterio_nombre: estudiante.nombre,
+            encontrado_por: undefined // Not found
           };
           
           registros.push(registroNoEncontrado);
@@ -419,9 +469,9 @@ export class RegistroMasivo implements OnInit {
         const persona = personas[0];
         const idEstudiante = persona.id;
         
-        // Extract CI and name from API response (not from Excel)
-        const ciEstudiante = persona.documentoIdentidad || persona.numeroDocumento || criterio;
-        const nombreEstudiante = persona.nombreCompleto || persona.nombre || 'N/A';
+        // Extract CI and name from API response (prefer API data over Excel data)
+        const ciEstudiante = persona.documentoIdentidad || persona.numeroDocumento || estudiante.carnet || '';
+        const nombreEstudiante = persona.nombreCompleto || persona.nombre || estudiante.nombre || 'N/A';
         
         // Get kardex information
         const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
@@ -470,7 +520,11 @@ export class RegistroMasivo implements OnInit {
             registrado: false,
             comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
             sin_kardex: false,
-            sin_pago: sinPago
+            sin_pago: sinPago,
+            // Criterios de búsqueda usados
+            criterio_carnet: estudiante.carnet,
+            criterio_nombre: estudiante.nombre,
+            encontrado_por: encontradoPor
           };
           
           registros.push(registro);
@@ -494,14 +548,18 @@ export class RegistroMasivo implements OnInit {
             total_semestre: 0,
             registrado: false,
             comentarios: 'Estudiante sin registro en gestiones activas',
-            sin_kardex: true
+            sin_kardex: true,
+            // Criterios de búsqueda usados
+            criterio_carnet: estudiante.carnet,
+            criterio_nombre: estudiante.nombre,
+            encontrado_por: encontradoPor
           };
           
           registros.push(registro);
         }
         
       } catch (error) {
-        console.error(`Error procesando criterio ${criterio}:`, error);
+        console.error(`Error procesando estudiante ${criterioBusqueda}:`, error);
         
         // Check if it's a 404 error (student not found in API)
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -516,8 +574,8 @@ export class RegistroMasivo implements OnInit {
             id_solicitud: '',
             id_gestion: this.semestreActual[0]?.id || '',
             id_estudiante_siaan: '',
-            ci_estudiante: criterio,
-            nombre_estudiante: 'Estudiante no encontrado',
+            ci_estudiante: estudiante.carnet || criterioBusqueda,
+            nombre_estudiante: estudiante.nombre || 'Estudiante no encontrado',
             carrera: 'No encontrado',
             total_creditos: 0,
             valor_credito: 0,
@@ -529,7 +587,11 @@ export class RegistroMasivo implements OnInit {
             total_semestre: 0,
             registrado: false,
             comentarios: `Error: ${errorMessage}`,
-            sin_kardex: true
+            sin_kardex: true,
+            // Criterios de búsqueda usados
+            criterio_carnet: estudiante.carnet,
+            criterio_nombre: estudiante.nombre,
+            encontrado_por: undefined // Error occurred
           };
           
           registros.push(registroNoEncontrado);
@@ -1195,7 +1257,7 @@ export class RegistroMasivo implements OnInit {
     
     const nuevoGrupo: GrupoFamiliar = {
       rowNumber: maxRowNumber + 1,
-      cis: [],
+      estudiantes: [],
       registros: [],
       hasErrors: false
     };
