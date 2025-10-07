@@ -33,7 +33,7 @@
           <div class="ml-4 flex-1">
             <h2 class="text-xl font-semibold text-slate-900 mb-2">Descarga la Plantilla Excel</h2>
             <p class="text-slate-600 mb-4">
-              La plantilla contiene 5 columnas donde puedes ingresar el <strong>carnet de identidad o el nombre completo</strong> de cada estudiante. Cada fila representa un grupo familiar (mínimo 2 estudiantes, máximo 5).
+              La plantilla contiene <strong>10 columnas (2 por estudiante)</strong>: carnet de identidad y nombre completo. Puedes llenar solo el carnet, solo el nombre, o ambos. El sistema buscará <strong>primero por carnet y luego por nombre</strong>. Cada fila representa un grupo familiar (mínimo 2 estudiantes, máximo 5).
             </p>
             
             
@@ -174,15 +174,19 @@
                       </td>
                       <td class="px-4 py-3">
                         <div class="flex flex-wrap gap-2">
-                          @for (ci of group.cis; track ci) {
+                          @for (estudiante of group.estudiantes; track $index) {
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-                              {{ ci }}
+                              @if (estudiante.carnet && estudiante.nombre) {
+                                {{ estudiante.carnet }} ({{ estudiante.nombre }})
+                              } @else {
+                                {{ estudiante.carnet || estudiante.nombre }}
+                              }
                             </span>
                           }
                         </div>
                       </td>
                       <td class="px-4 py-3 text-sm text-slate-600">
-                        {{ group.cis.length }} estudiante(s)
+                        {{ group.estudiantes.length }} estudiante(s)
                       </td>
                     </tr>
                   }
@@ -315,6 +319,7 @@
                             @if (tieneEmpates(grupo)) {
                               <th class="px-2 py-2 text-center font-semibold text-slate-700 w-16">Orden</th>
                             }
+                            <th class="px-4 py-2 text-left font-semibold text-slate-700">Criterios de Búsqueda</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">CI</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Nombre</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Carrera</th>
@@ -365,6 +370,43 @@
                                   </div>
                                 </td>
                               }
+                              
+                              <!-- Search Criteria Column -->
+                              <td class="px-4 py-3">
+                                <div class="space-y-1">
+                                  @if (registro.criterio_carnet || registro.criterio_nombre) {
+                                    <div class="text-xs">
+                                      @if (registro.criterio_carnet) {
+                                        <div class="flex items-center gap-1">
+                                          <span class="font-medium text-slate-600">Carnet:</span>
+                                          <span class="font-mono" 
+                                                [class.bg-green-100]="registro.encontrado_por === 'carnet'"
+                                                [class.text-green-700]="registro.encontrado_por === 'carnet'"
+                                                [class.px-1]="registro.encontrado_por === 'carnet'"
+                                                [class.rounded]="registro.encontrado_por === 'carnet'">{{ registro.criterio_carnet }}</span>
+                                          @if (registro.encontrado_por === 'carnet') {
+                                            <span class="text-green-600">✓</span>
+                                          }
+                                        </div>
+                                      }
+                                      @if (registro.criterio_nombre) {
+                                        <div class="flex items-center gap-1">
+                                          <span class="font-medium text-slate-600">Nombre:</span>
+                                          <span [class.bg-green-100]="registro.encontrado_por === 'nombre'"
+                                                [class.text-green-700]="registro.encontrado_por === 'nombre'"
+                                                [class.px-1]="registro.encontrado_por === 'nombre'"
+                                                [class.rounded]="registro.encontrado_por === 'nombre'">{{ registro.criterio_nombre }}</span>
+                                          @if (registro.encontrado_por === 'nombre') {
+                                            <span class="text-green-600">✓</span>
+                                          }
+                                        </div>
+                                      }
+                                    </div>
+                                  } @else {
+                                    <span class="text-xs text-slate-400">Sin criterios</span>
+                                  }
+                                </div>
+                              </td>
                               
                               <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
