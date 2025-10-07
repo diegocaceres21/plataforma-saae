@@ -1,7 +1,14 @@
 
 require('dotenv').config();
 
-const { app, BrowserWindow, screen, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, ipcMain, dialog } = require('electron');
+let autoUpdater;
+try {
+  // Lazy require so development without dependency still works until build
+  ({ autoUpdater } = require('electron-updater'));
+} catch (e) {
+  console.warn('[AutoUpdate] electron-updater not available in dev environment');
+}
 const registerRoutes = require('./electron-backend/routes');
 const externalApi = require('./electron-backend/externalApi');
 const { setExternalTokens } = require('./electron-backend/tokenStore');
@@ -150,16 +157,16 @@ function createWindow() {
     win.loadURL('http://localhost:4200');
     win.webContents.openDevTools();
   } else {
-    // Prod build
-    const indexPath = path.join(__dirname, 'dist', 'electron-app', 'browser', 'index.html');
-    console.log('File loaded: ', indexPath);  // For debugging
+    // Production: Angular outputs to dist/plataforma-saae/browser
+    const indexPath = path.join(__dirname, 'dist', 'plataforma-saae', 'browser', 'index.html');
+    console.log('[Electron] Loading production file:', indexPath);
     win.loadFile(indexPath);
-
-    // If the download fails, try again or switch to a local file
     win.webContents.on('did-fail-load', () => {
-      win.loadFile(indexPath);  // Try to load file again
+      console.warn('[Electron] Failed to load index.html first attempt, retrying');
+      win.loadFile(indexPath);
     });
   }
+  return win;
 }
 
 
@@ -170,9 +177,90 @@ ipcMain.handle('academico:getStudent', async (event, studentId) => {
   return { id: studentId, name: 'Demo Student' };
 });
 
+// --- Auto Update Integration ---
+function setupAutoUpdater(win) {
+  if (!app.isPackaged || !autoUpdater) {
+    return;
+  }
+
+  autoUpdater.autoDownload = false; // Manual trigger to control UX
+
+  autoUpdater.on('error', (error) => {
+    console.error('[AutoUpdate] Error:', error == null ? 'unknown' : (error.stack || error).toString());
+    win.webContents.send('update:error', { message: error.message || String(error) });
+  });
+
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdate] Checking for update...');
+    win.webContents.send('update:checking');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdate] Update available', info.version);
+    win.webContents.send('update:available', info);
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdate] No update available');
+    win.webContents.send('update:not-available', info);
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    win.webContents.send('update:download-progress', progressObj);
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdate] Update downloaded, prompting for restart');
+    win.webContents.send('update:downloaded', info);
+    // Optionally auto install after short delay:
+    // setTimeout(()=> autoUpdater.quitAndInstall(), 3000);
+  });
+
+  // Trigger initial check (non-blocking)
+  setTimeout(() => {
+    try {
+      autoUpdater.checkForUpdates();
+    } catch(err) {
+      console.warn('[AutoUpdate] Initial check failed:', err.message);
+    }
+  }, 3000);
+}
+
+// IPC for manual update control from renderer (optional UI integration)
+ipcMain.handle('update:check', async () => {
+  if (!autoUpdater || !app.isPackaged) return { skipped: true };
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { result };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('update:download', async () => {
+  if (!autoUpdater || !app.isPackaged) return { skipped: true };
+  try {
+    await autoUpdater.downloadUpdate();
+    return { started: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
+ipcMain.handle('update:install', async () => {
+  if (!autoUpdater || !app.isPackaged) return { skipped: true };
+  try {
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return { quitting: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 app.whenReady().then(() => {
   registerRoutes(ipcMain);
-  createWindow();
+  const win = createWindow();
+  setupAutoUpdater(win);
 });
 
 app.on('window-all-closed', () => {
