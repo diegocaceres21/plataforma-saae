@@ -183,7 +183,7 @@ function setupAutoUpdater(win) {
     return;
   }
 
-  autoUpdater.autoDownload = false; // Manual trigger to control UX
+  autoUpdater.autoDownload = true; // Manual trigger to control UX
 
   autoUpdater.on('error', (error) => {
     console.error('[AutoUpdate] Error:', error == null ? 'unknown' : (error.stack || error).toString());
