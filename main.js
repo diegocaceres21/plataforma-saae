@@ -183,7 +183,8 @@ function setupAutoUpdater(win) {
     return;
   }
 
-  autoUpdater.autoDownload = true; // Manual trigger to control UX
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true; // Manual trigger to control UX
 
   autoUpdater.on('error', (error) => {
     console.error('[AutoUpdate] Error:', error == null ? 'unknown' : (error.stack || error).toString());
@@ -223,7 +224,7 @@ function setupAutoUpdater(win) {
     } catch(err) {
       console.warn('[AutoUpdate] Initial check failed:', err.message);
     }
-  }, 3000);
+  }, 5000);
 }
 
 // IPC for manual update control from renderer (optional UI integration)

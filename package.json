@@ -25,6 +25,7 @@
     ]
   },
   "private": true,
+  "repository" : "https://github.com/diegocaceres21/plataforma-saae",
   "build": {
     "appId": "bo.ucb.plataforma.saae",
     "productName": "Plataforma SAAE",
@@ -67,7 +68,7 @@
         "provider": "github",
         "owner": "diegocaceres21",
         "repo": "plataforma-saae",
-        "releaseType": "draft"
+        "releaseType": "release"
       }
     ]
   },

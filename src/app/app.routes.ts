@@ -1,12 +1,12 @@
 import { Routes } from '@angular/router';
-import { Menu } from './componentes/menu/menu';
-import { RegistroMasivo } from './componentes/masivo/registro-masivo/registro-masivo';
-import { MainIndividual } from './componentes/individual/main-individual/main-individual';
-import { ListaRegistrosComponent } from './componentes/lista-registros/lista-registros';
-import { ConfiguracionComponent } from './componentes/configuracion/configuracion';
-import { LoginComponent } from './componentes/auth/login/login';
-import { AdministracionComponent } from './componentes/administracion/administracion';
-import { AdminGuard } from './servicios/admin-guard';
+import { Menu } from './shared/componentes/menu/menu';
+import { RegistroMasivo } from './apoyo-familiar/componentes/registro-masivo/registro-masivo';
+import { MainIndividual } from './apoyo-familiar/componentes/individual/main-individual/main-individual';
+import { ListaRegistrosComponent } from './apoyo-familiar/componentes/lista-registros/lista-registros';
+import { ConfiguracionComponent } from './apoyo-familiar/componentes/configuracion/configuracion';
+import { LoginComponent } from './auth/componentes/login/login';
+import { AdministracionComponent } from './shared/componentes/administracion/administracion';
+import { AdminGuard } from './auth/guardias/admin-guard';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full' },

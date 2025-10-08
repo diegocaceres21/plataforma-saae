@@ -5,11 +5,11 @@ import { routes } from './app.routes';
 import { provideHttpClient } from '@angular/common/http';
 import { registerLocaleData } from '@angular/common';
 import localeEsBo from '@angular/common/locales/es-BO';
-import { GestionService } from './servicios/gestion.service';
-import { CarreraService } from './servicios/carrera.service';
-import { DepartamentoService } from './servicios/departamento.service';
-import { TarifarioService } from './servicios/tarifario.service';
-import { ApoyoFamiliarService } from './servicios/apoyo-familiar.service';
+import { GestionService } from './apoyo-familiar/servicios/gestion.service';
+import { CarreraService } from './apoyo-familiar/servicios/carrera.service';
+import { DepartamentoService } from './apoyo-familiar/servicios/departamento.service';
+import { TarifarioService } from './apoyo-familiar/servicios/tarifario.service';
+import { ApoyoFamiliarService } from './apoyo-familiar/servicios/apoyo-familiar.service';
 
 registerLocaleData(localeEsBo, 'es-BO');
 export const appConfig: ApplicationConfig = {
