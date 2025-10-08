@@ -368,7 +368,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
         plan_primer_pago: registro.plan_primer_pago || '',
         referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
         total_semestre: registro.total_semestre || 0,
-        registrado: true,
+        registrado: false,
         comentarios: registro.comentarios || ''
       }));
 
@@ -386,7 +386,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
       // Opcional: Marcar todos los registros como guardados
       this.registrosEstudiantes.forEach(registro => {
-        registro.registrado = true;
+        registro.registrado = false;
         registro.id_solicitud = solicitud.id;
       });
 
