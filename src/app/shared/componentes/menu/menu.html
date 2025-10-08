@@ -3,7 +3,7 @@
 		<img src="logo.png" alt="Logo" class="h-24 w-auto">
 	</div>
 	<div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8 border border-gray-100">
-		<h2 class="font-[Inter] font-bold text-2xl text-black mb-2 text-center">Menú Principal</h2>
+		<h2 class="font-[Inter] font-bold text-2xl text-black mb-2 text-center">Apoyo Familiar</h2>
 		<p class="text-gray-600 text-center mb-6">Bienvenido, {{userName}}</p>
 		<div class="flex flex-col gap-4">
 			<button routerLink="/registro-individual" class="font-[Roboto] font-semibold w-full py-3 px-6 rounded-lg bg-blue-900 text-white text-lg flex items-center justify-center gap-3 hover:bg-blue-800 transition">
@@ -44,27 +44,16 @@
 				Configuración
 			</button>
 			
-			<!-- Opción de Administración solo para admin -->
-			<button *ngIf="isAdmin" routerLink="/administracion" class="font-[Roboto] font-semibold w-full py-3 px-6 rounded-lg bg-red-600 text-white text-lg flex items-center justify-center gap-3 hover:bg-red-700 transition">
-				<span>
-					<!-- Heroicon: Shield-check -->
-					<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.623 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-					</svg>
-				</span>
-				Administración
-			</button>
-
 			<!-- Botón de cerrar sesión -->
 			<div class="mt-4 pt-4 border-t border-gray-200">
-				<button (click)="logout()" class="font-[Roboto] font-medium w-full py-2 px-4 rounded-lg bg-gray-500 text-white text-base flex items-center justify-center gap-2 hover:bg-gray-600 transition">
+				<button routerLink="/menu-principal" class="font-[Roboto] font-medium w-full py-2 px-4 rounded-lg bg-gray-500 text-white text-base flex items-center justify-center gap-2 hover:bg-gray-600 transition">
 					<span>
-						<!-- Heroicon: Arrow-right-on-rectangle -->
+						<!-- Heroicon: Home (volver al inicio) -->
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+							<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
 						</svg>
 					</span>
-					Cerrar Sesión
+					Volver al Inicio
 				</button>
 			</div>
 		</div>
