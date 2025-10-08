@@ -1454,7 +1454,7 @@ export class RegistroMasivo implements OnInit {
             plan_primer_pago: registro.plan_primer_pago,
             referencia_primer_pago: registro.referencia_primer_pago,
             total_semestre: registro.total_semestre,
-            registrado: true,
+            registrado: false,
             comentarios: registro.comentarios || '',
             visible: true
           }));
