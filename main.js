@@ -198,6 +198,7 @@ function setupAutoUpdater(win) {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdate] Update available', info.version);
+    let pth = autoUpdater.downloadUpdate();
     win.webContents.send('update:available', info);
   });
 

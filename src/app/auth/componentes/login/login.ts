@@ -32,7 +32,7 @@ export class LoginComponent {
         if (res.siaanError) {
           this.siaanWarning = 'Login SIAAN parcial: ' + res.siaanError;
         }
-        this.router.navigate(['/menu']);
+        this.router.navigate(['/menu-principal']);
       } else {
         this.error = res.error || 'Credenciales inválidas';
       }
