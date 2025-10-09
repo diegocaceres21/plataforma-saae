@@ -7,6 +7,7 @@ import { TabsNavegacionComponent } from './tabs-navegacion/tabs-navegacion';
 import { FormularioConfiguracionComponent } from './formulario-configuracion/formulario-configuracion';
 import { TablaConfiguracionComponent } from './tabla-configuracion/tabla-configuracion';
 import { Subject, takeUntil } from 'rxjs';
+import { DriverService } from '../../../shared/servicios/driver';
 
 @Component({
   selector: 'app-configuracion',
@@ -36,6 +37,25 @@ export class ConfiguracionComponent implements OnInit, OnDestroy {
   itemEdicion: ConfigurationItem | null = null;
   loading: boolean = false;
 
+  steps = [
+    {
+      element: '#tabs-navegacion',
+      popover: {
+        title: 'Variables',
+        description: 'A través del menú de tabs, puede seleccionar la categoría de configuración que desea gestionar.',
+      }
+    },
+    {
+      element: '#tab-gestiones',
+      popover: {
+        title: 'Variables',
+        description: 'A través del menú de tabs, puede seleccionar la categoría de configuración que desea gestionar.',
+      }
+    }
+  ];
+
+  constructor(private driverService: DriverService) {}
+
   ngOnInit(): void {
     this.suscribirACambios();
   }
@@ -43,6 +63,10 @@ export class ConfiguracionComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  mostrarTutorial(){
+    this.driverService.startTour(this.steps);
   }
 
   private suscribirACambios(): void {

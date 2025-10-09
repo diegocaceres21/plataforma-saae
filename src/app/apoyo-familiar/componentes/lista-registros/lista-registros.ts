@@ -22,7 +22,7 @@ import autoTable from 'jspdf-autotable';
 import '../../../shared/interfaces/electron-api';
 import { ExportConfig, ExportColumn } from '../../../shared/interfaces/export-config';
 // Logo institucional centralizado reutilizado para encabezados de reportes PDF
-import { LOGO_BASE64 } from '../../../shared/constantes/logo-base64';
+import { DriverService } from '../../../shared/servicios/driver';
 
 interface RegistroConSolicitud extends RegistroEstudiante {
   solicitudInfo?: Solicitud;
@@ -36,7 +36,16 @@ interface SolicitudAgrupada {
 
 @Component({
   selector: 'app-lista-registros',
-  imports: [CommonModule, FormsModule, RouterModule, ToastContainerComponent, MultiSelectDropdownComponent, StudentAccordionComponent, ExportActionsComponent, ExportConfigModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule, 
+    RouterModule, 
+    ToastContainerComponent, 
+    MultiSelectDropdownComponent, 
+    StudentAccordionComponent, 
+    ExportActionsComponent, 
+    ExportConfigModalComponent
+  ],
   templateUrl: './lista-registros.html',
   styleUrl: './lista-registros.scss'
 })
@@ -110,7 +119,50 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   itemsPerPage = 10;
   totalItems = 0;
 
-  constructor(private toastService: ToastService, private router: Router) {}
+  steps = [
+    {
+      element: '#filtros',
+      popover: { title: 'Panel de filtros', description: 'Mediante este panel, se puede realizar un filtrado de los registros de estudiantes del apoyo familiar.' }
+    },
+    {
+      element: '#filtro-gestion',
+      popover: { title: 'Filtro por gestión', description: 'Permite filtrar los registros por una o más gestiones académicas.' }
+    },
+    {
+      element: '#filtro-carrera',
+      popover: { title: 'Filtro por carrera', description: 'Permite filtrar los registros por una o más carreras a las que pertenece el estudiante.' }
+    },
+    {
+      element: '#filtro-descuento',
+      popover: { title: 'Filtro por descuento', description: 'Permite filtrar los registros según el porcentaje de descuento aplicado.' }
+    },
+    {
+      element: '#filtro-plan',
+      popover: { title: 'Filtro por plan de pago', description: 'Permite filtrar los registros según si han realizado el Plan Estandar o el Plan Plus.' }
+    },
+    {
+      element: '#filtro-estudiante',
+      popover: { title: 'Filtro por nombre o carnet', description: 'Permite filtrar los registros según el nombre o carnet del estudiante.' }
+    },
+    {
+      element: '#agrupar',
+      popover: { title: 'Agrupar o no estudiantes', description: 'En el caso de marcar con un check, solo se mostrarán los estudiantes que cumplan con el filtro. Caso contrario, se mostrará junto con su/s hermano/s.' }
+    },
+    {
+      element: '#exportar',
+      popover: { title: 'Exportar datos', description: 'Permite exportar los datos filtrados a formato XLSX o PDF.' }
+    },
+    {
+      element: '#detalle',
+      popover: { title: 'Detalles de la solicitud', description: 'Permite ver detalles de como quedaría el plan de pagos de ambos estudiantes. Además se permite exportar esta información a Excel o PDF.' }
+    },
+    {
+      element: '#editar',
+      popover: { title: 'Editar registro', description: 'Permite editar campos como si el estudiante ha sido registrado o añadir comentarios.' }
+    }
+  ];
+
+  constructor(private toastService: ToastService, private router: Router, private driverService: DriverService) {}
 
   // Método para regresar al menú principal
   volverAlMenu(): void {
@@ -120,11 +172,16 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.cargarDatos();
     this.cargarFiltrosDatos();
+    
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  mostrarTutorial(){
+    this.driverService.startTour(this.steps);
   }
 
   async cargarDatos(): Promise<void> {
@@ -694,9 +751,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.showDetailModal = true;
     this.expandedDetailItems.clear();
     // Por defecto expandir todos los items para vista detallada
-    solicitudAgrupada.registros.forEach((_, index) => {
+    /*solicitudAgrupada.registros.forEach((_, index) => {
       this.expandedDetailItems.add(index);
-    });
+    });*/
   }
 
   closeDetailModal(): void {
