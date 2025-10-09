@@ -2,13 +2,9 @@
 require('dotenv').config();
 
 const { app, BrowserWindow, screen, ipcMain, dialog } = require('electron');
-let autoUpdater;
-try {
-  // Lazy require so development without dependency still works until build
-  ({ autoUpdater } = require('electron-updater'));
-} catch (e) {
-  console.warn('[AutoUpdate] electron-updater not available in dev environment');
-}
+const { autoUpdater, AppUpdater } = require('electron-updater');
+const log = require('electron-log');
+
 const registerRoutes = require('./electron-backend/routes');
 const externalApi = require('./electron-backend/externalApi');
 const { setExternalTokens } = require('./electron-backend/tokenStore');
@@ -16,6 +12,15 @@ const { setStoredCredentials } = require('./electron-backend/externalApi/apiInte
 const path = require('path');
 // Example: require your HTTP client for external API requests
 //const axios = require('axios');
+
+// --- Auto Updater base config ---
+autoUpdater.autoDownload = true; // download automatically when update is available
+autoUpdater.autoInstallOnAppQuit = true; // install on next quit
+autoUpdater.allowPrerelease = process.env.UPDATER_ALLOW_PRERELEASE === '1';
+autoUpdater.logger = log;
+log.transports.file.level = 'info';
+log.info('[Boot] Plataforma SAAE starting. Version:', app.getVersion());
+log.info('[Boot] Log file:', log.transports.file.getFile().path);
 
 // IPC handler for printing
 ipcMain.handle('print:document', async (event, htmlContent) => {
@@ -188,53 +193,63 @@ ipcMain.handle('academico:getStudent', async (event, studentId) => {
 
 // --- Auto Update Integration ---
 function setupAutoUpdater(win) {
-  if (!app.isPackaged || !autoUpdater) {
+  if (!app.isPackaged) {
+    log.warn('[AutoUpdate] Skipping update checks in development mode');
     return;
   }
 
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true; // Manual trigger to control UX
+  log.info('[AutoUpdate] Init. allowPrerelease =', autoUpdater.allowPrerelease);
+  log.info('[AutoUpdate] Current version:', app.getVersion());
+  log.info('[AutoUpdate] updateConfigPath:', autoUpdater.updateConfigPath);
+  try {
+    autoUpdater.checkForUpdates();
+  } catch (err) {
+    log.error('[AutoUpdate] checkForUpdates threw:', err);
+  }
+
+
+   // Manual trigger to control UX
 
   autoUpdater.on('error', (error) => {
-    console.error('[AutoUpdate] Error:', error == null ? 'unknown' : (error.stack || error).toString());
+    log.error('[AutoUpdate] Error:', error == null ? 'unknown' : (error.stack || error).toString());
     win.webContents.send('update:error', { message: error.message || String(error) });
   });
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdate] Checking for update...');
+    log.info('[AutoUpdate] Checking for update...');
     win.webContents.send('update:checking');
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[AutoUpdate] Update available', info.version);
-    let pth = autoUpdater.downloadUpdate();
+    log.info('[AutoUpdate] Update available:', info.version, '| autoDownload =', autoUpdater.autoDownload);
+    // When autoDownload=true, electron-updater starts downloading automatically.
+    // Avoid calling downloadUpdate() again to prevent duplicate downloads.
     win.webContents.send('update:available', info);
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[AutoUpdate] No update available');
+    log.info('[AutoUpdate] No update available');
     win.webContents.send('update:not-available', info);
   });
 
   autoUpdater.on('download-progress', (progressObj) => {
+    log.info('[AutoUpdate] Download progress', {
+      percent: progressObj.percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total,
+      bytesPerSecond: progressObj.bytesPerSecond,
+    });
     win.webContents.send('update:download-progress', progressObj);
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[AutoUpdate] Update downloaded, prompting for restart');
+    log.info('[AutoUpdate] Update downloaded', info && info.version ? `v${info.version}` : '');
     win.webContents.send('update:downloaded', info);
     // Optionally auto install after short delay:
     // setTimeout(()=> autoUpdater.quitAndInstall(), 3000);
   });
 
   // Trigger initial check (non-blocking)
-  setTimeout(() => {
-    try {
-      autoUpdater.checkForUpdates();
-    } catch(err) {
-      console.warn('[AutoUpdate] Initial check failed:', err.message);
-    }
-  }, 5000);
 }
 
 // IPC for manual update control from renderer (optional UI integration)
@@ -251,6 +266,8 @@ ipcMain.handle('update:check', async () => {
 ipcMain.handle('update:download', async () => {
   if (!autoUpdater || !app.isPackaged) return { skipped: true };
   try {
+    // If autoDownload is already true and a download is in progress, this may throw.
+    // We wrap it to provide a friendly error to the renderer.
     await autoUpdater.downloadUpdate();
     return { started: true };
   } catch (err) {

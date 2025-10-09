@@ -103,9 +103,22 @@ export class RegistroMasivo implements OnInit {
   resultadosGuardado: ResultadoGuardadoGrupo[] = [];
   mostrarDetallesError: { [key: number]: boolean } = {};
 
+  // Missing career resolution modal
+  showSelectCarreraModal = false;
+  grupoParaSeleccionarCarrera: GrupoFamiliar | null = null;
+  registroParaSeleccionarCarrera: RegistroEstudiante | null = null;
+  carreraSeleccionadaId: string | null = null;
+
   async ngOnInit() {
     await this.gestionService.loadGestionData();
     this.semestreActual = this.gestionService.getActiveGestiones();
+
+    // Ensure carreras are loaded for selection modal
+    try {
+      await this.carreraService.loadCarreraData?.();
+    } catch (e) {
+      // fallback silently; data might be provided by APP_INITIALIZER
+    }
 
     if (this.semestreActual.length === 0) {
       console.warn('No se encontraron gestiones activas');
@@ -494,14 +507,41 @@ export class RegistroMasivo implements OnInit {
           );
 
           if (!carreraInfo) {
-            throw new Error(`Carrera no encontrada en sistema: ${carrera} para estudiante ${nombreEstudiante}`);
-          }
+            // Carrera del kardex no coincide con BD: marcar para selección
+            const registro: RegistroEstudiante = {
+              id: crypto.randomUUID(),
+              id_solicitud: '', // Will be set when saving
+              id_gestion: this.semestreActual[0]?.id || '',
+              id_estudiante_siaan: idEstudiante,
+              ci_estudiante: ciEstudiante,
+              nombre_estudiante: nombreEstudiante,
+              carrera, // mantener texto de kardex para referencia
+              total_creditos: totalCreditos,
+              valor_credito: 0,
+              credito_tecnologico: 0,
+              porcentaje_descuento: 0, // Will be calculated
+              monto_primer_pago: pagoRealizado,
+              plan_primer_pago: planAccedido,
+              referencia_primer_pago: referencia,
+              total_semestre: 0,
+              registrado: false,
+              comentarios: 'Carrera no encontrada en BD. Seleccione manualmente.',
+              sin_kardex: false,
+              sin_pago: sinPago,
+              sin_carrera: true,
+              // Criterios de búsqueda usados
+              criterio_carnet: estudiante.carnet,
+              criterio_nombre: estudiante.nombre,
+              encontrado_por: encontradoPor
+            };
 
-          valorCredito = carreraInfo.tarifario?.valor_credito || 0;
-          creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
-          totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
+            registros.push(registro);
+          } else {
+            valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+            creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
+            totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
 
-          const registro: RegistroEstudiante = {
+            const registro: RegistroEstudiante = {
             id: crypto.randomUUID(),
             id_solicitud: '', // Will be set when saving
             id_gestion: this.semestreActual[0]?.id || '',
@@ -520,14 +560,15 @@ export class RegistroMasivo implements OnInit {
             registrado: false,
             comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
             sin_kardex: false,
-            sin_pago: sinPago,
+              sin_pago: sinPago,
             // Criterios de búsqueda usados
             criterio_carnet: estudiante.carnet,
             criterio_nombre: estudiante.nombre,
             encontrado_por: encontradoPor
-          };
+            };
 
-          registros.push(registro);
+            registros.push(registro);
+          }
         } else {
           // Student without kardex info - create basic record
           const registro: RegistroEstudiante = {
@@ -896,29 +937,34 @@ export class RegistroMasivo implements OnInit {
         carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       );
 
-      if (!carreraInfo) {
-        throw new Error(`Carrera no encontrada en sistema: ${carrera}`);
-      }
-
-      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
-      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
-      const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
-
       // Update the registro
       this.registroToReplace.id_estudiante_siaan = idEstudiante;
       this.registroToReplace.ci_estudiante = ciEstudiante;
       this.registroToReplace.nombre_estudiante = nombreEstudiante;
-      this.registroToReplace.carrera = carrera;
+      this.registroToReplace.carrera = carrera; // texto desde kardex
       this.registroToReplace.total_creditos = totalCreditos;
-      this.registroToReplace.valor_credito = valorCredito;
-      this.registroToReplace.credito_tecnologico = creditoTecnologico;
       this.registroToReplace.monto_primer_pago = pagoRealizado;
       this.registroToReplace.plan_primer_pago = planAccedido;
       this.registroToReplace.referencia_primer_pago = referencia;
-      this.registroToReplace.total_semestre = totalSemestre;
       this.registroToReplace.sin_kardex = false;
       this.registroToReplace.sin_pago = sinPago;
       this.registroToReplace.comentarios = sinPago ? 'Sin plan de pago encontrado' : '';
+
+      if (!carreraInfo) {
+        // Marcar para selección de carrera
+        this.registroToReplace.valor_credito = 0;
+        this.registroToReplace.credito_tecnologico = 0;
+        this.registroToReplace.total_semestre = 0;
+        this.registroToReplace.sin_carrera = true;
+      } else {
+        const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+        const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
+        const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
+        this.registroToReplace.valor_credito = valorCredito;
+        this.registroToReplace.credito_tecnologico = creditoTecnologico;
+        this.registroToReplace.total_semestre = totalSemestre;
+        this.registroToReplace.sin_carrera = false;
+      }
 
       // Recalculate discounts for the group
       if (this.grupoToEdit.registros) {
@@ -1187,15 +1233,7 @@ export class RegistroMasivo implements OnInit {
         c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
         carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       );
-
-      if (!carreraInfo) {
-        throw new Error(`Carrera no encontrada en sistema: ${carrera}`);
-      }
-
-      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
-      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
-      const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
-
+      
       // Create new registro
       const nuevoRegistro: RegistroEstudiante = {
         id: crypto.randomUUID(),
@@ -1206,21 +1244,34 @@ export class RegistroMasivo implements OnInit {
         nombre_estudiante: nombreEstudiante,
         carrera,
         total_creditos: totalCreditos,
-        valor_credito: valorCredito,
-        credito_tecnologico: creditoTecnologico,
+        valor_credito: carreraInfo?.tarifario?.valor_credito || 0,
+        credito_tecnologico: carreraInfo?.incluye_tecnologico ? (carreraInfo.tarifario?.valor_credito || 0) : 0,
         porcentaje_descuento: 0,
         monto_primer_pago: pagoRealizado,
         plan_primer_pago: planAccedido,
         referencia_primer_pago: referencia,
-        total_semestre: totalSemestre,
+        total_semestre: carreraInfo ? ((carreraInfo.tarifario?.valor_credito || 0) * totalCreditos + (carreraInfo.incluye_tecnologico ? (carreraInfo.tarifario?.valor_credito || 0) : 0)) : 0,
         registrado: false,
         comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
         sin_kardex: false,
-        sin_pago: sinPago
+        sin_pago: sinPago,
+        sin_carrera: !carreraInfo
       };
 
       // Add to group
       this.grupoParaAgregar.registros.push(nuevoRegistro);
+
+      // If career missing, open selection modal immediately
+      if (!carreraInfo) {
+        this.loadingService.setLoading(false);
+        this.abrirSeleccionCarrera(this.grupoParaAgregar, nuevoRegistro);
+        this.toastService.warning(
+          'Carrera no encontrada',
+          'Seleccione la carrera correspondiente de la base de datos para calcular montos',
+          5000
+        );
+        return; // wait for user action in modal
+      }
 
       // Recalculate discounts
       this.calcularPorcentajesGrupo(this.grupoParaAgregar.registros);
@@ -1303,6 +1354,7 @@ export class RegistroMasivo implements OnInit {
       return grupo.registros.some(registro =>
         registro.sin_kardex ||
         registro.sin_pago ||
+        registro.sin_carrera ||
         registro.nombre_estudiante === 'Estudiante no encontrado' ||
         this.tieneCIDuplicado(registro)
       );
@@ -1313,6 +1365,7 @@ export class RegistroMasivo implements OnInit {
     gruposConMenosDe2: number;
     estudiantesSinKardex: number;
     estudiantesSinPago: number;
+    estudiantesSinCarrera: number;
     estudiantesNoEncontrados: number;
     duplicados: number;
     totalEstudiantes: number;
@@ -1321,6 +1374,7 @@ export class RegistroMasivo implements OnInit {
     let gruposConMenosDe2 = 0;
     let estudiantesSinKardex = 0;
     let estudiantesSinPago = 0;
+    let estudiantesSinCarrera = 0;
     let estudiantesNoEncontrados = 0;
     const cisVistos = new Set<string>();
     let duplicados = 0;
@@ -1342,6 +1396,10 @@ export class RegistroMasivo implements OnInit {
           estudiantesSinPago++;
         }
 
+        if (registro.sin_carrera && !registro.sin_kardex) {
+          estudiantesSinCarrera++;
+        }
+
         if (registro.nombre_estudiante === 'Estudiante no encontrado') {
           estudiantesNoEncontrados++;
         }
@@ -1358,6 +1416,7 @@ export class RegistroMasivo implements OnInit {
       gruposConMenosDe2,
       estudiantesSinKardex,
       estudiantesSinPago,
+      estudiantesSinCarrera,
       estudiantesNoEncontrados,
       duplicados,
       totalEstudiantes,
@@ -1544,5 +1603,57 @@ export class RegistroMasivo implements OnInit {
 
   get gruposFallidos(): ResultadoGuardadoGrupo[] {
     return this.resultadosGuardado.filter(r => !r.exito);
+  }
+
+  // Careers selection helpers
+  get carrerasDisponibles() {
+    return this.carreraService.currentData;
+  }
+
+  abrirSeleccionCarrera(grupo: GrupoFamiliar, registro: RegistroEstudiante): void {
+    this.grupoParaSeleccionarCarrera = grupo;
+    this.registroParaSeleccionarCarrera = registro;
+    this.carreraSeleccionadaId = null;
+    this.showSelectCarreraModal = true;
+  }
+
+  cancelarSeleccionCarrera(): void {
+    this.showSelectCarreraModal = false;
+    this.grupoParaSeleccionarCarrera = null;
+    this.registroParaSeleccionarCarrera = null;
+    this.carreraSeleccionadaId = null;
+  }
+
+  confirmarSeleccionCarrera(): void {
+    if (!this.grupoParaSeleccionarCarrera || !this.registroParaSeleccionarCarrera || !this.carreraSeleccionadaId) {
+      return;
+    }
+
+    const selected = this.carrerasDisponibles.find(c => c.id === this.carreraSeleccionadaId!);
+    if (!selected) {
+      this.toastService.error('Selección inválida', 'Debe seleccionar una carrera válida');
+      return;
+    }
+
+    const valorCredito = selected.tarifario?.valor_credito || 0;
+    const creditoTecnologico = selected.incluye_tecnologico ? valorCredito : 0;
+    const totalCreditos = this.registroParaSeleccionarCarrera.total_creditos || 0;
+    const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
+
+    // Update registro
+    this.registroParaSeleccionarCarrera.carrera = selected.carrera;
+    this.registroParaSeleccionarCarrera.valor_credito = valorCredito;
+    this.registroParaSeleccionarCarrera.credito_tecnologico = creditoTecnologico;
+    this.registroParaSeleccionarCarrera.total_semestre = totalSemestre;
+    this.registroParaSeleccionarCarrera.sin_carrera = false;
+    this.registroParaSeleccionarCarrera.comentarios = '';
+
+    // Recalculate discounts for the group
+    if (this.grupoParaSeleccionarCarrera.registros) {
+      this.calcularPorcentajesGrupo(this.grupoParaSeleccionarCarrera.registros);
+    }
+
+    this.toastService.success('Carrera asignada', 'Se actualizó la carrera y montos del estudiante');
+    this.cancelarSeleccionCarrera();
   }
 }
