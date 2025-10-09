@@ -433,6 +433,15 @@
                                       }
                                     </button>
                                   }
+                                  @if (!registro.sin_kardex && registro.sin_carrera) {
+                                    <button
+                                      type="button"
+                                      (click)="abrirSeleccionCarrera(grupo, registro)"
+                                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-200 text-purple-800 hover:bg-purple-300 transition-colors cursor-pointer"
+                                      title="Carrera no encontrada - Click para seleccionar">
+                                      🎓 Seleccionar carrera
+                                    </button>
+                                  }
                                   @if (registro.sin_pago && !registro.sin_kardex) {
                                     <button
                                       type="button"
@@ -449,7 +458,9 @@
                                   {{ registro.nombre_estudiante }}
                                 </span>
                               </td>
-                              <td class="px-4 py-3 text-xs">{{ registro.carrera }}</td>
+                              <td class="px-4 py-3 text-xs">
+                                <span [class.text-purple-700]="registro.sin_carrera">{{ registro.carrera }}</span>
+                              </td>
                               <td class="px-4 py-3 text-right font-medium">{{ registro.total_creditos }}</td>
                               <td class="px-4 py-3 text-right">
                                 <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-green-100 text-green-700">
@@ -527,6 +538,15 @@
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
                           </svg>
                           <span><strong>{{ resumen.estudiantesNoEncontrados }}</strong> estudiante(s) no encontrado(s) en el sistema</span>
+                        </div>
+                      }
+                      
+                      @if (resumen.estudiantesSinCarrera > 0) {
+                        <div class="flex items-center gap-2 text-sm text-red-800">
+                          <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                          </svg>
+                          <span><strong>{{ resumen.estudiantesSinCarrera }}</strong> estudiante(s) con carrera no encontrada. Debe seleccionarse una carrera de la BD.</span>
                         </div>
                       }
                       
@@ -1071,6 +1091,50 @@
     (onSubmit)="onManualPaymentSubmit($event)"
     (onCancel)="onManualPaymentCancel()">
   </app-manual-payment-modal>
+
+  <!-- Select Carrera Modal -->
+  @if (showSelectCarreraModal && grupoParaSeleccionarCarrera && registroParaSeleccionarCarrera) {
+    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-hidden">
+        <div class="bg-purple-50 border-b border-purple-200 px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l9-5-9-5-9 5 9 5zm0 0v6"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-lg font-semibold text-slate-900">Seleccionar Carrera</h3>
+                <p class="text-sm text-slate-600">{{ registroParaSeleccionarCarrera.nombre_estudiante }} (CI: {{ registroParaSeleccionarCarrera.ci_estudiante }})</p>
+              </div>
+            </div>
+            <button type="button" (click)="cancelarSeleccionCarrera()" class="text-slate-400 hover:text-slate-600">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-slate-700">La carrera del kardex no coincide con las carreras registradas en el sistema: <span class="font-medium text-purple-700">"{{ registroParaSeleccionarCarrera.carrera }}"</span>. Seleccione la carrera correcta para calcular montos y descuentos.</p>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">Carrera</label>
+            <select [(ngModel)]="carreraSeleccionadaId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+              <option [ngValue]="null">Seleccione una carrera...</option>
+              @for (c of carrerasDisponibles; track c.id) {
+                <option [ngValue]="c.id">{{ c.carrera }} — {{ c.tarifario?.valor_credito || 0 | currency:'BOB ':'symbol':'1.2-2' }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="bg-slate-50 px-6 py-4 flex justify-end gap-3">
+          <button type="button" (click)="cancelarSeleccionCarrera()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg">Cancelar</button>
+          <button type="button" (click)="confirmarSeleccionCarrera()" [disabled]="!carreraSeleccionadaId" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  }
   
   <!-- Save Results Modal -->
   @if (showResumenModal && resultadosGuardado.length > 0) {

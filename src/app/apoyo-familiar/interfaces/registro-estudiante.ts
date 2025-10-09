@@ -20,6 +20,7 @@ export interface RegistroEstudiante {
     updated_at?: string;
     sin_kardex?: boolean; // True si no se encontró información en las gestiones activas
     sin_pago?: boolean; // True si no se encontró plan de pago en el sistema
+    sin_carrera?: boolean; // True si la carrera del kardex no coincide con las carreras en la BD
     // Criterios de búsqueda usados para encontrar al estudiante
     criterio_carnet?: string; // Carnet usado en la búsqueda
     criterio_nombre?: string; // Nombre usado en la búsqueda

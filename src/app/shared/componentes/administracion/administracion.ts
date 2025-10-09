@@ -1,25 +1,27 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, AfterViewInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { UserService, Usuario, CreateUserData, UpdateUserData } from '../../../auth/servicios/user.service';
 import { AuthService } from '../../../auth/servicios/auth';
+import { LoadingService } from '../../servicios/loading';
+import { ToastService } from '../../servicios/toast';
+// Loading component is used globally in app root; not needed here
 
 @Component({
   selector: 'app-administracion',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule],
   templateUrl: './administracion.html',
   styleUrl: './administracion.scss'
 })
-export class AdministracionComponent implements OnInit {
+export class AdministracionComponent implements OnInit, AfterViewInit {
   userService = inject(UserService);
   authService = inject(AuthService);
   router = inject(Router);
+  loadingService = inject(LoadingService);
+  toastService = inject(ToastService);
 
   usuarios: Usuario[] = [];
-  loading = false;
-  error: string | null = null;
-  success: string | null = null;
 
   // Para modal de crear/editar usuario
   showModal = false;
@@ -44,23 +46,28 @@ export class AdministracionComponent implements OnInit {
     confirmPassword: ''
   };
 
-  ngOnInit() {
-    this.loadUsers();
+  ngOnInit() {}
+
+  ngAfterViewInit() {
+    // Defer to next macrotask to ensure the global loader is mounted and subscribed
+    setTimeout(() => this.loadUsers());
   }
 
   async loadUsers() {
-    this.loading = true;
-    this.error = null;
+    this.loadingService.show();
+    try {
+      const result = await this.userService.getAllUsers();
 
-    const result = await this.userService.getAllUsers();
-
-    if (result.success) {
-      this.usuarios = result.users || [];
-    } else {
-      this.error = result.error || 'Error al cargar usuarios';
+      if (result.success) {
+        this.usuarios = result.users || [];
+      } else {
+        this.toastService.error('Error', result.error || 'Error al cargar usuarios');
+      }
+    } catch (err: any) {
+      this.toastService.error('Error', err?.message || 'Error al cargar usuarios');
+    } finally {
+      this.loadingService.hide();
     }
-
-    this.loading = false;
   }
 
   openCreateModal() {
@@ -95,7 +102,6 @@ export class AdministracionComponent implements OnInit {
     this.showModal = false;
     this.showPasswordModal = false;
     this.resetForm();
-    this.clearMessages();
   }
 
   resetForm() {
@@ -110,113 +116,121 @@ export class AdministracionComponent implements OnInit {
     this.currentUserId = null;
   }
 
-  clearMessages() {
-    this.error = null;
-    this.success = null;
-  }
-
   async saveUser() {
-    this.clearMessages();
-
     // Validaciones
     if (!this.userForm.username.trim() || !this.userForm.nombre.trim()) {
-      this.error = 'Usuario y nombre son requeridos';
+      this.toastService.warning('Validación', 'Usuario y nombre son requeridos');
       return;
     }
 
     if (!this.isEditing) {
       if (!this.userForm.password) {
-        this.error = 'La contraseña es requerida para nuevos usuarios';
+        this.toastService.warning('Validación', 'La contraseña es requerida para nuevos usuarios');
         return;
       }
       if (this.userForm.password !== this.userForm.confirmPassword) {
-        this.error = 'Las contraseñas no coinciden';
+        this.toastService.warning('Validación', 'Las contraseñas no coinciden');
         return;
       }
       if (this.userForm.password.length < 6) {
-        this.error = 'La contraseña debe tener al menos 6 caracteres';
+        this.toastService.warning('Validación', 'La contraseña debe tener al menos 6 caracteres');
         return;
       }
     }
 
-    this.loading = true;
+    this.loadingService.show();
+    try {
+      let result;
+      if (this.isEditing && this.currentUserId) {
+        const updateData: UpdateUserData = {
+          username: this.userForm.username,
+          nombre: this.userForm.nombre,
+          rol: this.userForm.rol,
+          activo: this.userForm.activo
+        };
+        result = await this.userService.updateUser(this.currentUserId, updateData);
+      } else {
+        const createData: CreateUserData = {
+          username: this.userForm.username,
+          nombre: this.userForm.nombre,
+          password: this.userForm.password,
+          rol: this.userForm.rol
+        };
+        result = await this.userService.createUser(createData);
+      }
 
-    let result;
-    if (this.isEditing && this.currentUserId) {
-      const updateData: UpdateUserData = {
-        username: this.userForm.username,
-        nombre: this.userForm.nombre,
-        rol: this.userForm.rol,
-        activo: this.userForm.activo
-      };
-      result = await this.userService.updateUser(this.currentUserId, updateData);
-    } else {
-      const createData: CreateUserData = {
-        username: this.userForm.username,
-        nombre: this.userForm.nombre,
-        password: this.userForm.password,
-        rol: this.userForm.rol
-      };
-      result = await this.userService.createUser(createData);
-    }
-
-    this.loading = false;
-
-    if (result.success) {
-      this.success = this.isEditing ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente';
-      this.closeModal();
-      await this.loadUsers();
-    } else {
-      this.error = result.error || 'Error al guardar usuario';
+      if (result.success) {
+        this.toastService.success(
+          'Éxito', 
+          this.isEditing ? 'Usuario actualizado exitosamente' : 'Usuario creado exitosamente',
+          3000
+        );
+        this.closeModal();
+        await this.loadUsers();
+      } else {
+        this.toastService.error('Error', result.error || 'Error al guardar usuario');
+      }
+    } catch (err: any) {
+      this.toastService.error('Error', err?.message || 'Error al guardar usuario');
+    } finally {
+      this.loadingService.hide();
     }
   }
 
   async changePassword() {
-    this.clearMessages();
-
     if (!this.passwordForm.newPassword) {
-      this.error = 'La nueva contraseña es requerida';
+      this.toastService.warning('Validación', 'La nueva contraseña es requerida');
       return;
     }
     if (this.passwordForm.newPassword !== this.passwordForm.confirmPassword) {
-      this.error = 'Las contraseñas no coinciden';
+      this.toastService.warning('Validación', 'Las contraseñas no coinciden');
       return;
     }
     if (this.passwordForm.newPassword.length < 6) {
-      this.error = 'La contraseña debe tener al menos 6 caracteres';
+      this.toastService.warning('Validación', 'La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
     if (!this.currentUserId) return;
 
-    this.loading = true;
-    const result = await this.userService.changePassword(this.currentUserId, this.passwordForm.newPassword);
-    this.loading = false;
-
-    if (result.success) {
-      this.success = 'Contraseña cambiada exitosamente';
-      this.closeModal();
-    } else {
-      this.error = result.error || 'Error al cambiar contraseña';
+    this.loadingService.show();
+    try {
+      const result = await this.userService.changePassword(this.currentUserId, this.passwordForm.newPassword);
+      if (result.success) {
+        this.toastService.success('Éxito', 'Contraseña cambiada exitosamente', 3000);
+        this.closeModal();
+      } else {
+        this.toastService.error('Error', result.error || 'Error al cambiar contraseña');
+      }
+    } catch (err: any) {
+      this.toastService.error('Error', err?.message || 'Error al cambiar contraseña');
+    } finally {
+      this.loadingService.hide();
     }
   }
 
   async toggleUserStatus(usuario: Usuario) {
-    const newStatus = !usuario.activo;
-    const result = await this.userService.updateUser(usuario.id, { activo: newStatus });
-
-    if (result.success) {
-      this.success = `Usuario ${newStatus ? 'activado' : 'desactivado'} exitosamente`;
-      await this.loadUsers();
-    } else {
-      this.error = result.error || 'Error al cambiar estado del usuario';
+    this.loadingService.show();
+    try {
+      const newStatus = !usuario.activo;
+      const result = await this.userService.updateUser(usuario.id, { activo: newStatus });
+      if (result.success) {
+        this.toastService.success('Éxito', `Usuario ${newStatus ? 'activado' : 'desactivado'} exitosamente`, 3000);
+        await this.loadUsers();
+      } else {
+        this.toastService.error('Error', result.error || 'Error al cambiar estado del usuario');
+      }
+    } catch (err: any) {
+      this.toastService.error('Error', err?.message || 'Error al cambiar estado del usuario');
+    } finally {
+      this.loadingService.hide();
     }
   }
 
   async deleteUser(usuario: Usuario) {
     const currentUser = this.authService.getUser();
     if (currentUser && currentUser.id === usuario.id) {
-      this.error = 'No puedes eliminar tu propio usuario';
+      this.toastService.warning('Advertencia', 'No puedes eliminar tu propio usuario');
       return;
     }
 
@@ -224,15 +238,19 @@ export class AdministracionComponent implements OnInit {
       return;
     }
 
-    this.loading = true;
-    const result = await this.userService.deleteUser(usuario.id);
-    this.loading = false;
-
-    if (result.success) {
-      this.success = 'Usuario eliminado exitosamente';
-      await this.loadUsers();
-    } else {
-      this.error = result.error || 'Error al eliminar usuario';
+    this.loadingService.show();
+    try {
+      const result = await this.userService.deleteUser(usuario.id);
+      if (result.success) {
+        this.toastService.success('Éxito', 'Usuario eliminado exitosamente', 3000);
+        await this.loadUsers();
+      } else {
+        this.toastService.error('Error', result.error || 'Error al eliminar usuario');
+      }
+    } catch (err: any) {
+      this.toastService.error('Error', err?.message || 'Error al eliminar usuario');
+    } finally {
+      this.loadingService.hide();
     }
   }
 

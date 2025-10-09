@@ -731,7 +731,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
     html += `
         <div class="footer">
-          Sistema de Apoyo y Asistencia Estudiantil - SAAE | Total de registros: ${this.registrosEstudiantes.length}
+          Servicio Académico Administrativo Estudiantil - SAAE | Total de registros: ${this.registrosEstudiantes.length}
         </div>
       </body>
       </html>

@@ -169,7 +169,7 @@ export class ExportService {
     // Subtítulo
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('Revisión Individual', textCenterX, 26, { align: 'center' });
+    doc.text('Servicio Académico Administrativo Estudiantil', textCenterX, 26, { align: 'center' });
 
     // Fecha de generación a la derecha
     doc.setFontSize(10);
@@ -186,9 +186,11 @@ export class ExportService {
 
     // Información básica del estudiante en un recuadro
     doc.setFillColor(240, 248, 255); // Azul muy claro
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 25, 'F');
+    // Aumentamos la altura del recuadro para incluir una tercera línea (descuento)
+    const studentBoxHeight = 30;
+    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
     doc.setDrawColor(59, 130, 246); // Azul
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 25);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight);
 
     // Título del estudiante
     doc.setFontSize(14);
@@ -207,12 +209,15 @@ export class ExportService {
     // Columna 1
     doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 15);
     doc.text(`Total U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 20);
+  const descuentoPct = (((registro.porcentaje_descuento || 0) * 100).toFixed(1)) + '%';
+  doc.text(`Descuento: ${descuentoPct}`, col1X, currentY + 25);
 
     // Columna 2
     doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 15);
     doc.text(`Carrera: ${registro.carrera || 'N/A'}`, col2X, currentY + 20);
 
-    currentY += 30;
+  // Dejamos un pequeño margen debajo del recuadro
+  currentY += studentBoxHeight + 5;
 
     // Tabla manual de información financiera
     currentY = this.addFinancialTable(doc, registro, currentY, pageWidth, margin);
@@ -316,7 +321,7 @@ export class ExportService {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`Sistema de Apoyo y Asistencia Estudiantil - SAAE | Total de registros: ${totalRegistros}`,
+    doc.text(`Servicio Académico Administrativo Estudiantil - SAAE | Total de registros: ${totalRegistros}`,
               pageWidth / 2, pageHeight - 10, { align: 'center' });
   }
 

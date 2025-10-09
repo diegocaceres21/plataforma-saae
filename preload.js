@@ -5,6 +5,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   print: (htmlContent) => ipcRenderer.invoke('print:document', htmlContent),
 });
 
+// Updater API (diagnóstico y control manual desde UI)
+contextBridge.exposeInMainWorld('updater', {
+  check: () => ipcRenderer.invoke('update:check'),
+  download: () => ipcRenderer.invoke('update:download'),
+  install: () => ipcRenderer.invoke('update:install'),
+  on: (channel, cb) => ipcRenderer.on(channel, (_, data) => cb?.(data)),
+  off: (channel, cb) => ipcRenderer.removeListener(channel, cb),
+});
+
 contextBridge.exposeInMainWorld('academicoAPI', {
   getStudent: (studentId) => ipcRenderer.invoke('academico:getStudent', studentId),
   fetchExternal: (endpoint, params) => ipcRenderer.invoke('academico:fetchExternal', endpoint, params),

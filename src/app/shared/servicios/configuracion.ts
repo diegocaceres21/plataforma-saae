@@ -141,6 +141,17 @@ export class ConfiguracionService {
     return this.configuracionTablas[this.tablaActiva];
   }
 
+  getCamposTablaActiva(): CampoConfiguracion[] {
+    const config = this.getConfiguracionTablaActiva();
+    if (!config) return [];
+    
+    // Retornar una copia profunda de los campos para evitar modificaciones accidentales
+    return config.campos.map(campo => ({
+      ...campo,
+      options: campo.options ? [...campo.options] : undefined
+    }));
+  }
+
   getTablas(): TablaConfiguracion[] {
     return Object.values(this.configuracionTablas);
   }
@@ -207,6 +218,7 @@ export class ConfiguracionService {
           value: dep.id,
           label: dep.departamento
         }));
+        console.log('[ConfigService] Opciones de departamento actualizadas:', campoDepartamento.options.length);
       }
       
       const campoTarifario = this.configuracionTablas['carreras'].campos.find(c => c.key === 'id_tarifario');
@@ -215,8 +227,12 @@ export class ConfiguracionService {
           value: tar.id,
           label: `${tar.tarifario} (${tar.valor_credito} Bs.)`
         }));
+        console.log('[ConfigService] Opciones de tarifario actualizadas:', campoTarifario.options.length);
       }
     }
+    
+    // Emitir cambio para notificar a los componentes
+    this._tablaActiva.next(this._tablaActiva.value);
   }
 
   private async cargarCarreras(): Promise<Carrera[]> {

@@ -237,7 +237,15 @@ export class FormularioConfiguracionComponent implements OnInit, OnDestroy {
         this.enviando = loading;
       });
 
+    // Actualizar cuando cambian las gestiones (y otros datos)
     this.configuracionService.gestiones$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        this.actualizarConfiguracionCampos();
+      });
+
+    // Actualizar cuando cambian los datos completos
+    this.configuracionService.datos$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.actualizarConfiguracionCampos();
@@ -248,19 +256,27 @@ export class FormularioConfiguracionComponent implements OnInit, OnDestroy {
     const configuracion = this.configuracionService.getConfiguracionTablaActiva();
     if (configuracion) {
       this.nombreSingular = configuracion.nombreSingular;
-      this.campos = [...configuracion.campos];
-      this.actualizarConfiguracionCampos();
+      // Obtener campos actualizados con opciones
+      this.campos = this.configuracionService.getCamposTablaActiva();
+      console.log('[FormularioConfig] Inicializado con campos:', this.campos.map(c => ({
+        key: c.key,
+        type: c.type,
+        optionsCount: c.options?.length || 0
+      })));
       this.resetearFormulario();
     }
   }
 
   private actualizarConfiguracionCampos(): void {
-    const configuracion = this.configuracionService.getConfiguracionTablaActiva();
-    if (configuracion) {
-      this.campos = this.campos.map(campo => {
-        const campoOriginal = configuracion.campos.find(c => c.key === campo.key);
-        return campoOriginal ? { ...campoOriginal } : campo;
-      });
+    // Obtener campos actualizados directamente del servicio
+    const camposActualizados = this.configuracionService.getCamposTablaActiva();
+    if (camposActualizados.length > 0) {
+      this.campos = camposActualizados;
+      console.log('[FormularioConfig] Campos actualizados:', this.campos.map(c => ({
+        key: c.key,
+        type: c.type,
+        optionsCount: c.options?.length || 0
+      })));
     }
   }
 
