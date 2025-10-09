@@ -25,7 +25,7 @@
     ]
   },
   "private": true,
-  "repository" : "https://github.com/diegocaceres21/plataforma-saae",
+  "repository": "https://github.com/diegocaceres21/plataforma-saae",
   "build": {
     "appId": "bo.ucb.plataforma.saae",
     "productName": "Plataforma SAAE",
@@ -49,7 +49,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icons/icon.ico"
@@ -83,6 +85,7 @@
     "axios": "^1.12.0",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
+    "driver.js": "^1.3.6",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
@@ -95,9 +98,6 @@
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
-    "electron-updater": "^6.3.9",
-    "electron-builder": "^25.1.8",
-    "npm-run-all": "^4.1.5",
     "@angular/build": "^20.1.5",
     "@angular/cli": "^20.1.5",
     "@angular/compiler-cli": "^20.1.0",
@@ -105,12 +105,15 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jspdf": "^1.3.3",
     "electron": "^38.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-updater": "^6.3.9",
     "jasmine-core": "~5.8.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "npm-run-all": "^4.1.5",
     "typescript": "~5.8.2"
   }
 }

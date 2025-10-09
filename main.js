@@ -12,6 +12,7 @@ try {
 const registerRoutes = require('./electron-backend/routes');
 const externalApi = require('./electron-backend/externalApi');
 const { setExternalTokens } = require('./electron-backend/tokenStore');
+const { setStoredCredentials } = require('./electron-backend/externalApi/apiInterceptor');
 const path = require('path');
 // Example: require your HTTP client for external API requests
 //const axios = require('axios');
@@ -122,7 +123,15 @@ ipcMain.handle('api:obtenerPersonasPorCarnet', async (event, carnet) => {
 // IPC handler for logInSiaan (external auth)
 ipcMain.handle('api:logInSiaan', async (event, credentials) => {
   try {
-    return await externalApi.auth.logInSiaan(credentials);
+    const result = await externalApi.auth.logInSiaan(credentials);
+    
+    // Almacenar credenciales para reautenticación automática
+    if (result.token) {
+      setStoredCredentials(credentials);
+      console.log('[Main] Credenciales almacenadas para reautenticación automática');
+    }
+    
+    return result;
   } catch (error) {
     return { error: error.message };
   }
