@@ -78,8 +78,8 @@ async function _obtenerKardexEstudiante(id_estudiante) {
 
 const obtenerKardexEstudiante = wrapWithRetry(_obtenerKardexEstudiante);
 
-async function _obtenerPagosRealizados(id_estudiante) {
-  const url = `https://backend.ucb.edu.bo/Academico/api/v1/Caja/Integracion/ObtenerFacturaPersona?idPersona=${id_estudiante}&idRegional=PJh5GJydX69ABmU3tKVdpQ==&tamanoDePagina=20`;
+async function _obtenerPagosRealizados(id_estudiante, tamanoDePagina = 20) {
+  const url = `https://backend.ucb.edu.bo/Academico/api/v1/Caja/Integracion/ObtenerFacturaPersona?idPersona=${id_estudiante}&idRegional=PJh5GJydX69ABmU3tKVdpQ==&tamanoDePagina=${tamanoDePagina}`;
 
   const headers = buildHeaders();
 
@@ -100,7 +100,7 @@ async function _obtenerPagosRealizados(id_estudiante) {
 
 const obtenerPagosRealizados = wrapWithRetry(_obtenerPagosRealizados);
 
-async function _obtenerDetalleFactura(numero_maestro, id_regional, orden) {
+async function _obtenerDetalleFactura(numero_maestro, id_regional, orden, soloCabecera = false) {
   const url = `https://backend.ucb.edu.bo/Academico/api/v1/Caja/Integracion/ObtenerFacturaDetalle?numeroMaestro=${numero_maestro}&idRegional=${id_regional}&orden=${orden}`;
 
   const headers = buildHeaders();
@@ -111,13 +111,9 @@ async function _obtenerDetalleFactura(numero_maestro, id_regional, orden) {
   });
 
   const jsonData = response.data;
-  const datos = jsonData.datos || [];
+  const datos = soloCabecera ? (jsonData.cabecera || {}) : (jsonData.datos || []);
   
-  if (datos.length > 0) {
-    return datos;
-  } else {
-    throw new Error("No se encontró el estudiante.");
-  }
+  return datos;
 }
 
 const obtenerDetalleFactura = wrapWithRetry(_obtenerDetalleFactura);
@@ -144,4 +140,30 @@ async function _obtenerNombreCompleto(id_estudiante) {
 
 const obtenerNombreCompleto = wrapWithRetry(_obtenerNombreCompleto);
 
-module.exports = { obtenerIDPersona, obtenerKardexEstudiante, obtenerPagosRealizados, obtenerDetalleFactura, obtenerNombreCompleto, obtenerPersonasPorCarnet };
+async function _obtenerCarrera(id_estudiante) {
+  const url = `https://backend.ucb.edu.bo/Academico/api/v1/Academico/FileVirtual/ObtenerDatosPersonales?idPersona=${id_estudiante}`;
+
+  const headers = buildHeaders();
+
+  const response = await axios.get(url, { 
+    headers,
+    validateStatus: (status) => status >= 200 && status < 300 
+  });
+
+  const jsonData = response.data;
+  const datos = jsonData.datos || {};
+  
+  if (datos && datos.DatosCarrera) {
+    // Remover prefijo entre corchetes como [ADM] y espacios extra
+    return datos.DatosCarrera.carrera
+      .replace(/^\s*\[[^\]]+\]\s*/, '') // Elimina [XXX] y espacios alrededor
+      .replace(/\s{2,}/g, ' ')           // Normaliza espacios múltiples
+      .trim();                           // Elimina espacios al inicio/fin
+  } else {
+    throw new Error("No se encontró el estudiante.");
+  }
+}
+
+const obtenerCarrera = wrapWithRetry(_obtenerCarrera);
+
+module.exports = { obtenerIDPersona, obtenerKardexEstudiante, obtenerPagosRealizados, obtenerDetalleFactura, obtenerNombreCompleto, obtenerCarrera, obtenerPersonasPorCarnet };

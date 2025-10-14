@@ -75,9 +75,10 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   // External API endpoints
   obtenerIDPersona: (carnet) => ipcRenderer.invoke('api:obtenerIDPersona', carnet),
   obtenerKardexEstudiante: (id_estudiante) => ipcRenderer.invoke('api:obtenerKardexEstudiante', id_estudiante),
-  obtenerPagosRealizados: (id_estudiante) => ipcRenderer.invoke('api:obtenerPagosRealizados', id_estudiante),
-  obtenerDetalleFactura: (numero_maestro, id_regional, orden) => ipcRenderer.invoke('api:obtenerDetalleFactura', numero_maestro, id_regional, orden),
+  obtenerPagosRealizados: (id_estudiante, tamanoDePagina) => ipcRenderer.invoke('api:obtenerPagosRealizados', id_estudiante, tamanoDePagina),
+  obtenerDetalleFactura: (numero_maestro, id_regional, orden, soloCabecera) => ipcRenderer.invoke('api:obtenerDetalleFactura', numero_maestro, id_regional, orden, soloCabecera),
   obtenerNombreCompleto: (id_estudiante) => ipcRenderer.invoke('api:obtenerNombreCompleto', id_estudiante),
+  obtenerCarrera: (id_estudiante) => ipcRenderer.invoke('api:obtenerCarrera', id_estudiante),
   obtenerPersonasPorCarnet: (carnet) => ipcRenderer.invoke('api:obtenerPersonasPorCarnet', carnet),
   logInSiaan: (credentials) => ipcRenderer.invoke('api:logInSiaan', credentials),
   setExternalTokens: (data) => ipcRenderer.invoke('api:setExternalTokens', data),

@@ -90,18 +90,18 @@ ipcMain.handle('api:obtenerKardexEstudiante', async (event, id_estudiante) => {
 });
 
 // IPC handler for obtenerPagosRealizados
-ipcMain.handle('api:obtenerPagosRealizados', async (event, id_estudiante) => {
+ipcMain.handle('api:obtenerPagosRealizados', async (event, id_estudiante, tamanoDePagina) => {
   try {
-    return await externalApi.personas.obtenerPagosRealizados(id_estudiante);
+    return await externalApi.personas.obtenerPagosRealizados(id_estudiante, tamanoDePagina);
   } catch (error) {
     throw error;
   }
 });
 
 // IPC handler for obtenerDetalleFactura
-ipcMain.handle('api:obtenerDetalleFactura', async (event, numero_maestro, id_regional, orden) => {
+ipcMain.handle('api:obtenerDetalleFactura', async (event, numero_maestro, id_regional, orden, soloCabecera) => {
   try {
-    return await externalApi.personas.obtenerDetalleFactura(numero_maestro, id_regional, orden);
+    return await externalApi.personas.obtenerDetalleFactura(numero_maestro, id_regional, orden, soloCabecera);
   } catch (error) {
     throw error;
   }
@@ -111,6 +111,14 @@ ipcMain.handle('api:obtenerDetalleFactura', async (event, numero_maestro, id_reg
 ipcMain.handle('api:obtenerNombreCompleto', async (event, id_estudiante) => {
   try {
     return await externalApi.personas.obtenerNombreCompleto(id_estudiante);
+  } catch (error) {
+    throw error;
+  }
+});
+
+ipcMain.handle('api:obtenerCarrera', async (event, id_estudiante) => {
+  try {
+    return await externalApi.personas.obtenerCarrera(id_estudiante);
   } catch (error) {
     throw error;
   }

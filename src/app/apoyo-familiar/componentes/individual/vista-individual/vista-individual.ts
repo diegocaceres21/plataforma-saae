@@ -446,10 +446,10 @@ export class VistaIndividual implements OnInit, OnDestroy {
       // Usar las APIs de Electron para imprimir
       if (typeof window !== 'undefined' && (window as any).electronAPI) {
         console.log('✅ API de Electron detectada, usando impresión nativa');
-        this.printWithElectron(printContent, safetyTimeout);
+        //this.printWithElectron(printContent, safetyTimeout);
       } else {
         console.log('⚠️ API de Electron no disponible, usando fallback de navegador');
-        this.printWithBrowser(printContent, safetyTimeout);
+        //this.printWithBrowser(printContent, safetyTimeout);
       }
 
     } catch (error) {

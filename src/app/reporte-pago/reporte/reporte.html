@@ -1,1 +1,146 @@
-<p>reporte works!</p>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 py-8 px-4">
+  <div class="max-w-7xl mx-auto">
+    
+    @if (reporteData) {
+      <!-- Header Section -->
+      <div class="mb-8">
+        <button
+          (click)="volverABusqueda()"
+          class="inline-flex items-center gap-2 px-4 py-2 mb-4 text-slate-600 hover:text-slate-800 bg-white rounded-lg shadow-sm hover:shadow-md transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+          </svg>
+          <span class="font-medium">Nueva Búsqueda</span>
+        </button>
+        
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6">
+          <div class="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 class="text-3xl font-bold text-slate-900 mb-2">Certificado de Pagos</h1>
+              <div class="space-y-1">
+                <p class="text-slate-600">
+                  <span class="font-semibold">Estudiante:</span> {{ reporteData.estudiante.nombre }}
+                </p>
+                <p class="text-slate-600">
+                  <span class="font-semibold">Carnet:</span> {{ reporteData.estudiante.carnet }}
+                </p>
+                @if (reporteData.fechaInicio && reporteData.fechaFin) {
+                  <p class="text-slate-600">
+                    <span class="font-semibold">Período:</span> 
+                    {{ reporteData.fechaInicio | date: 'dd/MM/yyyy' }} - {{ reporteData.fechaFin | date: 'dd/MM/yyyy' }}
+                  </p>
+                }
+              </div>
+            </div>
+            
+            <!-- Export Buttons (Placeholder) -->
+            <div class="flex gap-2">
+              
+              <button
+                type="button"
+                (click)="exportarWord()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                title="Exportar a Word">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+                <span class="hidden sm:inline">Exportar a Word</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+      <!-- Payments Table -->
+      <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-600 border-b border-slate-300">
+          <h2 class="text-xl font-bold text-white flex items-center gap-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+            </svg>
+            Detalle de Pagos
+          </h2>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-slate-100 border-b-2 border-slate-300">
+              <tr>
+                <th class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  #
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Fecha
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Nro. Factura
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Razón Social
+                </th>
+                <th class="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  NIT
+                </th>
+                <th class="px-6 py-4 text-right text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Importe
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              @for (pago of reporteData.pagos; track $index) {
+                <tr class="hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                    {{ $index + 1 }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                    {{ pago.fecha | date: 'dd/MM/yyyy' }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
+                    {{ pago.factura }}
+                  </td>
+                  <td class="px-6 py-4 text-sm text-slate-700">
+                    {{ pago.beneficiario }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-mono">
+                    {{ pago.nit }}
+                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-slate-900">
+                    {{ pago.monto | currency:'BOB ':'symbol':'1.2-2' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot class="bg-slate-50 border-t-2 border-slate-300">
+              <tr>
+                <td colspan="5" class="px-6 py-4 text-right text-sm font-bold text-slate-900 uppercase">
+                  Total:
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right">
+                  <span class="text-lg font-bold text-green-600">
+                    {{ totalImporte | currency:'BOB ':'symbol':'1.2-2' }}
+                  </span>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      
+
+    } @else {
+      <!-- Loading or No Data State -->
+      <div class="flex items-center justify-center min-h-[60vh]">
+        <div class="text-center">
+          <svg class="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+          </svg>
+          <p class="text-slate-600 text-lg">Cargando datos del reporte...</p>
+        </div>
+      </div>
+    }
+    
+  </div>
+</div>

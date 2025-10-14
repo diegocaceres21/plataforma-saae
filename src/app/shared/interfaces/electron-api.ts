@@ -62,9 +62,10 @@ declare global {
       // External APIs
       obtenerIDPersona: (carnet: string) => Promise<any>;
       obtenerKardexEstudiante: (id_estudiante: string) => Promise<any>;
-      obtenerPagosRealizados: (id_estudiante: string) => Promise<any>;
-      obtenerDetalleFactura: (numero_maestro: string, id_regional: string, orden: number) => Promise<any>;
+      obtenerPagosRealizados: (id_estudiante: string, tamanoDePagina?: number) => Promise<any>;
+      obtenerDetalleFactura: (numero_maestro: string, id_regional: string, orden: number, soloCabecera?: boolean) => Promise<any>;
       obtenerNombreCompleto: (id_estudiante: string) => Promise<any>;
+      obtenerCarrera: (id_estudiante: string) => Promise<any>;
       obtenerPersonasPorCarnet: (carnet: string) => Promise<any>;
       logInSiaan: (credentials: any) => Promise<{ message?: string; token?: string; tokenExpiry?: string; error?: string }>;
       setExternalTokens: (data: { token?: string; uniqueCode?: string; tokenExpiry?: string }) => Promise<{ success: boolean; error?: string }>;

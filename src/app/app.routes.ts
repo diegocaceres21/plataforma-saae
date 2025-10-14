@@ -9,6 +9,7 @@ import { AdministracionComponent } from './shared/componentes/administracion/adm
 import { AdminGuard } from './auth/guardias/admin-guard';
 import { Busqueda } from './reporte-pago/busqueda/busqueda';
 import { MainMenu } from './shared/componentes/main-menu/main-menu';
+import { Reporte } from './reporte-pago/reporte/reporte';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -18,6 +19,7 @@ export const routes: Routes = [
     { path: 'registro-individual', component: MainIndividual },
     { path: 'registro-masivo', component: RegistroMasivo },
     { path: 'reporte-pagos', component:  Busqueda},
+    { path: 'resultado-pagos', component:  Reporte},
     { path: 'lista-registros', component: ListaRegistrosComponent },
     { path: 'configuracion', component: ConfiguracionComponent },
     { path: 'administracion', component: AdministracionComponent, canActivate: [AdminGuard] },
