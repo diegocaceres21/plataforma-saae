@@ -40,6 +40,13 @@ declare global {
       createCarrera: (data: any) => Promise<any>;
       updateCarrera: (id: string, data: any) => Promise<any>;
       removeCarrera: (id: string) => Promise<any>;
+
+      // API for beneficio table
+      getAllBeneficio: () => Promise<any>;
+      getBeneficioById: (id: string) => Promise<any>;
+      createBeneficio: (data: any) => Promise<any>;
+      updateBeneficio: (id: string, data: any) => Promise<any>;
+      removeBeneficio: (id: string) => Promise<any>;
       
       // APIs for solicitud table
       getAllSolicitud: () => Promise<any>;

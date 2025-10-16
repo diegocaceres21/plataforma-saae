@@ -10,6 +10,7 @@ import { CarreraService } from './apoyo-familiar/servicios/carrera.service';
 import { DepartamentoService } from './apoyo-familiar/servicios/departamento.service';
 import { TarifarioService } from './apoyo-familiar/servicios/tarifario.service';
 import { ApoyoFamiliarService } from './apoyo-familiar/servicios/apoyo-familiar.service';
+import { BeneficioService } from './apoyo-familiar/servicios/beneficio.service';
 
 registerLocaleData(localeEsBo, 'es-BO');
 export const appConfig: ApplicationConfig = {
@@ -28,13 +29,15 @@ export const appConfig: ApplicationConfig = {
         const deptoSvc = inject(DepartamentoService);
         const tarifarioSvc = inject(TarifarioService);
         const apoyoFamiliarSvc = inject(ApoyoFamiliarService);
+        const beneficioSvc = inject(BeneficioService);
         return async () => {
           try {
             // Cargar datos base en paralelo
             await Promise.all([
               deptoSvc.loadDepartamentoData(),
               tarifarioSvc.loadTarifarioData(),
-              apoyoFamiliarSvc.loadApoyoFamiliarData()
+              apoyoFamiliarSvc.loadApoyoFamiliarData(),
+              beneficioSvc.loadBeneficioData()
             ]);
             // Luego dependientes
             await Promise.all([

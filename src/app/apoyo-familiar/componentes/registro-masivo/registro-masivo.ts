@@ -7,6 +7,7 @@ import { ToastContainerComponent } from '../../../shared/componentes/toast-conta
 import { LoadingService } from '../../../shared/servicios/loading';
 import { ApoyoFamiliarService } from '../../servicios/apoyo-familiar.service';
 import { CarreraService } from '../../servicios/carrera.service';
+import { BeneficioService } from '../../servicios/beneficio.service';
 import { GestionService } from '../../servicios/gestion.service';
 import { Gestion } from '../../interfaces/gestion';
 import { RegistroEstudiante } from '../../interfaces/registro-estudiante';
@@ -49,6 +50,7 @@ export class RegistroMasivo implements OnInit {
   private loadingService = inject(LoadingService);
   private apoyoFamiliarService = inject(ApoyoFamiliarService);
   private carreraService = inject(CarreraService);
+  private beneficioService = inject(BeneficioService);
   private gestionService = inject(GestionService);
 
   // Step navigation
@@ -118,6 +120,13 @@ export class RegistroMasivo implements OnInit {
       await this.carreraService.loadCarreraData?.();
     } catch (e) {
       // fallback silently; data might be provided by APP_INITIALIZER
+    }
+
+    // Cargar beneficios para obtener ID de "APOYO FAMILIAR"
+    try {
+      await this.beneficioService.loadBeneficioData();
+    } catch (e) {
+      console.error('Error loading beneficios:', e);
     }
 
     if (this.semestreActual.length === 0) {
@@ -456,7 +465,9 @@ export class RegistroMasivo implements OnInit {
             id_estudiante_siaan: '',
             ci_estudiante: estudiante.carnet || criterioBusqueda,
             nombre_estudiante: estudiante.nombre || 'Estudiante no encontrado',
-            carrera: 'No encontrado',
+            carrera: 'No encontrado', // Solo para mostrar en UI
+            id_carrera: undefined, // No hay carrera asignada
+            id_beneficio: this.beneficioService.getApoyoFamiliarId(), // ID del beneficio "APOYO FAMILIAR"
             total_creditos: 0,
             valor_credito: 0,
             credito_tecnologico: 0,
@@ -515,7 +526,9 @@ export class RegistroMasivo implements OnInit {
               id_estudiante_siaan: idEstudiante,
               ci_estudiante: ciEstudiante,
               nombre_estudiante: nombreEstudiante,
-              carrera, // mantener texto de kardex para referencia
+              carrera, // Texto del kardex para referencia en UI
+              id_carrera: undefined, // No hay carrera asignada aún
+              id_beneficio: this.beneficioService.getApoyoFamiliarId(), // ID del beneficio "APOYO FAMILIAR"
               total_creditos: totalCreditos,
               valor_credito: 0,
               credito_tecnologico: 0,
@@ -548,7 +561,9 @@ export class RegistroMasivo implements OnInit {
             id_estudiante_siaan: idEstudiante,
             ci_estudiante: ciEstudiante,
             nombre_estudiante: nombreEstudiante,
-            carrera,
+            carrera: carreraInfo.carrera, // Solo para mostrar en UI
+            id_carrera: carreraInfo.id, // Campo principal para BD
+            id_beneficio: this.beneficioService.getApoyoFamiliarId(), // ID del beneficio "APOYO FAMILIAR"
             total_creditos: totalCreditos,
             valor_credito: valorCredito,
             credito_tecnologico: creditoTecnologico,
@@ -578,7 +593,9 @@ export class RegistroMasivo implements OnInit {
             id_estudiante_siaan: idEstudiante,
             ci_estudiante: ciEstudiante,
             nombre_estudiante: nombreEstudiante,
-            carrera: 'Sin información',
+            carrera: 'Sin información', // Solo para mostrar en UI
+            id_carrera: undefined, // No hay carrera asignada
+            id_beneficio: this.beneficioService.getApoyoFamiliarId(), // ID del beneficio "APOYO FAMILIAR"
             total_creditos: 0,
             valor_credito: 0,
             credito_tecnologico: 0,
@@ -617,7 +634,9 @@ export class RegistroMasivo implements OnInit {
             id_estudiante_siaan: '',
             ci_estudiante: estudiante.carnet || criterioBusqueda,
             nombre_estudiante: estudiante.nombre || 'Estudiante no encontrado',
-            carrera: 'No encontrado',
+            carrera: 'No encontrado', // Solo para mostrar en UI
+            id_carrera: undefined, // No hay carrera asignada
+            id_beneficio: this.beneficioService.getApoyoFamiliarId(), // ID del beneficio "APOYO FAMILIAR"
             total_creditos: 0,
             valor_credito: 0,
             credito_tecnologico: 0,
@@ -1504,7 +1523,8 @@ export class RegistroMasivo implements OnInit {
             id_gestion: registro.id_gestion,
             ci_estudiante: registro.ci_estudiante,
             nombre_estudiante: registro.nombre_estudiante,
-            carrera: registro.carrera,
+            id_carrera: registro.id_carrera, // Campo principal - ID de carrera
+            id_beneficio: registro.id_beneficio, // ID del beneficio "APOYO FAMILIAR"
             valor_credito: registro.valor_credito,
             total_creditos: registro.total_creditos,
             credito_tecnologico: registro.credito_tecnologico,
@@ -1641,7 +1661,8 @@ export class RegistroMasivo implements OnInit {
     const totalSemestre = valorCredito * totalCreditos + creditoTecnologico;
 
     // Update registro
-    this.registroParaSeleccionarCarrera.carrera = selected.carrera;
+    this.registroParaSeleccionarCarrera.carrera = selected.carrera; // Solo para mostrar en UI
+    this.registroParaSeleccionarCarrera.id_carrera = selected.id; // Campo principal para BD
     this.registroParaSeleccionarCarrera.valor_credito = valorCredito;
     this.registroParaSeleccionarCarrera.credito_tecnologico = creditoTecnologico;
     this.registroParaSeleccionarCarrera.total_semestre = totalSemestre;

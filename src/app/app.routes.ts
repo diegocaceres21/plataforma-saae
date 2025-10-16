@@ -23,5 +23,5 @@ export const routes: Routes = [
     { path: 'lista-registros', component: ListaRegistrosComponent },
     { path: 'configuracion', component: ConfiguracionComponent },
     { path: 'administracion', component: AdministracionComponent, canActivate: [AdminGuard] },
-    {path: '**', redirectTo: '/menu' }
+    {path: '**', redirectTo: '/menu-principal' }
 ];

@@ -11,6 +11,7 @@ import { ManualPaymentModalComponent, ManualPaymentData } from '../../shared/man
 import '../../../../shared/interfaces/electron-api'; // Importar tipos de Electron
 import { ApoyoFamiliarService } from '../../../servicios/apoyo-familiar.service';
 import { CarreraService } from '../../../servicios/carrera.service';
+import { BeneficioService } from '../../../servicios/beneficio.service';
 import { RegistroIndividualDataService } from '../../../servicios/registro-individual-data';
 import { ToastService } from '../../../../shared/servicios/toast';
 import { ToastContainerComponent } from '../../../../shared/componentes/toast-container/toast-container';
@@ -48,17 +49,21 @@ export class RegistroIndividual implements OnInit {
   public loadingService = inject(LoadingService);
   private apoyoFamiliarService = inject(ApoyoFamiliarService);
   private carreraService = inject(CarreraService);
+  private beneficioService = inject(BeneficioService);
   private dataService = inject(RegistroIndividualDataService);
   private toastService = inject(ToastService);
 
   async ngOnInit() {
-    // Cargar gestiones activas al inicializar el componente
+    // Cargar gestiones activas y beneficios al inicializar el componente
     await this.gestionService.loadGestionData();
     this.semestreActual = this.gestionService.getActiveGestiones();
 
     if (this.semestreActual.length === 0) {
       console.warn('No se encontraron gestiones activas');
     }
+
+    // Cargar beneficios para obtener ID de "APOYO FAMILIAR"
+    await this.beneficioService.loadBeneficioData();
   }
 
   // Check if procesar button should be enabled (at least 2 students)
@@ -114,14 +119,25 @@ export class RegistroIndividual implements OnInit {
           // Get kardex information
           const kardex = await window.academicoAPI.obtenerKardexEstudiante(registro.id_estudiante_siaan);
           const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual);
-
+          
           // Get payment information
           const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan);
+
+          // Find career info in database
+          const carreraInfo = this.carreraService.currentData.find(c => 
+            c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
+            carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          );
+
+          // Get ID de beneficio "APOYO FAMILIAR"
+          const idBeneficio = this.beneficioService.getApoyoFamiliarId();
 
           // Update the registry with complete information
           this.registrosEstudiantes[i] = {
             ...registro,
-            carrera: carrera || 'N/A',
+            carrera: carreraInfo?.carrera || carrera || 'N/A', // Solo para mostrar en UI
+            id_carrera: carreraInfo?.id, // Campo principal que se guardará en BD
+            id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
             total_creditos: totalCreditos || 0,
             plan_primer_pago: planAccedido || 'N/A',
             monto_primer_pago: pagoRealizado || 0,
@@ -136,10 +152,15 @@ export class RegistroIndividual implements OnInit {
             kardexErrorMessages.push(`${registro.nombre_estudiante} (${registro.ci_estudiante}): ${error.message}`);
           }
 
+          // Get ID de beneficio "APOYO FAMILIAR"
+          const idBeneficio = this.beneficioService.getApoyoFamiliarId();
+
           // Keep basic info if detailed loading fails
           this.registrosEstudiantes[i] = {
             ...registro,
-            carrera: 'Error al cargar información',
+            carrera: 'Error al cargar información', // Solo para mostrar en UI
+            id_carrera: undefined,
+            id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
             total_creditos: 0,
             plan_primer_pago: 'Error al cargar información',
             monto_primer_pago: 0,
@@ -159,12 +180,8 @@ export class RegistroIndividual implements OnInit {
       // Check for career mismatches before proceeding
       let hasCareersToResolve = false;
       for (const registro of this.registrosEstudiantes) {
-        const carreraInfo = carreras.find(c =>
-          c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
-          (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        );
-
-        if (!carreraInfo && registro.carrera && registro.carrera !== 'Error al cargar información') {
+        // Verificar si no tiene id_carrera pero sí tiene texto de carrera (y no es error)
+        if (!registro.id_carrera && registro.carrera && registro.carrera !== 'Error al cargar información' && registro.carrera !== 'N/A') {
           hasCareersToResolve = true;
           try {
             await this.promptForCareerSelection(registro, carreras);
@@ -194,16 +211,17 @@ export class RegistroIndividual implements OnInit {
   completeFinalProcessing(): void {
     const carreras = this.carreraService.currentData;
 
-    // Apply career information to all students
+    // Apply career information to all students using id_carrera
     this.registrosEstudiantes.forEach(registro => {
-      const carreraInfo = carreras.find(c =>
-        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
-        (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      );
-      if (carreraInfo) {
-        registro.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
-        registro.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
-        registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
+      if (registro.id_carrera) {
+        // Buscar por ID de carrera (nuevo método principal)
+        const carreraInfo = carreras.find(c => c.id === registro.id_carrera);
+        
+        if (carreraInfo) {
+          registro.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
+          registro.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
+          registro.total_semestre = registro.valor_credito * (registro.total_creditos || 0) + registro.credito_tecnologico;
+        }
       }
     });
 
@@ -426,8 +444,14 @@ export class RegistroIndividual implements OnInit {
 
   onCareerSelectionConfirm(): void {
     if (this.selectedCareerForStudent && this.currentStudentWithCareerIssue) {
-      // Update the student's career with the selected one
-      this.currentStudentWithCareerIssue.carrera = this.selectedCareerForStudent;
+      // Find selected career info
+      const selectedCareer = this.availableCareers.find(c => c.carrera === this.selectedCareerForStudent);
+      
+      if (selectedCareer) {
+        // Update the student's career with ID only (carrera field is just for display)
+        this.currentStudentWithCareerIssue.carrera = selectedCareer.carrera; // Solo para mostrar en UI
+        this.currentStudentWithCareerIssue.id_carrera = selectedCareer.id; // Campo principal para BD
+      }
 
       this.toastService.success(
         'Carrera Actualizada',
@@ -486,12 +510,8 @@ export class RegistroIndividual implements OnInit {
 
     // Check if there are more career issues to resolve
     for (const registro of this.registrosEstudiantes) {
-      const carreraInfo = carreras.find(c =>
-        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
-        (registro.carrera || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      );
-
-      if (!carreraInfo && registro.carrera && registro.carrera !== 'Error al cargar información') {
+      // Verificar si no tiene id_carrera pero sí tiene texto de carrera (y no es error)
+      if (!registro.id_carrera && registro.carrera && registro.carrera !== 'Error al cargar información' && registro.carrera !== 'N/A') {
         // Found another career issue, prompt for selection
         try {
           await this.promptForCareerSelection(registro, carreras);

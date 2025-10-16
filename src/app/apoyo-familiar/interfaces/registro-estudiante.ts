@@ -5,7 +5,9 @@ export interface RegistroEstudiante {
     id_estudiante_siaan: string;
     ci_estudiante: string;
     nombre_estudiante: string;
-    carrera: string;
+    carrera: string; // Legacy field - nombre de carrera como texto
+    id_carrera?: string; // ID de la carrera en la BD (nuevo campo principal)
+    id_beneficio?: string; // ID del beneficio (siempre será "APOYO FAMILIAR")
     total_creditos: number;
     valor_credito: number;
     credito_tecnologico: number;

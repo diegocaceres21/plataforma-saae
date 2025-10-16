@@ -210,7 +210,7 @@
 									class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
 								<option value="">-- Seleccionar Carrera --</option>
 								@for (career of availableCareers; track career.id) {
-									<option [value]="career.carrera">{{ career.carrera }}</option>
+									<option [value]="career.id">{{ career.carrera }}</option>
 								}
 							</select>
 						</div>

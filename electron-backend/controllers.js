@@ -19,6 +19,9 @@ function getAll(table) {
       case 'departamento':
         query += ' ORDER BY departamento ASC';
         break;
+      case 'beneficio':
+        query += ' ORDER BY nombre ASC';
+        break;
       case 'tarifario':
         query += ' ORDER BY tarifario ASC';
         break;
@@ -61,6 +64,9 @@ function getAllVisible(table) {
         break;
       case 'tarifario':
         query += ' ORDER BY tarifario ASC';
+        break;
+      case 'beneficio':
+        query += ' ORDER BY nombre ASC';
         break;
       case 'gestion':
         query += ' ORDER BY anio DESC, tipo ASC, gestion DESC';

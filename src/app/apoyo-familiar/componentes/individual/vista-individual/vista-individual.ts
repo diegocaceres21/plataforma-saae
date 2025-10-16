@@ -359,7 +359,8 @@ export class VistaIndividual implements OnInit, OnDestroy {
         id_estudiante_siaan: registro.id_estudiante_siaan || '',
         ci_estudiante: registro.ci_estudiante || '',
         nombre_estudiante: registro.nombre_estudiante || '',
-        carrera: registro.carrera || '',
+        id_carrera: registro.id_carrera, // Campo principal - ID de carrera
+        id_beneficio: registro.id_beneficio, // ID del beneficio "APOYO FAMILIAR"
         total_creditos: registro.total_creditos || 0,
         valor_credito: registro.valor_credito || 0,
         credito_tecnologico: registro.credito_tecnologico || 0,

@@ -39,6 +39,13 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   updateTarifario: (id, data) => ipcRenderer.invoke('tarifario:update', id, data),
   removeTarifario: (id) => ipcRenderer.invoke('tarifario:remove', id),
 
+  //CRUD for beneficio table
+  getAllBeneficio: () => ipcRenderer.invoke('beneficio:getAll'),
+  getBeneficioById: (id) => ipcRenderer.invoke('beneficio:getById', id),
+  createBeneficio: (data) => ipcRenderer.invoke('beneficio:create', data),
+  updateBeneficio: (id, data) => ipcRenderer.invoke('beneficio:update', id, data),
+  removeBeneficio: (id) => ipcRenderer.invoke('beneficio:remove', id),
+
   // CRUD for departamento table
   getAllDepartamento: () => ipcRenderer.invoke('departamento:getAll'),
   getDepartamentoById: (id) => ipcRenderer.invoke('departamento:getById', id),

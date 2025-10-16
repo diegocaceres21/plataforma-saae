@@ -200,6 +200,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       ]);
 
       this.registrosEstudiantes = registros || [];
+      this.registrosEstudiantes.map(r => {
+        r.carrera = this.carreraService.getCarreraById(r.id_carrera || '')?.carrera || r.carrera;
+      });
       this.solicitudes = solicitudes || [];
 
       // Agrupar por solicitud
@@ -253,8 +256,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       }));
 
       this.carreraOptions = this.carreras.map(carrera => ({
-        value: carrera.carrera,
-        label: carrera.carrera
+        value: carrera.id, // Usar ID para filtros
+        label: carrera.carrera // Mostrar nombre en UI
       }));
 
       this.descuentoOptions = this.apoyosFamiliares.map(apoyo => ({
@@ -354,13 +357,11 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Filtro por carrera (multi-select)
+    // Filtro por carrera (multi-select) - usar id_carrera
     if (this.filtroCarrera.length > 0) {
       solicitudesFiltradas = solicitudesFiltradas.filter(item =>
         item.registros.some((registro: RegistroConSolicitud) =>
-          this.filtroCarrera.some(carrera =>
-            registro.carrera.toLowerCase().includes(carrera.toLowerCase())
-          )
+          registro.id_carrera && this.filtroCarrera.includes(registro.id_carrera)
         )
       );
     }
@@ -406,12 +407,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       // Filtrar estudiantes que cumplen todos los criterios
       let registrosFiltrados = [...item.registros];
 
-      // Filtro por carrera
+      // Filtro por carrera - usar id_carrera
       if (this.filtroCarrera.length > 0) {
         registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
-          this.filtroCarrera.some(carrera =>
-            registro.carrera.toLowerCase().includes(carrera.toLowerCase())
-          )
+          registro.id_carrera && this.filtroCarrera.includes(registro.id_carrera)
         );
       }
 
@@ -566,12 +565,12 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.onFiltroChange();
   }
 
-  toggleCarrera(carrera: string): void {
-    const index = this.filtroCarrera.indexOf(carrera);
+  toggleCarrera(carreraId: string): void {
+    const index = this.filtroCarrera.indexOf(carreraId);
     if (index > -1) {
       this.filtroCarrera.splice(index, 1);
     } else {
-      this.filtroCarrera.push(carrera);
+      this.filtroCarrera.push(carreraId);
     }
     this.onFiltroChange();
   }
@@ -589,7 +588,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     if (this.filtroCarrera.length === this.carreras.length) {
       this.filtroCarrera = [];
     } else {
-      this.filtroCarrera = this.carreras.map(c => c.carrera);
+      this.filtroCarrera = this.carreras.map(c => c.id); // Usar IDs
     }
     this.onFiltroChange();
   }
@@ -598,8 +597,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     return this.filtroGestion.includes(gestionId);
   }
 
-  isCarreraSelected(carrera: string): boolean {
-    return this.filtroCarrera.includes(carrera);
+  isCarreraSelected(carreraId: string): boolean {
+    return this.filtroCarrera.includes(carreraId);
   }
 
   getGestionDropdownText(): string {
@@ -614,7 +613,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   getCarreraDropdownText(): string {
     if (this.filtroCarrera.length === 0) return 'Seleccionar carreras';
     if (this.filtroCarrera.length === 1) {
-      return this.filtroCarrera[0];
+      // Buscar el nombre de la carrera por su ID
+      const carrera = this.carreras.find(c => c.id === this.filtroCarrera[0]);
+      return carrera?.carrera || 'Carrera seleccionada';
     }
     return `${this.filtroCarrera.length} carreras seleccionadas`;
   }
