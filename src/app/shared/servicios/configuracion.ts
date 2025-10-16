@@ -6,13 +6,14 @@ import {
   ApoyoFamiliar, 
   Gestion, 
   Departamento, 
-  Tarifario, 
+  Tarifario,
+  Beneficio, 
   CampoConfiguracion, 
   TablaConfiguracion 
 } from '../interfaces';
 
 // Tipo genérico para todos los items de configuración
-export type ConfigurationItem = Carrera | ApoyoFamiliar | Gestion | Departamento | Tarifario;
+export type ConfigurationItem = Carrera | ApoyoFamiliar | Gestion | Departamento | Tarifario | Beneficio;
 
 @Injectable({
   providedIn: 'root'
@@ -27,7 +28,8 @@ export class ConfiguracionService {
     apoyo_familiar: [],
     gestiones: [],
     departamentos: [],
-    tarifario: []
+    tarifario: [],
+    beneficios: []
   });
   private _loading = new BehaviorSubject<boolean>(false);
   private _gestiones = new BehaviorSubject<Gestion[]>([]);
@@ -108,6 +110,23 @@ export class ConfiguracionService {
       ],
       itemVacio: { tarifario: '', valor_credito: 0, visible: true },
       permisos: { crear: true, editar: true, eliminar: true }
+    },
+    beneficios: {
+      id: 'beneficios',
+      nombre: 'Beneficios',
+      nombreSingular: 'Beneficio',
+      icono: '🎁',
+      campos: [
+        { key: 'nombre', label: 'Nombre del Beneficio', type: 'text', required: true },
+        { key: 'tipo', label: 'Tipo', type: 'select', required: true, options: [
+          { value: 'Beca', label: 'Beca' },
+          { value: 'Descuento', label: 'Descuento' },
+          { value: 'Apoyo', label: 'Apoyo' }
+        ]},
+        { key: 'porcentaje', label: 'Porcentaje (%)', type: 'number', required: true, min: 0, max: 100 }
+      ],
+      itemVacio: { nombre: '', tipo: 'Apoyo', porcentaje: 0 },
+      permisos: { crear: true, editar: true, eliminar: true }
     }
   };
 
@@ -176,12 +195,13 @@ export class ConfiguracionService {
   async cargarTodosLosDatos(): Promise<void> {
     this._loading.next(true);
     try {
-      const [carreras, apoyosFamiliares, gestiones, departamentos, tarifarios] = await Promise.all([
+      const [carreras, apoyosFamiliares, gestiones, departamentos, tarifarios, beneficios] = await Promise.all([
         this.cargarCarreras(),
         this.cargarApoyosFamiliares(),
         this.cargarGestiones(),
         this.cargarDepartamentos(),
-        this.cargarTarifarios()
+        this.cargarTarifarios(),
+        this.cargarBeneficios()
       ]);
 
       const nuevoDatos = {
@@ -189,7 +209,8 @@ export class ConfiguracionService {
         apoyo_familiar: apoyosFamiliares,
         gestiones,
         departamentos,
-        tarifario: tarifarios
+        tarifario: tarifarios,
+        beneficios
       };
 
       this._datos.next(nuevoDatos);
@@ -285,6 +306,16 @@ export class ConfiguracionService {
     }
   }
 
+  private async cargarBeneficios(): Promise<Beneficio[]> {
+    try {
+      if (!window.academicoAPI) throw new Error('API no disponible');
+      return await window.academicoAPI.getAllBeneficio();
+    } catch (error) {
+      console.error('Error al cargar beneficios:', error);
+      return [];
+    }
+  }
+
   // Operaciones CRUD
   async crearItem(item: any): Promise<void> {
     if (!this.validarItem(item)) return;
@@ -308,6 +339,9 @@ export class ConfiguracionService {
           break;
         case 'tarifario':
           await window.academicoAPI.createTarifario(item);
+          break;
+        case 'beneficios':
+          await window.academicoAPI.createBeneficio(item);
           break;
         default:
           throw new Error('Operación no soportada para esta tabla');
@@ -353,6 +387,9 @@ export class ConfiguracionService {
         case 'tarifario':
           await window.academicoAPI.updateTarifario(id, item);
           break;
+        case 'beneficios':
+          await window.academicoAPI.updateBeneficio(id, item);
+          break;
         default:
           throw new Error('Operación no soportada para esta tabla');
       }
@@ -391,6 +428,9 @@ export class ConfiguracionService {
           break;
         case 'tarifario':
           await window.academicoAPI.removeTarifario(id);
+          break;
+        case 'beneficios':
+          await window.academicoAPI.removeBeneficio(id);
           break;
         default:
           throw new Error('Operación no soportada para esta tabla');
@@ -442,6 +482,9 @@ export class ConfiguracionService {
           break;
         case 'tarifario':
           datosActuales['tarifario'] = await this.cargarTarifarios();
+          break;
+        case 'beneficios':
+          datosActuales['beneficios'] = await this.cargarBeneficios();
           break;
       }
       

@@ -61,6 +61,7 @@ declare global {
       getAllVisibleRegistroEstudiante: () => Promise<any>;
       getRegistroEstudianteById: (id: string) => Promise<any>;
       getRegistroEstudiantesBySolicitud: (id_solicitud: string) => Promise<any>;
+      getRegistroEstudiantesByApoyoFamiliar: () => Promise<any>;
       createRegistroEstudiante: (data: any) => Promise<any>;
       updateRegistroEstudiante: (id: string, data: any) => Promise<any>;
       removeRegistroEstudiante: (id: string) => Promise<any>;

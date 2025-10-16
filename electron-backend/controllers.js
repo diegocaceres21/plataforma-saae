@@ -170,7 +170,23 @@ function getBySolicitud(id_solicitud) {
   });
 }
 
-module.exports = { getAll, getAllVisible, getById, create, update, remove, createMultiple, getBySolicitud };
+function getByApoyoFamiliar() {
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT re.* FROM registro_estudiante re
+       JOIN beneficio b ON re.id_beneficio = b.id
+       WHERE UPPER(b.nombre) = 'APOYO FAMILIAR' AND re.visible = true
+       ORDER BY re.created_at DESC`,
+      [],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows);
+      }
+    );
+  });
+}
+
+module.exports = { getAll, getAllVisible, getById, create, update, remove, createMultiple, getBySolicitud, getByApoyoFamiliar };
 /**
  * Autentica usuario verificando username y password.
  * Devuelve { token, user: { id, username, rol } }

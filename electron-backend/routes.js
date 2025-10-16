@@ -21,6 +21,10 @@ function registerRoutes(ipcMain) {
     return await controllers.getBySolicitud(id_solicitud);
   });
 
+  ipcMain.handle('registro_estudiante:getByApoyoFamiliar', async (event) => {
+    return await controllers.getByApoyoFamiliar();
+  });
+
   // Autenticación
   ipcMain.handle('auth:login', async (event, username, password) => {
     try {
