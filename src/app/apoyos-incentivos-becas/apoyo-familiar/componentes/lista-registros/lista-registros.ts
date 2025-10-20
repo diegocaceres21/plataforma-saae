@@ -994,9 +994,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
     // Información del estudiante
     doc.setFillColor(240, 248, 255);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 20, 'F');
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 24, 'F');
     doc.setDrawColor(59, 130, 246);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 20);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 24);
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
@@ -1014,8 +1014,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     doc.text(`Nombre: ${registro.nombre_estudiante}`, col2X, currentY + 14);
     doc.text(`U.V.E.: ${registro.total_creditos}`, col1X, currentY + 18);
     doc.text(`Carrera: ${registro.carrera}`, col2X, currentY + 18);
+    doc.text(`Tipo de Beneficio: ${this.getNombreBeneficio(registro.id_beneficio).toUpperCase()}`, col1X, currentY + 22);
 
-    return currentY + 25;
+    return currentY + 29;
   }
 
   private formatDateForFile(date: Date): string {
@@ -1149,6 +1150,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         return registro.nombre_estudiante || '';
       case 'carrera':
         return registro.carrera || '';
+      case 'tipo_beneficio':
+        return this.getNombreBeneficio(registro.id_beneficio).toUpperCase();
       case 'total_creditos':
         return totalCreditos;
       case 'valor_credito':
@@ -1203,6 +1206,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       ci_estudiante: 18,
       nombre_estudiante: 35,
       carrera: 30,
+      tipo_beneficio: 25,
       total_creditos: 15,
       valor_credito: 18,
       credito_tecnologico: 20,
@@ -1241,6 +1245,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       { key: 'ci_estudiante', label: 'Carnet de Identidad', enabled: true },
       { key: 'nombre_estudiante', label: 'Nombre Completo', enabled: true },
       { key: 'carrera', label: 'Carrera', enabled: true },
+      { key: 'tipo_beneficio', label: 'Tipo de Beneficio', enabled: true },
       { key: 'plan_primer_pago', label: 'Plan de Pago', enabled: true },
       { key: 'monto_primer_pago', label: 'Monto Primer Pago', enabled: true },
       { key: 'porcentaje_descuento', label: 'Porcentaje Descuento', enabled: true },
@@ -1286,23 +1291,31 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       const detalleFilas = this.obtenerDetallesParaExportacion();
       const tableColumnas = [
         { header: 'Gestión', dataKey: 'Gestion' },
-        { header: 'Fecha Registro', dataKey: 'FechaSolicitud' },
         { header: 'CI', dataKey: 'CI' },
         { header: 'Estudiante', dataKey: 'NombreEstudiante' },
         { header: 'Carrera', dataKey: 'Carrera' },
+        { header: 'Tipo Beneficio', dataKey: 'TipoBeneficio' },
         { header: 'Total U.V.E.', dataKey: 'TotalUVE' },
         { header: 'Plan de pago', dataKey: 'PlanPago' },
-        { header: '% Desc.', dataKey: 'PorcentajeDescuento' },
-        //{ header: 'Monto 1er Pago', dataKey: 'MontoPrimerPago' },
-        { header: 'Registrado', dataKey: 'Registrado' }
+        { header: '% Desc.', dataKey: 'PorcentajeDescuento' }
       ];
 
       autoTable(doc, {
         head: [tableColumnas.map(col => col.header)],
         body: detalleFilas.map(fila => tableColumnas.map(col => fila[col.dataKey as keyof typeof fila])),
         margin: { top: tableMarginTop, left: 14, right: 14, bottom: 14 },
-        styles: { fontSize: 8, cellPadding: 2, lineColor: [226, 232, 240], lineWidth: 0.2 },
-        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [226, 232, 240], lineWidth: 0.2 },
+        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { cellWidth: 24, halign: 'left' },    // Gestión
+          1: { cellWidth: 22, halign: 'center' },  // CI
+          2: { cellWidth: 50, halign: 'left' },    // Estudiante
+          3: { cellWidth: 58, halign: 'left' },    // Carrera
+          4: { cellWidth: 36, halign: 'left' },    // Tipo Beneficio
+          5: { cellWidth: 22, halign: 'center' },  // Total U.V.E.
+          6: { cellWidth: 32, halign: 'left' },    // Plan de pago
+          7: { cellWidth: 20, halign: 'center' }   // % Desc.
+        },
         alternateRowStyles: { fillColor: [248, 250, 252] },
         didDrawPage: () => {
           this.dibujarEncabezadoPDF(doc, pageWidth, generatedAt);
@@ -1329,6 +1342,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       CI: registro.ci_estudiante,
       NombreEstudiante: registro.nombre_estudiante,
       Carrera: registro.carrera,
+      TipoBeneficio: this.getNombreBeneficio(registro.id_beneficio).toUpperCase(),
       PlanPago: registro.plan_primer_pago || 'No definido',
       PorcentajeDescuento: `${((registro.porcentaje_descuento || 0) * 100).toFixed(1)}%`,
       ValorUVE: registro.valor_credito,
@@ -1376,7 +1390,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('REPORTE GENERAL - APOYO FAMILIAR', centerOffset, 14, { align: 'center' });
+    doc.text('REPORTE GENERAL - APOYOS, BECAS E INCENTIVOS', centerOffset, 14, { align: 'center' });
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
