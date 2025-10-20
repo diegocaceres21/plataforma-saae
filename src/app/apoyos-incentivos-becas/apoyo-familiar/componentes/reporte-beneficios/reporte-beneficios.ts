@@ -14,6 +14,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import * as XLSX from 'xlsx';
 
 // Registrar componentes necesarios de Chart.js
 Chart.register(
@@ -488,5 +489,107 @@ export class ReporteBeneficios implements OnInit {
 
   formatNumber(value: number): string {
     return value.toLocaleString('es-BO');
+  }
+
+  // Métodos de exportación a Excel
+  exportarBeneficiosEstudiantes(): void {
+    const data = this.beneficiosData.map(b => ({
+      'Tipo de Beneficio': b.nombre,
+      'Total Estudiantes': b.totalEstudiantes,
+      'Porcentaje': `${((b.totalEstudiantes / this.totalEstudiantes) * 100).toFixed(2)}%`
+    }));
+
+    // Agregar fila de totales
+    data.push({
+      'Tipo de Beneficio': 'TOTAL',
+      'Total Estudiantes': this.totalEstudiantes,
+      'Porcentaje': '100.00%'
+    });
+
+    this.exportToExcel(data, `Estudiantes_por_Beneficio_${this.getGestionNombre()}`);
+  }
+
+  exportarBeneficiosAhorro(): void {
+    const data = this.beneficiosData.map(b => ({
+      'Tipo de Beneficio': b.nombre,
+      'Total Ahorro (Bs.)': b.totalAhorro,
+      'Porcentaje': `${((b.totalAhorro / this.totalAhorro) * 100).toFixed(2)}%`
+    }));
+
+    // Agregar fila de totales
+    data.push({
+      'Tipo de Beneficio': 'TOTAL',
+      'Total Ahorro (Bs.)': this.totalAhorro,
+      'Porcentaje': '100.00%'
+    });
+
+    this.exportToExcel(data, `Ahorro_por_Beneficio_${this.getGestionNombre()}`);
+  }
+
+  exportarCarrerasEstudiantes(): void {
+    const data = this.carrerasData.map(c => ({
+      'Carrera': c.nombre,
+      'Total Estudiantes': c.totalEstudiantes,
+      'Porcentaje': `${((c.totalEstudiantes / this.totalEstudiantes) * 100).toFixed(2)}%`
+    }));
+
+    // Agregar fila de totales
+    data.push({
+      'Carrera': 'TOTAL',
+      'Total Estudiantes': this.totalEstudiantes,
+      'Porcentaje': '100.00%'
+    });
+
+    this.exportToExcel(data, `Estudiantes_por_Carrera_${this.getGestionNombre()}`);
+  }
+
+  exportarCarrerasAhorro(): void {
+    const data = this.carrerasData.map(c => ({
+      'Carrera': c.nombre,
+      'Total Ahorro (Bs.)': c.totalAhorro,
+      'Porcentaje': `${((c.totalAhorro / this.totalAhorro) * 100).toFixed(2)}%`
+    }));
+
+    // Agregar fila de totales
+    data.push({
+      'Carrera': 'TOTAL',
+      'Total Ahorro (Bs.)': this.totalAhorro,
+      'Porcentaje': '100.00%'
+    });
+
+    this.exportToExcel(data, `Ahorro_por_Carrera_${this.getGestionNombre()}`);
+  }
+
+  private exportToExcel(data: any[], filename: string): void {
+    // Crear workbook y worksheet
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    
+    // Ajustar ancho de columnas
+    const maxWidth = 50;
+    const colWidths = Object.keys(data[0] || {}).map(key => ({
+      wch: Math.min(
+        Math.max(
+          key.length,
+          ...data.map(row => String(row[key] || '').length)
+        ),
+        maxWidth
+      )
+    }));
+    ws['!cols'] = colWidths;
+
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+    
+    // Generar fecha para el nombre del archivo
+    const fecha = new Date().toISOString().split('T')[0];
+    
+    // Descargar archivo
+    XLSX.writeFile(wb, `${filename}_${fecha}.xlsx`);
+  }
+
+  private getGestionNombre(): string {
+    const gestion = this.gestiones.find(g => g.id === this.gestionSeleccionada);
+    return gestion ? gestion.nombre.replace(/\//g, '-') : 'Sin_Gestion';
   }
 }
