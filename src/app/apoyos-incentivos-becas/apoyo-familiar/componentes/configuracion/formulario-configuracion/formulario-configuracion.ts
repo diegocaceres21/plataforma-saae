@@ -258,11 +258,7 @@ export class FormularioConfiguracionComponent implements OnInit, OnDestroy {
       this.nombreSingular = configuracion.nombreSingular;
       // Obtener campos actualizados con opciones
       this.campos = this.configuracionService.getCamposTablaActiva();
-      console.log('[FormularioConfig] Inicializado con campos:', this.campos.map(c => ({
-        key: c.key,
-        type: c.type,
-        optionsCount: c.options?.length || 0
-      })));
+
       this.resetearFormulario();
     }
   }
@@ -272,11 +268,6 @@ export class FormularioConfiguracionComponent implements OnInit, OnDestroy {
     const camposActualizados = this.configuracionService.getCamposTablaActiva();
     if (camposActualizados.length > 0) {
       this.campos = camposActualizados;
-      console.log('[FormularioConfig] Campos actualizados:', this.campos.map(c => ({
-        key: c.key,
-        type: c.type,
-        optionsCount: c.options?.length || 0
-      })));
     }
   }
 

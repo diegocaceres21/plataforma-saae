@@ -123,9 +123,10 @@ export class ConfiguracionService {
           { value: 'Descuento', label: 'Descuento' },
           { value: 'Apoyo', label: 'Apoyo' }
         ]},
-        { key: 'porcentaje', label: 'Porcentaje (%)', type: 'number', required: true, min: 0, max: 100 }
+        { key: 'porcentaje', label: 'Porcentaje (%)', type: 'number', required: false, min: 0, max: 100 },
+        { key: 'limite_creditos', label: 'Límite de Créditos', type: 'number', required: false, min: 0, step: 1 }
       ],
-      itemVacio: { nombre: '', tipo: 'Apoyo', porcentaje: 0 },
+      itemVacio: { nombre: '', tipo: 'Apoyo', porcentaje: 0, limite_creditos: 0 },
       permisos: { crear: true, editar: true, eliminar: true }
     }
   };
@@ -239,7 +240,6 @@ export class ConfiguracionService {
           value: dep.id,
           label: dep.departamento
         }));
-        console.log('[ConfigService] Opciones de departamento actualizadas:', campoDepartamento.options.length);
       }
       
       const campoTarifario = this.configuracionTablas['carreras'].campos.find(c => c.key === 'id_tarifario');
@@ -248,7 +248,6 @@ export class ConfiguracionService {
           value: tar.id,
           label: `${tar.tarifario} (${tar.valor_credito} Bs.)`
         }));
-        console.log('[ConfigService] Opciones de tarifario actualizadas:', campoTarifario.options.length);
       }
     }
     

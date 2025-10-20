@@ -12,6 +12,8 @@ import { AuthService } from '../../../auth/servicios/auth';
 export class Menu implements OnInit {
   authService = inject(AuthService);
   isAdmin: boolean = false;
+  isFirstLevel: boolean = true;
+  tipoMenu: string = '';
   userName: string = '';
 
   ngOnInit() {
@@ -23,5 +25,15 @@ export class Menu implements OnInit {
   logout() {
     this.authService.logout();
     window.location.href = '/login';
+  }
+
+  irAMenuSecundario(tipo: string) {
+    this.isFirstLevel = false;
+    this.tipoMenu = tipo;
+  }
+
+  volverAMenuPrincipal() {
+    this.isFirstLevel = true;
+    this.tipoMenu = '';
   }
 }

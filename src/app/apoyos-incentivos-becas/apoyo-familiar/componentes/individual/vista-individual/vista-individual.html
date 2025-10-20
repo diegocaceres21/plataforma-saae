@@ -19,25 +19,58 @@
       </div>
       
       <div class="absolute inset-0 bg-gradient-to-r from-blue-900/5 to-yellow-400/5 rounded-xl -z-10"></div>
-      <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl mb-4 shadow-lg">
-        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-        </svg>
-      </div>
-      <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Revisión Individual de Apoyo Familiar</h2>
+      
+      <!-- Icono diferenciado según tipo de flujo -->
+      @if (isApoyoFamiliar()) {
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl mb-4 shadow-lg">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+        </div>
+      } @else {
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-emerald-600 to-emerald-500 rounded-2xl mb-4 shadow-lg">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
+          </svg>
+        </div>
+      }
+      
+      <!-- Título diferenciado según tipo de flujo -->
+      @if (isApoyoFamiliar()) {
+        <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Revisión Individual de Apoyo Familiar</h2>
+      } @else {
+        <h2 class="font-[Inter] font-bold text-3xl text-gray-900 mb-3">Revisión de Beneficio Individual</h2>
+      }
       
       <!-- Stats Summary -->
       @if (registrosEstudiantes.length > 0) {
         <div class="flex items-center justify-center space-x-8 mt-4">
-          <div class="text-center">
-            <div class="text-2xl font-bold text-blue-900">{{ registrosEstudiantes.length }}</div>
-            <div class="text-sm text-gray-600">Total Hermanos</div>
-          </div>
-          <div class="w-px h-8 bg-gray-300"></div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-green-600">{{ getStudentsWithDiscount() }}</div>
-            <div class="text-sm text-gray-600">Con Descuento</div>
-          </div>
+          @if (isApoyoFamiliar()) {
+            <div class="text-center">
+              <div class="text-2xl font-bold text-blue-900">{{ registrosEstudiantes.length }}</div>
+              <div class="text-sm text-gray-600">Total Hermanos</div>
+            </div>
+            <div class="w-px h-8 bg-gray-300"></div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-600">{{ getStudentsWithDiscount() }}</div>
+              <div class="text-sm text-gray-600">Con Descuento</div>
+            </div>
+          } @else {
+            <div class="text-center">
+              <div class="text-2xl font-bold text-emerald-600">1</div>
+              <div class="text-sm text-gray-600">Estudiante</div>
+            </div>
+            <div class="w-px h-8 bg-gray-300"></div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-blue-900">{{ getBeneficioNombre(registrosEstudiantes[0].id_beneficio) }}</div>
+              <div class="text-sm text-gray-600">Beneficio Asignado</div>
+            </div>
+            <div class="w-px h-8 bg-gray-300"></div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-600">{{ (registrosEstudiantes[0].porcentaje_descuento || 0) * 100 }}%</div>
+              <div class="text-sm text-gray-600">Descuento</div>
+            </div>
+          }
           @if (manualOrderApplied) {
             <div class="w-px h-8 bg-gray-300"></div>
             <div class="text-center">
@@ -53,8 +86,8 @@
         </div>
       }
       
-      <!-- Manual Order Action -->
-      @if (manualOrderApplied) {
+      <!-- Manual Order Action - SOLO PARA APOYO FAMILIAR -->
+      @if (manualOrderApplied && isApoyoFamiliar()) {
         <div class="mt-4 flex justify-center">
           <button
             (click)="reopenTieResolution()"
@@ -89,7 +122,7 @@
         [registros]="registrosEstudiantes"
         [showSaveButton]="true"
         [isSaving]="isSaving"
-        [documentTitle]="'REPORTE DE APOYO FAMILIAR'"
+        [documentTitle]="isApoyoFamiliar() ? 'REPORTE DE APOYO FAMILIAR' : 'REPORTE DE BENEFICIOS'"
         (saveClicked)="guardarRegistro()">
       </app-export-actions>
     </div>

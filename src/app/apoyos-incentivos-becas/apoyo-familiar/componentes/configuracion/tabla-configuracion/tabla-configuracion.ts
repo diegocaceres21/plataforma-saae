@@ -267,8 +267,9 @@ export class TablaConfiguracionComponent implements OnInit, OnDestroy {
       if (columna.toLowerCase().includes('porcentaje')) {
         return valor * 100 + '%';
       }
-      // Si es dinero (contiene valor, precio, etc.)
-      if (columna.toLowerCase().includes('valor') || columna.toLowerCase().includes('precio') || columna.toLowerCase().includes('credito')) {
+      // Si es dinero (contiene valor, precio, etc.) pero NO es limite_creditos
+      if ((columna.toLowerCase().includes('valor') || columna.toLowerCase().includes('precio') || columna.toLowerCase().includes('credito')) 
+          && !columna.toLowerCase().includes('limite_creditos')) {
         return new Intl.NumberFormat('es-BO', {
           style: 'currency',
           currency: 'BOB'

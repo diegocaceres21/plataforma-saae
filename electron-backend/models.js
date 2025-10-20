@@ -36,6 +36,6 @@ module.exports = {
   },
   beneficio: {
     table: 'beneficio',
-    columns: ['id', 'nombre', 'tipo', 'porcentaje']
+    columns: ['id', 'nombre', 'tipo', 'porcentaje', 'limite_creditos']
   }
 };

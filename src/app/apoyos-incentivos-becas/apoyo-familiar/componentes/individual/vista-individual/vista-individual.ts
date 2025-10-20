@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { RegistroEstudiante } from '../../../../interfaces/registro-estudiante';
 import { Solicitud } from '../../../../interfaces/solicitud';
 import { CommonModule } from '@angular/common';
@@ -6,10 +7,11 @@ import { RouterModule } from '@angular/router';
 import { ToastService } from '../../../../../shared/servicios/toast';
 import { ToastContainerComponent } from '../../../../../shared/componentes/toast-container/toast-container';
 import { Subject, takeUntil } from 'rxjs';
-import { RegistroIndividualDataService } from '../../../../servicios/registro-individual-data';
+import { RegistroIndividualDataService, FlowType } from '../../../../servicios/registro-individual-data';
 import { ApoyoFamiliarService } from '../../../../servicios/apoyo-familiar.service';
 import { StudentAccordionComponent } from '../../shared/student-accordion/student-accordion';
 import { ExportActionsComponent } from '../../shared/export-actions/export-actions';
+import { BeneficioService } from '../../../../servicios/beneficio.service';
 import '../../../../../shared/interfaces/electron-api'; // Importar tipos de Electron
 
 @Component({
@@ -22,6 +24,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
   registrosEstudiantes: Partial<RegistroEstudiante>[] = [];
   hasValidData = false;
+  flowType: FlowType = 'apoyo-familiar';
   private destroy$ = new Subject<void>();
 
   // Modal para resolver empates
@@ -36,13 +39,16 @@ export class VistaIndividual implements OnInit, OnDestroy {
   dragOverIndex: number | null = null;
 
   ngOnInit() {
+    // Cargar beneficios para tener acceso a los nombres
+    this.beneficioService.loadBeneficioData();
+
     // Suscribirse a los datos del servicio
     this.dataService.registrosEstudiantes$
       .pipe(takeUntil(this.destroy$))
       .subscribe(registros => {
         this.registrosEstudiantes = registros;
-        // Detectar empates automáticamente cuando se cargan los datos
-        if (registros.length > 0) {
+        // Detectar empates automáticamente cuando se cargan los datos - SOLO PARA APOYO FAMILIAR
+        if (registros.length > 0 && this.flowType === 'apoyo-familiar') {
           this.detectAndHandleTies();
         }
       });
@@ -53,6 +59,13 @@ export class VistaIndividual implements OnInit, OnDestroy {
       .subscribe(hasData => {
         this.hasValidData = hasData;
       });
+
+    // Suscribirse al tipo de flujo
+    this.dataService.flowType$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(flowType => {
+        this.flowType = flowType;
+      });
   }
 
   ngOnDestroy(): void {
@@ -62,7 +75,15 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
   // Método para regresar a la vista de registro
   volverARegistro(): void {
-    this.dataService.navigateToRegistro();
+    // Limpiar datos del servicio
+    this.dataService.clearData();
+    
+    // Navegar según el tipo de flujo
+    if (this.isApoyoFamiliar()) {
+      this.router.navigate(['/registro-individual']);
+    } else {
+      this.router.navigate(['/beneficios-individual']);
+    }
   }
 
   // Método para detectar y manejar empates en UVE
@@ -284,10 +305,43 @@ export class VistaIndividual implements OnInit, OnDestroy {
     );
   }
 
+  // Helper para determinar si es flujo de apoyo familiar
+  isApoyoFamiliar(): boolean {
+    return this.flowType === 'apoyo-familiar';
+  }
+
+  // Helper para determinar si es flujo de otros beneficios
+  isOtrosBeneficios(): boolean {
+    return this.flowType === 'otros-beneficios';
+  }
+
+  // Obtener nombre del beneficio por ID
+  getBeneficioNombre(id?: string): string {
+    if (!id) return 'N/A';
+    const beneficio = this.beneficioService.currentData.find(b => b.id === id);
+    return beneficio?.nombre || 'N/A';
+  }
+
+  // Obtener título del reporte según el tipo de flujo
+  getTituloReporte(): string {
+    return this.isApoyoFamiliar() 
+      ? 'REPORTE DE APOYO FAMILIAR ESTUDIANTIL'
+      : 'REPORTE DE BENEFICIOS Y DESCUENTOS ESTUDIANTILES';
+  }
+
+  // Obtener subtítulo del reporte según el tipo de flujo
+  getSubtituloReporte(): string {
+    return this.isApoyoFamiliar()
+      ? 'Revisión Individual de Beneficios y Descuentos'
+      : 'Asignación de Beneficios Individuales';
+  }
+
   constructor(
     private toastService: ToastService,
     private dataService: RegistroIndividualDataService,
-    private apoyoFamiliarService: ApoyoFamiliarService
+    private apoyoFamiliarService: ApoyoFamiliarService,
+    private beneficioService: BeneficioService,
+    private router: Router
   ) {}
 
   expandedItems: Set<number> = new Set();
@@ -325,7 +379,13 @@ export class VistaIndividual implements OnInit, OnDestroy {
         throw new Error('APIs de base de datos no disponibles');
       }
 
+      // Si es flujo de otros beneficios (un solo estudiante), guardarlo directamente
+      if (this.isOtrosBeneficios()) {
+        await this.guardarBeneficioIndividual();
+        return;
+      }
 
+      // Flujo de apoyo familiar (múltiples estudiantes con solicitud)
       // Debug: Primero intentar obtener todas las solicitudes para ver la estructura
       try {
         const existingSolicitudes = await window.academicoAPI.getAllSolicitud();
@@ -360,7 +420,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
         ci_estudiante: registro.ci_estudiante || '',
         nombre_estudiante: registro.nombre_estudiante || '',
         id_carrera: registro.id_carrera, // Campo principal - ID de carrera
-        id_beneficio: registro.id_beneficio, // ID del beneficio "APOYO FAMILIAR"
+        id_beneficio: registro.id_beneficio, // ID del beneficio
         total_creditos: registro.total_creditos || 0,
         valor_credito: registro.valor_credito || 0,
         credito_tecnologico: registro.credito_tecnologico || 0,
@@ -403,6 +463,64 @@ export class VistaIndividual implements OnInit, OnDestroy {
       this.toastService.error(
         'Error al Guardar',
         `No se pudieron guardar los registros: ${errorMessage}. Por favor, intente nuevamente.`,
+        8000
+      );
+    }
+  }
+
+  // Método específico para guardar beneficios individuales (sin solicitud)
+  async guardarBeneficioIndividual(): Promise<void> {
+    try {
+      if (!window.academicoAPI?.createMultipleRegistroEstudiante) {
+        throw new Error('API de base de datos no disponible');
+      }
+
+      const registro = this.registrosEstudiantes[0];
+      const gestionId = registro?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
+
+      const registroParaGuardar = {
+        id_solicitud: null, // Sin solicitud para beneficios individuales
+        id_gestion: gestionId,
+        id_estudiante_siaan: registro.id_estudiante_siaan || '',
+        ci_estudiante: registro.ci_estudiante || '',
+        nombre_estudiante: registro.nombre_estudiante || '',
+        id_carrera: registro.id_carrera,
+        id_beneficio: registro.id_beneficio,
+        total_creditos: registro.total_creditos || 0,
+        valor_credito: registro.valor_credito || 0,
+        credito_tecnologico: registro.credito_tecnologico || 0,
+        porcentaje_descuento: registro.porcentaje_descuento || 0,
+        monto_primer_pago: registro.monto_primer_pago || 0,
+        plan_primer_pago: registro.plan_primer_pago || '',
+        referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
+        total_semestre: registro.total_semestre || 0,
+        registrado: false,
+        comentarios: registro.comentarios || null
+      };
+
+      await window.academicoAPI.createMultipleRegistroEstudiante([registroParaGuardar]);
+
+      this.isSaving = false;
+      this.toastService.success(
+        'Guardado Exitoso',
+        `Se guardó el beneficio individual para ${registro.nombre_estudiante}`,
+        5000
+      );
+
+      registro.registrado = false;
+
+    } catch (error) {
+      this.isSaving = false;
+      console.error('❌ Error guardando beneficio individual:', error);
+
+      let errorMessage = 'Error desconocido al guardar el beneficio';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      this.toastService.error(
+        'Error al Guardar',
+        `No se pudo guardar el beneficio: ${errorMessage}. Por favor, intente nuevamente.`,
         8000
       );
     }
@@ -572,7 +690,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Reporte de Apoyo Familiar Estudiantil</title>
+        <title>${this.getTituloReporte()}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -719,8 +837,8 @@ export class VistaIndividual implements OnInit, OnDestroy {
       </head>
       <body>
         <div class="header">
-          <h1>REPORTE DE APOYO FAMILIAR ESTUDIANTIL</h1>
-          <h2>Revisión Individual de Beneficios y Descuentos</h2>
+          <h1>${this.getTituloReporte()}</h1>
+          <h2>${this.getSubtituloReporte()}</h2>
           <div class="date">Generado el ${fecha} a las ${hora}</div>
         </div>
     `;
@@ -743,6 +861,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
   private generateStudentHTML(registro: Partial<RegistroEstudiante>, numeroEstudiante: number): string {
     const tableData = this.prepareStudentTableData(registro);
+    const beneficioNombre = this.getBeneficioNombre(registro.id_beneficio);
 
     let html = `
       <div class="student-section">
@@ -761,6 +880,21 @@ export class VistaIndividual implements OnInit, OnDestroy {
             <div class="info-item">
               <span class="info-label">Carrera:</span> ${registro.carrera || 'N/A'}
             </div>
+    `;
+
+    // Mostrar tipo de beneficio solo si NO es apoyo familiar
+    if (this.isOtrosBeneficios()) {
+      html += `
+            <div class="info-item">
+              <span class="info-label">Beneficio:</span> ${beneficioNombre}
+            </div>
+            <div class="info-item">
+              <span class="info-label">Descuento:</span> ${(registro.porcentaje_descuento || 0) * 100}%
+            </div>
+      `;
+    }
+
+    html += `
           </div>
         </div>
 

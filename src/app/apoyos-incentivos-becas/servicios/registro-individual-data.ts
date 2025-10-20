@@ -3,6 +3,7 @@ import { BehaviorSubject, Observable } from 'rxjs';
 import { RegistroEstudiante } from '../interfaces/registro-estudiante';
 
 export type ViewState = 'registro' | 'vista';
+export type FlowType = 'apoyo-familiar' | 'otros-beneficios';
 
 @Injectable({
   providedIn: 'root'
@@ -21,6 +22,10 @@ export class RegistroIndividualDataService {
   private hasValidDataSubject = new BehaviorSubject<boolean>(false);
   public hasValidData$ = this.hasValidDataSubject.asObservable();
 
+  // Tipo de flujo actual
+  private flowTypeSubject = new BehaviorSubject<FlowType>('apoyo-familiar');
+  public flowType$ = this.flowTypeSubject.asObservable();
+
   constructor() {}
 
   // Getters para acceso directo a los valores actuales
@@ -36,6 +41,10 @@ export class RegistroIndividualDataService {
     return this.hasValidDataSubject.value;
   }
 
+  get flowType(): FlowType {
+    return this.flowTypeSubject.value;
+  }
+
   // Navegar a la vista de registro
   navigateToRegistro(): void {
     this.currentViewSubject.next('registro');
@@ -46,10 +55,11 @@ export class RegistroIndividualDataService {
     this.currentViewSubject.next('vista');
   }
 
-  // Actualizar los datos de estudiantes y navegar a vista
-  setRegistrosAndNavigate(registros: Partial<RegistroEstudiante>[]): void {
+  // Actualizar los datos de estudiantes y navegar a vista (con tipo de flujo)
+  setRegistrosAndNavigate(registros: Partial<RegistroEstudiante>[], flowType: FlowType = 'apoyo-familiar'): void {
     this.registrosEstudiantesSubject.next([...registros]); // Crear copia para evitar mutaciones
     this.hasValidDataSubject.next(registros.length > 0);
+    this.flowTypeSubject.next(flowType);
     this.navigateToVista();
   }
 

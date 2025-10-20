@@ -7,6 +7,7 @@ import { Gestion } from '../../../interfaces/gestion';
 import { Carrera } from '../../../interfaces/carrera';
 import { Solicitud } from '../../../interfaces/solicitud';
 import { ApoyoFamiliar } from '../../../interfaces/apoyo-familiar';
+import { Beneficio } from '../../../interfaces/beneficio';
 import { ToastService } from '../../../../shared/servicios/toast';
 import { ToastContainerComponent } from '../../../../shared/componentes/toast-container/toast-container';
 import { MultiSelectDropdownComponent, MultiSelectOption } from '../../../../shared/componentes/multi-select-dropdown/multi-select-dropdown';
@@ -15,6 +16,7 @@ import { ExportActionsComponent } from '../shared/export-actions/export-actions'
 import { ExportConfigModalComponent } from '../shared/export-config-modal/export-config-modal';
 import { CarreraService } from '../../../servicios/carrera.service';
 import { GestionService } from '../../../servicios/gestion.service';
+import { BeneficioService } from '../../../servicios/beneficio.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -62,10 +64,12 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   carreras: Carrera[] = [];
   solicitudes: Solicitud[] = [];
   apoyosFamiliares: ApoyoFamiliar[] = [];
+  beneficios: Beneficio[] = [];
 
   //Servicios
   carreraService = inject(CarreraService);
   gestionService = inject(GestionService);
+  beneficioService = inject(BeneficioService);
   // Estados de loading
   isLoading = false;
   isLoadingFiltros = false;
@@ -78,8 +82,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   filtroGestion: string[] = [];
   filtroBusqueda = '';
   filtroCarrera: string[] = [];
-  filtroDescuento: string[] = [];
+  filtroDescuentoMin: number = 0;
+  filtroDescuentoMax: number = 100;
   filtroPlan: string[] = [];
+  filtroBeneficio: string[] = [];
 
   // Configuración de filtrado
   mostrarSoloEstudiantesFiltrados = true; // false = mostrar toda la solicitud, true = solo estudiantes filtrados
@@ -111,8 +117,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
   carreraOptions: MultiSelectOption[] = [];
-  descuentoOptions: MultiSelectOption[] = [];
   planOptions: MultiSelectOption[] = [];
+  beneficioOptions: MultiSelectOption[] = [];
 
   // Paginación
   currentPage = 1;
@@ -134,7 +140,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     },
     {
       element: '#filtro-descuento',
-      popover: { title: 'Filtro por descuento', description: 'Permite filtrar los registros según el porcentaje de descuento aplicado.' }
+      popover: { title: 'Filtro por rango de descuento', description: 'Permite filtrar los registros según un rango de porcentaje de descuento, desde un mínimo hasta un máximo.' }
     },
     {
       element: '#filtro-plan',
@@ -189,13 +195,13 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       this.isLoading = true;
 
       // Verificar APIs disponibles
-      if (!window.academicoAPI?.getRegistroEstudiantesByApoyoFamiliar || !window.academicoAPI?.getAllSolicitud) {
+      if (!window.academicoAPI?.getAllRegistroEstudiante || !window.academicoAPI?.getAllSolicitud) {
         throw new Error('APIs de base de datos no disponibles');
       }
 
-      // Cargar registros de apoyo familiar y solicitudes
+      // Cargar TODOS los registros (no solo apoyo familiar) y solicitudes
       const [registros, solicitudes] = await Promise.all([
-        window.academicoAPI.getRegistroEstudiantesByApoyoFamiliar(),
+        window.academicoAPI.getAllRegistroEstudiante(),
         window.academicoAPI.getAllSolicitud()
       ]);
 
@@ -244,10 +250,13 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       const todasLasCarreras = this.carreraService.currentData || [];
       this.carreras = todasLasCarreras.filter(carrera => carrera.visible === true);
 
-      // Cargar apoyos familiares desde la API
+      // Cargar apoyos familiares y beneficios desde la API
       if (window.academicoAPI) {
         this.apoyosFamiliares = await window.academicoAPI.getAllApoyoFamiliar();
       }
+      
+      // Cargar beneficios desde el servicio
+      this.beneficios = this.beneficioService.currentData || [];
 
       // Create dropdown options
       this.gestionOptions = this.gestiones.map(gestion => ({
@@ -260,15 +269,15 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         label: carrera.carrera // Mostrar nombre en UI
       }));
 
-      this.descuentoOptions = this.apoyosFamiliares.map(apoyo => ({
-        value: apoyo.porcentaje.toString(),
-        label: `${apoyo.porcentaje * 100}%`
-      }));
-
       this.planOptions = [
         { value: 'Plan Estandar', label: 'Plan Estandar' },
         { value: 'Plan Plus', label: 'Plan Plus' }
       ];
+
+      this.beneficioOptions = this.beneficios.map(beneficio => ({
+        value: beneficio.id,
+        label: beneficio.nombre
+      }));
 
     } catch (error) {
       console.error('❌ Error cargando datos de filtros:', error);
@@ -287,27 +296,49 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Agrupar registros por id_solicitud
+    // Agrupar registros
     const gruposMap = new Map<string, RegistroEstudiante[]>();
 
     this.registrosEstudiantes.forEach(registro => {
-      const solicitudId = registro.id_solicitud;
-      if (!gruposMap.has(solicitudId)) {
-        gruposMap.set(solicitudId, []);
+      // Si tiene id_solicitud (apoyo familiar), agrupar por solicitud
+      // Si NO tiene id_solicitud (otros beneficios), crear grupo individual con ID del registro
+      const grupoId = registro.id_solicitud || `individual-${registro.id}`;
+      
+      if (!gruposMap.has(grupoId)) {
+        gruposMap.set(grupoId, []);
       }
-      gruposMap.get(solicitudId)!.push(registro);
+      gruposMap.get(grupoId)!.push(registro);
     });
 
     // Crear solicitudes agrupadas con información combinada
-    this.solicitudesAgrupadas = Array.from(gruposMap.entries()).map(([solicitudId, registros]) => {
-      const solicitud = solicitudesMap.get(solicitudId) || {
-        id: solicitudId,
-        fecha: new Date().toISOString(),
-        id_gestion: registros[0]?.id_gestion || '',
-        estado: 'desconocido',
-        cantidad_estudiantes: registros.length,
-        comentarios: 'Solicitud no encontrada'
-      };
+    this.solicitudesAgrupadas = Array.from(gruposMap.entries()).map(([grupoId, registros]) => {
+      // Si el grupoId empieza con "individual-", es un beneficio individual
+      const esIndividual = grupoId.startsWith('individual-');
+      
+      let solicitud: Solicitud;
+      
+      if (esIndividual) {
+        // Crear solicitud "virtual" para beneficios individuales
+        const registro = registros[0];
+        solicitud = {
+          id: grupoId,
+          fecha: registro.created_at || new Date().toISOString(),
+          id_gestion: registro.id_gestion || '',
+          estado: 'completado',
+          cantidad_estudiantes: 1,
+          comentarios: 'Beneficio individual'
+        };
+      } else {
+        // Usar solicitud real de la base de datos
+        solicitud = solicitudesMap.get(grupoId) || {
+          id: grupoId,
+          fecha: new Date().toISOString(),
+          id_gestion: registros[0]?.id_gestion || '',
+          estado: 'desconocido',
+          cantidad_estudiantes: registros.length,
+          comentarios: 'Solicitud no encontrada'
+        };
+      }
 
       // Combinar cada registro con la información de solicitud
       const registrosConSolicitud = registros.map(registro => ({
@@ -366,11 +397,21 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Filtro por descuento de apoyo familiar (multi-select)
-    if (this.filtroDescuento.length > 0) {
+    // Filtro por descuento de apoyo familiar (rango)
+    if (this.filtroDescuentoMin > 0 || this.filtroDescuentoMax < 100) {
+      solicitudesFiltradas = solicitudesFiltradas.filter(item =>
+        item.registros.some((registro: RegistroConSolicitud) => {
+          const descuentoPorcentaje = registro.porcentaje_descuento * 100;
+          return descuentoPorcentaje >= this.filtroDescuentoMin && descuentoPorcentaje <= this.filtroDescuentoMax;
+        })
+      );
+    }
+
+    // Filtro por tipo de beneficio (multi-select)
+    if (this.filtroBeneficio.length > 0) {
       solicitudesFiltradas = solicitudesFiltradas.filter(item =>
         item.registros.some((registro: RegistroConSolicitud) =>
-          this.filtroDescuento.includes(registro.porcentaje_descuento.toString())
+          registro.id_beneficio && this.filtroBeneficio.includes(registro.id_beneficio)
         )
       );
     }
@@ -414,10 +455,18 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         );
       }
 
-      // Filtro por descuento
-      if (this.filtroDescuento.length > 0) {
+      // Filtro por descuento (rango)
+      if (this.filtroDescuentoMin > 0 || this.filtroDescuentoMax < 100) {
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) => {
+          const descuentoPorcentaje = registro.porcentaje_descuento * 100;
+          return descuentoPorcentaje >= this.filtroDescuentoMin && descuentoPorcentaje <= this.filtroDescuentoMax;
+        });
+      }
+
+      // Filtro por tipo de beneficio
+      if (this.filtroBeneficio.length > 0) {
         registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
-          this.filtroDescuento.includes(registro.porcentaje_descuento.toString())
+          registro.id_beneficio && this.filtroBeneficio.includes(registro.id_beneficio)
         );
       }
 
@@ -456,8 +505,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.filtroGestion = [];
     this.filtroBusqueda = '';
     this.filtroCarrera = [];
-    this.filtroDescuento = [];
+    this.filtroDescuentoMin = 0;
+    this.filtroDescuentoMax = 100;
     this.filtroPlan = [];
+    this.filtroBeneficio = [];
     this.currentPage = 1;
     this.aplicarFiltros();
   }
@@ -631,14 +682,25 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.aplicarFiltros();
   }
 
-  onDescuentoSelectionChange(selectedValues: string[]): void {
-    this.filtroDescuento = selectedValues;
+  onDescuentoRangeChange(): void {
     this.aplicarFiltros();
   }
 
   onPlanSelectionChange(selectedValues: string[]): void {
     this.filtroPlan = selectedValues;
     this.aplicarFiltros();
+  }
+
+  onBeneficioSelectionChange(selectedValues: string[]): void {
+    this.filtroBeneficio = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  // Método para obtener nombre del beneficio por ID
+  getNombreBeneficio(idBeneficio?: string): string {
+    if (!idBeneficio) return 'N/A';
+    const beneficio = this.beneficios.find(b => b.id === idBeneficio);
+    return beneficio?.nombre || 'Desconocido';
   }
 
   abrirModalEdicion(registro: RegistroConSolicitud): void {

@@ -1,5 +1,5 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LoadingService } from '../../../../../shared/servicios/loading';
@@ -52,6 +52,7 @@ export class RegistroIndividual implements OnInit {
   private beneficioService = inject(BeneficioService);
   private dataService = inject(RegistroIndividualDataService);
   private toastService = inject(ToastService);
+  private router = inject(Router);
 
   async ngOnInit() {
     // Cargar gestiones activas y beneficios al inicializar el componente
@@ -135,6 +136,7 @@ export class RegistroIndividual implements OnInit {
           // Update the registry with complete information
           this.registrosEstudiantes[i] = {
             ...registro,
+            id_gestion: this.semestreActual[0]?.id, // ID de la gestión activa
             carrera: carreraInfo?.carrera || carrera || 'N/A', // Solo para mostrar en UI
             id_carrera: carreraInfo?.id, // Campo principal que se guardará en BD
             id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
@@ -158,6 +160,7 @@ export class RegistroIndividual implements OnInit {
           // Keep basic info if detailed loading fails
           this.registrosEstudiantes[i] = {
             ...registro,
+            id_gestion: this.semestreActual[0]?.id, // ID de la gestión activa
             carrera: 'Error al cargar información', // Solo para mostrar en UI
             id_carrera: undefined,
             id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
@@ -226,7 +229,10 @@ export class RegistroIndividual implements OnInit {
     });
 
     // Pasar datos al servicio compartido y navegar a la vista
-    this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes);
+    this.dataService.setRegistrosAndNavigate(this.registrosEstudiantes, 'apoyo-familiar');
+    
+    // Navegar a vista-individual
+    this.router.navigate(['/vista-individual']);
   }
 
   calcularPorcentajes() {

@@ -73,19 +73,7 @@
           </app-multi-select-dropdown>
         </div>
 
-        <!-- Filtro por descuento -->
-        <div id='filtro-descuento' class="flex flex-col">
-          <label class="text-sm font-medium text-slate-700 mb-1">Descuento:</label>
-          <app-multi-select-dropdown
-            [options]="descuentoOptions"
-            [ngModel]="filtroDescuento"
-            [disabled]="isLoadingFiltros"
-            placeholder="Seleccionar descuentos"
-            width="w-52"
-            dropdownId="descuento-dropdown"
-            (ngModelChange)="onDescuentoSelectionChange($event)">
-          </app-multi-select-dropdown>
-        </div>
+        
 
         <!-- Filtro por plan de pago -->
         <div id='filtro-plan' class="flex flex-col">
@@ -99,6 +87,47 @@
             dropdownId="plan-dropdown"
             (ngModelChange)="onPlanSelectionChange($event)">
           </app-multi-select-dropdown>
+        </div>
+
+        <!-- Filtro por tipo de beneficio -->
+        <div id='filtro-beneficio' class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Tipo de beneficio:</label>
+          <app-multi-select-dropdown
+            [options]="beneficioOptions"
+            [ngModel]="filtroBeneficio"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar beneficio"
+            width="w-48"
+            dropdownId="beneficio-dropdown"
+            (ngModelChange)="onBeneficioSelectionChange($event)">
+          </app-multi-select-dropdown>
+        </div>
+
+        <!-- Filtro por descuento (rango) -->
+        <div id='filtro-descuento' class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Descuento:</label>
+          <div class="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md bg-white text-sm">
+            <input 
+              type="number" 
+              [(ngModel)]="filtroDescuentoMin"
+              (ngModelChange)="onDescuentoRangeChange()"
+              [disabled]="isLoadingFiltros"
+              min="0" 
+              max="100" 
+              placeholder="0"
+              class="w-14 px-2 py-0.5 text-center border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 disabled:opacity-50 disabled:bg-slate-50">
+            <span class="text-slate-400">-</span>
+            <input 
+              type="number" 
+              [(ngModel)]="filtroDescuentoMax"
+              (ngModelChange)="onDescuentoRangeChange()"
+              [disabled]="isLoadingFiltros"
+              min="0" 
+              max="100" 
+              placeholder="100"
+              class="w-14 px-2 py-0.5 text-center border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 disabled:opacity-50 disabled:bg-slate-50">
+            <span class="text-slate-600">%</span>
+          </div>
         </div>
 
         <!-- Búsqueda por nombre o carnet -->
@@ -214,6 +243,7 @@
             <tr class="bg-gradient-to-br from-slate-800 to-slate-600 text-white">
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Estudiante</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10 whitespace-normal">Carrera</th>
+              <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Tipo de Beneficio</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Total U.V.E.</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">Valor U.V.E.</th>
               <th class="px-4 py-3 text-left font-semibold border-r border-white/10">% Descuento</th>
@@ -228,7 +258,7 @@
             @for (grupo of solicitudesAgrupadas; track grupo.solicitud.id; let groupIndex = $index) {
               <!-- Encabezado del grupo: solo ID de seguimiento -->
               <tr [ngClass]="{'border-t-4 border-slate-200': groupIndex > 0}" class="bg-slate-50">
-                <td colspan="8" class="px-4 py-2 font-bold text-slate-900 tracking-wide">
+                <td colspan="9" class="px-4 py-2 font-bold text-slate-900 tracking-wide">
                   Gestión: {{ getNombreGestion(grupo.solicitud.id_gestion) }} | 
                     {{ formatearFecha(grupo.solicitud.fecha) }} | 
                     {{ grupo.registros.length }} estudiante(s)
@@ -264,6 +294,11 @@
                   <!-- Carrera -->
                   <td class="px-4 py-3 align-middle border-b border-slate-100 max-w-[400px] whitespace-normal break-words">
                     <span class="inline-block bg-indigo-100 text-indigo-800 px-2 py-1 rounded-md font-semibold text-[0.9rem] leading-5">{{ registro.carrera }}</span>
+                  </td>
+                  
+                  <!-- Tipo de Beneficio -->
+                  <td class="px-4 py-3 align-middle border-b border-slate-100">
+                    <span class="inline-block bg-purple-100 text-purple-800 px-2 py-1 rounded-md font-semibold text-[0.9rem] leading-5">{{ getNombreBeneficio(registro.id_beneficio) }}</span>
                   </td>
                   
                   <!-- Créditos -->
