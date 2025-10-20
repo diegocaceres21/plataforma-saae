@@ -2,6 +2,7 @@
 import { RegistroEstudiante } from '../interfaces/registro-estudiante';
 import { ExportConfig, ExportColumn } from '../../shared/interfaces/export-config';
 import { ToastService } from '../../shared/servicios/toast';
+import { BeneficioService } from './beneficio.service';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import { LOGO_BASE64 } from '../../shared/constantes/logo-base64';
@@ -13,7 +14,22 @@ import { LOGO_BASE64 } from '../../shared/constantes/logo-base64';
 })
 export class ExportService {
 
-  constructor(private toastService: ToastService) {}
+  constructor(
+    private toastService: ToastService,
+    private beneficioService: BeneficioService
+  ) {}
+
+  // Helper para formatear moneda boliviana
+  private formatCurrency(value: number): string {
+    return `Bs. ${value.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  // Obtener nombre del beneficio
+  private getBeneficioNombre(id?: string): string {
+    if (!id) return 'N/A';
+    const beneficio = this.beneficioService.currentData.find(b => b.id === id);
+    return beneficio?.nombre || 'N/A';
+  }
 
   // Configuración por defecto de columnas para exportación
   getDefaultColumns(): ExportColumn[] {
@@ -186,7 +202,7 @@ export class ExportService {
 
     // Información básica del estudiante en un recuadro
     doc.setFillColor(240, 248, 255); // Azul muy claro
-    // Aumentamos la altura del recuadro para incluir una tercera línea (descuento)
+    // Aumentamos la altura del recuadro para incluir una tercera línea (descuento y beneficio)
     const studentBoxHeight = 30;
     doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
     doc.setDrawColor(59, 130, 246); // Azul
@@ -209,15 +225,16 @@ export class ExportService {
     // Columna 1
     doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 15);
     doc.text(`Total U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 20);
-  const descuentoPct = (((registro.porcentaje_descuento || 0) * 100).toFixed(1)) + '%';
-  doc.text(`Descuento: ${descuentoPct}`, col1X, currentY + 25);
+    const descuentoPct = (((registro.porcentaje_descuento || 0) * 100).toFixed(1)) + '%';
+    doc.text(`Descuento: ${descuentoPct}`, col1X, currentY + 25);
 
     // Columna 2
     doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 15);
     doc.text(`Carrera: ${registro.carrera || 'N/A'}`, col2X, currentY + 20);
+    doc.text(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col2X, currentY + 25);
 
-  // Dejamos un pequeño margen debajo del recuadro
-  currentY += studentBoxHeight + 5;
+    // Dejamos un pequeño margen debajo del recuadro
+    currentY += studentBoxHeight + 5;
 
     // Tabla manual de información financiera
     currentY = this.addFinancialTable(doc, registro, currentY, pageWidth, margin);
@@ -238,7 +255,7 @@ export class ExportService {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       doc.text(`Plan: ${registro.plan_primer_pago}`, margin + 5, currentY + 15);
-      doc.text(`Monto: BOB. ${(registro.monto_primer_pago || 0).toFixed(2)}`, margin + 100, currentY + 15);
+      doc.text(`Monto: ${this.formatCurrency(registro.monto_primer_pago || 0)}`, margin + 100, currentY + 15);
       doc.text(`Referencia: ${registro.referencia_primer_pago || 'N/A'}`, margin + 150, currentY + 15);
 
       currentY += 25;
@@ -336,33 +353,33 @@ export class ExportService {
     return [
       [
         'Derechos Académicos',
-        derechosAcademicosOriginales.toFixed(2),
-        derechosAcademicosConDescuento.toFixed(2),
-        (derechosAcademicosOriginales - derechosAcademicosConDescuento).toFixed(2)
+        this.formatCurrency(derechosAcademicosOriginales),
+        this.formatCurrency(derechosAcademicosConDescuento),
+        this.formatCurrency(derechosAcademicosOriginales - derechosAcademicosConDescuento)
       ],
       [
         'Crédito Tecnológico',
-        creditoTecnologico.toFixed(2),
-        creditoTecnologico.toFixed(2),
-        '0.00'
+        this.formatCurrency(creditoTecnologico),
+        this.formatCurrency(creditoTecnologico),
+        this.formatCurrency(0)
       ],
       [
         'Total Semestre',
-        totalOriginal.toFixed(2),
-        totalConDescuento.toFixed(2),
-        (totalOriginal - totalConDescuento).toFixed(2)
+        this.formatCurrency(totalOriginal),
+        this.formatCurrency(totalConDescuento),
+        this.formatCurrency(totalOriginal - totalConDescuento)
       ],
       [
         'Derecho de Inscripción',
-        `(${montoPrimerPago.toFixed(2)})`,
-        `(${montoPrimerPago.toFixed(2)})`,
-        '0.00'
+        `(${this.formatCurrency(montoPrimerPago)})`,
+        `(${this.formatCurrency(montoPrimerPago)})`,
+        this.formatCurrency(0)
       ],
       [
         'Saldo Semestre',
-        (totalOriginal - montoPrimerPago).toFixed(2),
-        (totalConDescuento - montoPrimerPago).toFixed(2),
-        ((totalOriginal - montoPrimerPago) - (totalConDescuento - montoPrimerPago)).toFixed(2)
+        this.formatCurrency(totalOriginal - montoPrimerPago),
+        this.formatCurrency(totalConDescuento - montoPrimerPago),
+        this.formatCurrency((totalOriginal - montoPrimerPago) - (totalConDescuento - montoPrimerPago))
       ]
     ];
   }

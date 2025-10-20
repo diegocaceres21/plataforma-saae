@@ -28,7 +28,8 @@ export class PaymentPlansDisplayComponent {
 
   // Cálculos para el plan con descuento
   get derechosAcademicosConDescuento(): number {
-    return this.derechosAcademicosOriginales * (1 - (this.registro.porcentaje_descuento || 0));
+    return this.registro.creditos_descuento! * (this.registro.valor_credito || 0) * (1 - (this.registro.porcentaje_descuento || 0)) + (this.registro.valor_credito || 0) * (this.registro.total_creditos! - this.registro.creditos_descuento!);
+    //return this.derechosAcademicosOriginales * (1 - (this.registro.porcentaje_descuento || 0));
   }
 
   get totalConDescuento(): number {

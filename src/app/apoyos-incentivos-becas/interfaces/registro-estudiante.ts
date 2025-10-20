@@ -16,6 +16,7 @@ export interface RegistroEstudiante {
     plan_primer_pago: string;
     referencia_primer_pago: string; // Campo obligatorio en la base de datos
     total_semestre: number;
+    creditos_descuento?: number;
     registrado: boolean;
     comentarios?: string;
     created_at?: string;

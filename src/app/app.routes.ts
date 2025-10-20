@@ -13,6 +13,7 @@ import { AdminGuard } from './auth/guardias/admin-guard';
 import { Busqueda } from './reporte-pago/busqueda/busqueda';
 import { MainMenu } from './shared/componentes/main-menu/main-menu';
 import { Reporte } from './reporte-pago/reporte/reporte';
+import { ReporteBeneficios } from './apoyos-incentivos-becas/apoyo-familiar/componentes/reporte-beneficios/reporte-beneficios';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -20,6 +21,7 @@ export const routes: Routes = [
     { path: 'menu', component: Menu },
     { path: 'menu-principal', component: MainMenu },
     { path: 'registro-individual', component: RegistroIndividual },
+    { path: 'reporte-beneficios', component: ReporteBeneficios },
     { path: 'vista-individual', component: VistaIndividual },
     { path: 'registro-masivo', component: RegistroMasivo },
     { path: 'beneficios-individual', component: BeneficiosIndividual },

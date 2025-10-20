@@ -14,7 +14,7 @@
     <div class="flex flex-col">
       <span class="font-[Roboto] text-center text-sm font-medium text-gray-500 mb-2">Monto</span>
       <span class="font-[Inter] text-center text-sm font-bold text-black p-3 bg-gray-50 rounded-lg border border-gray-200">
-        {{ registro.monto_primer_pago | currency:'BOB. ':'symbol':'1.2-2' }}
+        {{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }}
       </span>
     </div>
 
@@ -48,32 +48,32 @@
         <div class="space-y-2">
           <div class="flex justify-between items-center pb-3 px-4 border-b border-gray-100">
             <span class="font-[Roboto] text-sm font-medium text-gray-600">Derechos Académicos:</span>
-            <span class="font-[Inter] text-base font-bold text-gray-900">{{ derechosAcademicosOriginales | number:'1.2-2' }}</span>
+            <span class="font-[Inter] text-base font-bold text-gray-900">{{ derechosAcademicosOriginales | currency:'Bs. ':'symbol':'1.2-2' }}</span>
           </div>
           
           <div class="flex justify-between items-center pb-3 px-4 border-b border-gray-100">
             <span class="font-[Roboto] text-sm font-medium text-gray-600">Crédito Tecnológico:</span>
-            <span class="font-[Inter] text-base font-bold text-gray-900">{{ registro.credito_tecnologico | number:'1.2-2' }}</span>
+            <span class="font-[Inter] text-base font-bold text-gray-900">{{ registro.credito_tecnologico | currency:'Bs. ':'symbol':'1.2-2' }}</span>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-gray-200 bg-gray-50 rounded-lg px-4 mt-4">
             <span class="font-[Roboto] text-base font-bold text-gray-700">Monto Total:</span>
             <span class="font-[Inter] text-base font-bold text-gray-900">
-              {{ totalOriginal | number:'1.2-2' }}
+              {{ totalOriginal | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
 
           <div class="flex justify-between items-center py-2 px-4">
             <span class="font-[Roboto] text-sm font-medium text-gray-600">(Derecho de inscripción):</span>
             <span class="font-[Inter] text-base font-semibold text-red-600">
-              ({{ registro.monto_primer_pago | number:'1.2-2' }})
+              ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
             </span>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
             <span class="font-[Roboto] text-base font-bold text-black">Saldo Semestre:</span>
             <span class="font-[Inter] text-base font-bold text-black">
-              {{ saldoOriginal | number:'1.2-2' }}
+              {{ saldoOriginal | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
         </div>
@@ -98,35 +98,35 @@
             <span class="font-[Roboto] text-sm font-medium text-gray-700">Derechos Académicos:</span>
             <div class="text-right">
               <span class="text-xs text-gray-500 line-through mr-2">
-                {{ derechosAcademicosOriginales | number:'1.2-2' }}
+                {{ derechosAcademicosOriginales | currency:'Bs. ':'symbol':'1.2-2' }}
               </span>
-              <span class="font-[Inter] text-base font-bold text-black">{{ derechosAcademicosConDescuento | number:'1.2-2' }}</span>
+              <span class="font-[Inter] text-base font-bold text-black">{{ derechosAcademicosConDescuento | currency:'Bs. ':'symbol':'1.2-2' }}</span>
             </div>
           </div>
           
           <div class="flex justify-between items-center pb-3 px-4 border-b border-green-100">
             <span class="font-[Roboto] text-sm font-medium text-gray-700">Crédito Tecnológico:</span>
-            <span class="font-[Inter] text-base font-bold text-black">{{ registro.credito_tecnologico | number:'1.2-2' }}</span>
+            <span class="font-[Inter] text-base font-bold text-black">{{ registro.credito_tecnologico | currency:'Bs. ':'symbol':'1.2-2' }}</span>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-gray-200 bg-gray-50 rounded-lg px-4 mt-4">
             <span class="font-[Roboto] text-base font-bold text-black">Monto Total:</span>
             <span class="font-[Inter] text-base font-bold text-black">
-              {{ totalConDescuento | number:'1.2-2' }}
+              {{ totalConDescuento | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
 
           <div class="flex justify-between items-center py-2 px-4">
             <span class="font-[Roboto] text-sm font-medium text-gray-700">(Derecho de inscripción):</span>
             <span class="font-[Inter] text-base font-semibold text-red-600">
-              ({{ registro.monto_primer_pago | number:'1.2-2' }})
+              ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
             </span>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
             <span class="font-[Roboto] text-base font-bold text-black">Saldo Semestre:</span>
             <span class="font-[Inter] text-base font-bold text-black">
-              {{ saldoConDescuento | number:'1.2-2' }}
+              {{ saldoConDescuento | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
           
@@ -137,7 +137,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
               </svg>
               <span class="font-[Roboto] text-base font-medium text-yellow-800">
-                Ahorro total: {{ ahorroDerechosAcademicos | number:'1.2-2' }}
+                Ahorro total: {{ ahorroDerechosAcademicos | currency:'Bs. ':'symbol':'1.2-2' }}
               </span>
             </div>
           </div>

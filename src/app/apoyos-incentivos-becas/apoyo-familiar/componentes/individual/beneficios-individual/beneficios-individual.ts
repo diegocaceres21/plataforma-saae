@@ -161,7 +161,7 @@ export class BeneficiosIndividual implements OnInit {
 
         // Get selected beneficio
         const beneficio = this.beneficiosDisponibles.find(b => b.id === this.beneficioSeleccionado);
-        const porcentajeDescuento = this.mostrarInputPorcentaje ? this.porcentajePersonalizado : (beneficio?.porcentaje || 0);
+        const porcentajeDescuento = this.mostrarInputPorcentaje ? this.porcentajePersonalizado / 100 : (beneficio?.porcentaje || 0);
 
         // Update the registry with complete information
         this.estudiante = {
@@ -184,7 +184,7 @@ export class BeneficiosIndividual implements OnInit {
         if (carreraInfo) {
           this.estudiante.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
           this.estudiante.credito_tecnologico = porcentajeDescuento !== 1 && carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
-          //const creditosCalculoDescuento = beneficio?.limite_creditos ? totalCreditos > beneficio?.limite_creditos ? beneficio.limite_creditos : totalCreditos : totalCreditos;
+          this.estudiante.creditos_descuento = beneficio?.limite_creditos ? totalCreditos > beneficio?.limite_creditos ? beneficio.limite_creditos : totalCreditos : totalCreditos;
           this.estudiante.total_semestre = this.estudiante.valor_credito * (this.estudiante.total_creditos || 0) + this.estudiante.credito_tecnologico;
         }
 

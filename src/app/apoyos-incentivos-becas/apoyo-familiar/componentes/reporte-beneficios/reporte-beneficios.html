@@ -1,0 +1,240 @@
+<div class="min-h-screen bg-slate-50 p-8 font-sans">
+  <div class="max-w-[1400px] mx-auto">
+    
+    <!-- Header con Paleta UCB -->
+    <div class="mb-10">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-6">
+            <div class="w-16 h-16 bg-gradient-to-br from-[#003B71] to-[#00518F] rounded-xl flex items-center justify-center shadow-lg">
+              <svg class="w-9 h-9 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-2xl font-bold text-[#003B71] tracking-tight">Panel de Análisis</h1>
+              <p class="text-slate-500 text-sm mt-1">Métricas de Beneficios Estudiantiles</p>
+            </div>
+          </div>
+          
+          <!-- Filtro de Gestión -->
+          <div class="flex items-center gap-3">
+            <label class="text-sm font-semibold text-slate-600">Período:</label>
+            <select 
+              [(ngModel)]="gestionSeleccionada"
+              (ngModelChange)="onGestionChange()"
+              class="px-5 py-2.5 border-2 border-[#003B71] rounded-lg bg-white text-sm font-semibold text-[#003B71] 
+                     focus:outline-none focus:ring-2 focus:ring-[#FDB913] focus:border-[#FDB913] transition-all cursor-pointer
+                     hover:border-[#00518F] shadow-sm">
+              @for (gestion of gestiones; track gestion.id) {
+                <option [value]="gestion.id">{{ gestion.nombre }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    @if (isLoading) {
+      <div class="flex items-center justify-center py-20">
+        <div class="flex flex-col items-center gap-4">
+          <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-600 border-t-transparent"></div>
+          <p class="text-slate-600 font-semibold">Cargando datos...</p>
+        </div>
+      </div>
+    } @else {
+      
+      <!-- Tarjetas de Métricas Principales - Paleta UCB -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        
+        <!-- Card: Total Estudiantes - UCB -->
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-[#003B71] p-8 hover:shadow-md transition-all duration-300 group">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-[#003B71] rounded-lg flex items-center justify-center group-hover:bg-[#00518F] transition-colors">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </div>
+                <span class="text-xs font-bold text-[#003B71] uppercase tracking-wider">Estudiantes Beneficiados</span>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <h2 class="text-5xl font-bold text-[#003B71] tracking-tight">{{ formatNumber(totalEstudiantes) }}</h2>
+                <span class="text-sm font-semibold text-[#FDB913] flex items-center gap-1">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd"></path>
+                  </svg>
+                  Activos
+                </span>
+              </div>
+              <p class="text-slate-500 text-sm mt-3">Registrados en el período actual</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card: Total Ahorro - UCB -->
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-[#FDB913] p-8 hover:shadow-md transition-all duration-300 group">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-[#FDB913] rounded-lg flex items-center justify-center group-hover:bg-[#F7931E] transition-colors">
+                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <span class="text-xs font-bold text-[#FDB913] uppercase tracking-wider">Beneficio Económico</span>
+              </div>
+              <div class="flex items-baseline gap-2">
+                <h2 class="text-4xl font-bold text-[#003B71] tracking-tight">{{ formatCurrency(totalAhorro) }}</h2>
+              </div>
+              <p class="text-slate-500 text-sm mt-3">Ahorro total generado por descuentos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráficos - Paleta UCB -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Gráfico 1: Estudiantes por Tipo de Beneficio -->
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+          <div class="flex items-center justify-between mb-8">
+            <div>
+              <h3 class="text-lg font-bold text-[#003B71] mb-1">Distribución de Estudiantes</h3>
+              <p class="text-sm text-slate-500">Por tipo de beneficio</p>
+            </div>
+            <div class="px-4 py-2  bg-opacity-10 rounded-lg">
+              <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
+              <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(totalEstudiantes) }}</span>
+            </div>
+          </div>
+          
+          <div class="space-y-5">
+            @for (beneficio of beneficiosData; track beneficio.nombre) {
+              <div class="group">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-400">
+                      {{ ((beneficio.totalEstudiantes / totalEstudiantes) * 100).toFixed(1) }}%
+                    </span>
+                    <span class="text-sm font-bold text-[#003B71] min-w-[50px] text-right">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
+                  </div>
+                </div>
+                <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                    [style.width.%]="getBarWidth(beneficio.totalEstudiantes, getMaxValue('estudiantes'))"
+                    [style.background-color]="'#FDB913'">
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Gráfico 2: Ahorro por Tipo de Beneficio -->
+        <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+          <div class="flex items-center justify-between mb-8">
+            <div>
+              <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
+              <p class="text-sm text-slate-500">Ahorro por tipo de beneficio</p>
+            </div>
+            <div class="px-4 py-2 bg-opacity-20 rounded-lg">
+              <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
+              <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(totalAhorro) }}</span>
+            </div>
+          </div>
+          
+          <div class="space-y-5">
+            @for (beneficio of beneficiosData; track beneficio.nombre) {
+              <div class="group">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-xs font-bold text-slate-400">
+                      {{ ((beneficio.totalAhorro / totalAhorro) * 100).toFixed(1) }}%
+                    </span>
+                    <span class="text-xs font-bold text-[#003B71] min-w-[100px] text-right">{{ formatCurrency(beneficio.totalAhorro) }}</span>
+                  </div>
+                </div>
+                <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div 
+                    class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                    [style.width.%]="getBarWidth(beneficio.totalAhorro, getMaxValue('ahorro'))"
+                    [style.background-color]="'#FDB913'">
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráficos de Carreras con ng2-charts -->
+      
+      <!-- Gráfico 3: Estudiantes por Carrera -->
+      <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mt-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-[#003B71] mb-1">Estudiantes por Carrera</h3>
+            <p class="text-sm text-slate-500">Cantidad de estudiantes que han obtenido apoyo, beca o incentivo</p>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="px-4 py-2  bg-opacity-10 rounded-lg">
+              <span class="text-xs font-bold text-[#003B71] uppercase">Carreras:</span>
+              <span class="text-sm font-bold text-[#003B71] ml-2">{{ carrerasData.length }}</span>
+            </div>
+            <div class="px-4 py-2 bg-opacity-10 rounded-lg">
+              <span class="text-xs font-bold text-[#003B71] uppercase">Estudiantes:</span>
+              <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(totalEstudiantes) }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Chart.js Canvas con ng2-charts y scroll horizontal -->
+        <div class="relative h-96 overflow-x-auto overflow-y-hidden">
+          <div [style.width.px]="carrerasData.length * 60" [style.min-width]="'100%'" class="h-full">
+            <canvas baseChart
+                    type="bar"
+                    [data]="barChartDataEstudiantes"
+                    [options]="barChartOptionsEstudiantes">
+            </canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráfico 4: Ahorro por Carrera -->
+      <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mt-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-[#003B71] mb-1">Ahorro por Carrera</h3>
+            <p class="text-sm text-slate-500">Impacto económico por programa académico</p>
+          </div>
+          <div class="px-4 py-2 bg-opacity-20 rounded-lg">
+            <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
+            <span class="text-xs font-bold text-[#003B71] ml-2">{{ formatCurrency(totalAhorro) }}</span>
+          </div>
+        </div>
+        
+        <!-- Chart.js Canvas con ng2-charts y scroll horizontal -->
+        <div class="relative h-96 overflow-x-auto overflow-y-hidden">
+          <div [style.width.px]="carrerasData.length * 60" [style.min-width]="'100%'" class="h-full">
+            <canvas baseChart
+                    type="bar"
+                    [data]="barChartDataAhorro"
+                    [options]="barChartOptionsAhorro">
+            </canvas>
+          </div>
+        </div>
+      </div>
+    }
+
+  </div>
+</div>
