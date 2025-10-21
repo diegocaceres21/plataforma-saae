@@ -3,7 +3,18 @@
     
     <!-- Header con Paleta UCB -->
     <div class="mb-10">
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+      <div class="absolute left-0 top-0">
+        <button routerLink="/menu" class="ml-8 mt-2 inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 hover:text-gray-900 
+                 rounded-xl transition-all duration-200 border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md
+                 font-medium text-sm group">
+          <svg class="w-4 h-4 mr-2 transition-transform duration-200 group-hover:-translate-x-1" 
+               fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+          </svg>
+          Volver al Menú
+        </button>
+      </div>
+      <div class="mt-6 bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-6">
             <div class="w-16 h-16 bg-gradient-to-br from-[#003B71] to-[#00518F] rounded-xl flex items-center justify-center shadow-lg">
@@ -12,8 +23,8 @@
               </svg>
             </div>
             <div>
-              <h1 class="text-2xl font-bold text-[#003B71] tracking-tight">Panel de Análisis</h1>
-              <p class="text-slate-500 text-sm mt-1">Métricas de Beneficios Estudiantiles</p>
+              <h1 class="text-2xl font-bold text-[#003B71] tracking-tight">Panel de Reportes</h1>
+              <p class="text-slate-500 text-sm mt-1">Dashboard de Apoyos, Becas e Incentivos</p>
             </div>
           </div>
           
@@ -27,7 +38,7 @@
                      focus:outline-none focus:ring-2 focus:ring-[#FDB913] focus:border-[#FDB913] transition-all cursor-pointer
                      hover:border-[#00518F] shadow-sm">
               @for (gestion of gestiones; track gestion.id) {
-                <option [value]="gestion.id">{{ gestion.nombre }}</option>
+                <option [value]="gestion.id">{{ gestion.gestion }}</option>
               }
             </select>
           </div>
@@ -84,111 +95,369 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                 </div>
-                <span class="text-xs font-bold text-[#FDB913] uppercase tracking-wider">Beneficio Económico</span>
+                <span class="text-xs font-bold text-[#FDB913] uppercase tracking-wider">Monto Total</span>
               </div>
               <div class="flex items-baseline gap-2">
                 <h2 class="text-4xl font-bold text-[#003B71] tracking-tight">{{ formatCurrency(totalAhorro) }}</h2>
               </div>
-              <p class="text-slate-500 text-sm mt-3">Ahorro total generado por descuentos</p>
+              <p class="text-slate-500 text-sm mt-3">Monto total en Apoyos, Becas e Incentivos</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Gráficos - Paleta UCB -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        <!-- Gráfico 1: Estudiantes por Tipo de Beneficio -->
-        <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
-          <div class="flex items-center justify-between mb-8">
-            <div>
-              <h3 class="text-lg font-bold text-[#003B71] mb-1">Distribución de Estudiantes</h3>
-              <p class="text-sm text-slate-500">Por tipo de beneficio</p>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="px-4 py-2 bg-opacity-10 rounded-lg">
-                <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
-                <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(totalEstudiantes) }}</span>
-              </div>
-              <button 
-                (click)="exportarBeneficiosEstudiantes()"
-                class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-xs font-semibold rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </button>
-            </div>
+      <!-- Gráfico de Evolución por Gestión -->
+      <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mb-8">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-[#003B71] mb-1">Evolución del Monto en Apoyos, Becas e Incentivos</h3>
+            <p class="text-sm text-slate-500">Tendencia histórica por gestión</p>
           </div>
-          
-          <div class="space-y-5">
-            @for (beneficio of beneficiosData; track beneficio.nombre) {
-              <div class="group">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-3">
-                    <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-400">
-                      {{ ((beneficio.totalEstudiantes / totalEstudiantes) * 100).toFixed(1) }}%
-                    </span>
-                    <span class="text-sm font-bold text-[#003B71] min-w-[50px] text-right">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
-                  </div>
+          <button 
+            (click)="exportarEvolucion()"
+            class="px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+          </button>
+        </div>
+        
+        <!-- Chart.js Canvas para gráfico de líneas -->
+        <div class="relative h-96">
+          <canvas baseChart
+                  type="line"
+                  [data]="lineChartData"
+                  [options]="lineChartOptions">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Gráficos por Tipo de Beneficio - Paleta UCB -->
+      
+      <!-- APOYOS -->
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-[#003B71] mb-4 flex items-center gap-3">
+          <div class="w-2 h-8 bg-[#003B71] rounded"></div>
+          Apoyos
+        </h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Gráfico 1: Estudiantes por Apoyo -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Distribución de Estudiantes</h3>
+                <p class="text-sm text-slate-500">Por tipo de apoyo</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-10 rounded-lg">
+                  <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(getTotalEstudiantesByTipo(apoyosData)) }}</span>
                 </div>
-                <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
-                    [style.width.%]="getBarWidth(beneficio.totalEstudiantes, getMaxValue('estudiantes'))"
-                    [style.background-color]="'#FDB913'">
+              </div>
+            </div>
+            
+            @if (apoyosData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of apoyosData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalEstudiantes / getTotalEstudiantesByTipo(apoyosData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-sm font-bold text-[#003B71] min-w-[50px] text-right">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalEstudiantes / getTotalEstudiantesByTipo(apoyosData)) * 100"
+                        [style.background-color]="'#003B71'">
+                      </div>
+                    </div>
                   </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de apoyos en esta gestión</p>
+              </div>
+            }
+          </div>
+
+          <!-- Gráfico 2: Ahorro por Apoyo -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
+                <p class="text-sm text-slate-500">Ahorro por tipo de apoyo</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-20 rounded-lg">
+                  <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(getTotalAhorroByTipo(apoyosData)) }}</span>
                 </div>
+              </div>
+            </div>
+            
+            @if (apoyosData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of apoyosData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalAhorro / getTotalAhorroByTipo(apoyosData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-xs font-bold text-[#003B71] min-w-[100px] text-right">{{ formatCurrency(beneficio.totalAhorro) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalAhorro / getTotalAhorroByTipo(apoyosData)) * 100"
+                        [style.background-color]="'#003B71'">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de apoyos en esta gestión</p>
               </div>
             }
           </div>
         </div>
+      </div>
 
-        <!-- Gráfico 2: Ahorro por Tipo de Beneficio -->
-        <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
-          <div class="flex items-center justify-between mb-8">
-            <div>
-              <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
-              <p class="text-sm text-slate-500">Ahorro por tipo de beneficio</p>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="px-4 py-2 bg-opacity-20 rounded-lg">
-                <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
-                <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(totalAhorro) }}</span>
+      <!-- BECAS -->
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-[#FDB913] mb-4 flex items-center gap-3">
+          <div class="w-2 h-8 bg-[#FDB913] rounded"></div>
+          Becas
+        </h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Gráfico 3: Estudiantes por Beca -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Distribución de Estudiantes</h3>
+                <p class="text-sm text-slate-500">Por tipo de beca</p>
               </div>
-              <button 
-                (click)="exportarBeneficiosAhorro()"
-                class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-xs font-semibold rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-              </button>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-10 rounded-lg">
+                  <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(getTotalEstudiantesByTipo(becasData)) }}</span>
+                </div>
+              </div>
             </div>
+            
+            @if (becasData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of becasData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalEstudiantes / getTotalEstudiantesByTipo(becasData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-sm font-bold text-[#003B71] min-w-[50px] text-right">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalEstudiantes / getTotalEstudiantesByTipo(becasData)) * 100"
+                        [style.background-color]="'#FDB913'">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de becas en esta gestión</p>
+              </div>
+            }
           </div>
-          
-          <div class="space-y-5">
-            @for (beneficio of beneficiosData; track beneficio.nombre) {
-              <div class="group">
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-3">
-                    <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <span class="text-xs font-bold text-slate-400">
-                      {{ ((beneficio.totalAhorro / totalAhorro) * 100).toFixed(1) }}%
-                    </span>
-                    <span class="text-xs font-bold text-[#003B71] min-w-[100px] text-right">{{ formatCurrency(beneficio.totalAhorro) }}</span>
-                  </div>
+
+          <!-- Gráfico 4: Ahorro por Beca -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
+                <p class="text-sm text-slate-500">Ahorro por tipo de beca</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-20 rounded-lg">
+                  <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(getTotalAhorroByTipo(becasData)) }}</span>
                 </div>
-                <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
-                    [style.width.%]="getBarWidth(beneficio.totalAhorro, getMaxValue('ahorro'))"
-                    [style.background-color]="'#FDB913'">
+              </div>
+            </div>
+            
+            @if (becasData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of becasData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalAhorro / getTotalAhorroByTipo(becasData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-xs font-bold text-[#003B71] min-w-[100px] text-right">{{ formatCurrency(beneficio.totalAhorro) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalAhorro / getTotalAhorroByTipo(becasData)) * 100"
+                        [style.background-color]="'#FDB913'">
+                      </div>
+                    </div>
                   </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de becas en esta gestión</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- INCENTIVOS -->
+      <div class="mb-6">
+        <h2 class="text-xl font-bold text-[#005A9C] mb-4 flex items-center gap-3">
+          <div class="w-2 h-8 bg-[#005A9C] rounded"></div>
+          Incentivos
+        </h2>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Gráfico 5: Estudiantes por Incentivo -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Distribución de Estudiantes</h3>
+                <p class="text-sm text-slate-500">Por tipo de incentivo</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-10 rounded-lg">
+                  <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(getTotalEstudiantesByTipo(incentivosData)) }}</span>
                 </div>
+              </div>
+            </div>
+            
+            @if (incentivosData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of incentivosData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalEstudiantes / getTotalEstudiantesByTipo(incentivosData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-sm font-bold text-[#003B71] min-w-[50px] text-right">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalEstudiantes / getTotalEstudiantesByTipo(incentivosData)) * 100"
+                        [style.background-color]="'#005A9C'">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de incentivos en esta gestión</p>
+              </div>
+            }
+          </div>
+
+          <!-- Gráfico 6: Ahorro por Incentivo -->
+          <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
+            <div class="flex items-center justify-between mb-8">
+              <div>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
+                <p class="text-sm text-slate-500">Ahorro por tipo de incentivo</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="px-4 py-2 bg-opacity-20 rounded-lg">
+                  <span class="text-sm font-bold text-[#003B71] uppercase">Total:</span>
+                  <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(getTotalAhorroByTipo(incentivosData)) }}</span>
+                </div>
+              </div>
+            </div>
+            
+            @if (incentivosData.length > 0) {
+              <div class="space-y-5">
+                @for (beneficio of incentivosData; track beneficio.nombre) {
+                  <div class="group">
+                    <div class="flex items-center justify-between mb-3">
+                      <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-xs font-bold text-slate-400">
+                          {{ ((beneficio.totalAhorro / getTotalAhorroByTipo(incentivosData)) * 100).toFixed(1) }}%
+                        </span>
+                        <span class="text-xs font-bold text-[#003B71] min-w-[100px] text-right">{{ formatCurrency(beneficio.totalAhorro) }}</span>
+                      </div>
+                    </div>
+                    <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                        [style.width.%]="(beneficio.totalAhorro / getTotalAhorroByTipo(incentivosData)) * 100"
+                        [style.background-color]="'#005A9C'">
+                      </div>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex flex-col items-center justify-center py-12">
+                <svg class="w-16 h-16 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <p class="text-slate-400 font-semibold">No hay datos de incentivos en esta gestión</p>
               </div>
             }
           </div>
@@ -199,27 +468,50 @@
       
       <!-- Gráfico 3: Estudiantes por Carrera -->
       <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mt-6">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h3 class="text-lg font-bold text-[#003B71] mb-1">Estudiantes por Carrera</h3>
-            <p class="text-sm text-slate-500">Cantidad de estudiantes que han obtenido apoyo, beca o incentivo</p>
-          </div>
-          <div class="flex items-center gap-4">
-            <div class="px-4 py-2 bg-opacity-10 rounded-lg">
-              <span class="text-xs font-bold text-[#003B71] uppercase">Carreras:</span>
-              <span class="text-sm font-bold text-[#003B71] ml-2">{{ carrerasData.length }}</span>
+        <!-- Encabezado reorganizado -->
+        <div class="mb-6">
+          <!-- Fila 1: Título y métricas -->
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold text-[#003B71] mb-1">Estudiantes por Carrera</h3>
+              <p class="text-sm text-slate-500">Cantidad de estudiantes que han obtenido apoyo, beca o incentivo</p>
             </div>
-            <div class="px-4 py-2 bg-opacity-10 rounded-lg">
-              <span class="text-xs font-bold text-[#003B71] uppercase">Estudiantes:</span>
-              <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(totalEstudiantes) }}</span>
-            </div>
-            <button 
+            
+            <div class="flex items-center gap-3">
+              <button 
               (click)="exportarCarrerasEstudiantes()"
-              class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-xs font-semibold rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-            </button>
+              class="px-1.5 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              </button>
+              
+            </div>
+          </div>
+          
+          <!-- Fila 2: Filtro y exportar -->
+          <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+            <div class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-[#003B71]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+              </svg>
+              <span class="text-sm font-semibold text-[#003B71]">Filtrar por tipo de beneficio:</span>
+              <app-multi-select-dropdown
+                [options]="beneficioOptions"
+                [placeholder]="'Todos los beneficios'"
+                [selectAllText]="'Seleccionar todos'"
+                [width]="'w-72'"
+                [maxHeight]="'max-h-60'"
+                [(ngModel)]="beneficiosFiltroSeleccionados"
+                (selectionChange)="onBeneficioFilterChange($event)">
+              </app-multi-select-dropdown>
+            </div>
+
+              <div class="px-4 py-1 bg-[#FDB913] bg-opacity-20 rounded-lg">
+                <span class="text-xs font-bold text-[#003B71] uppercase">Total Estudiantes:</span>
+                <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatNumber(totalEstudiantesCarreras) }}</span>
+              </div>
+            
           </div>
         </div>
         
@@ -237,23 +529,49 @@
 
       <!-- Gráfico 4: Ahorro por Carrera -->
       <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mt-6">
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h3 class="text-lg font-bold text-[#003B71] mb-1">Ahorro por Carrera</h3>
-            <p class="text-sm text-slate-500">Impacto económico por programa académico</p>
-          </div>
-          <div class="flex items-center gap-4">
-            <div class="px-4 py-2 bg-opacity-20 rounded-lg">
-              <span class="text-xs font-bold text-[#003B71] uppercase">Total:</span>
-              <span class="text-xs font-bold text-[#003B71] ml-2">{{ formatCurrency(totalAhorro) }}</span>
+        <!-- Encabezado reorganizado -->
+        <div class="mb-6">
+          <!-- Fila 1: Título y métricas -->
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-bold text-[#003B71] mb-1">Ahorro por Carrera</h3>
+              <p class="text-sm text-slate-500">Impacto económico por programa académico</p>
             </div>
-            <button 
+            
+            <div class="flex items-center gap-3">
+              <button 
               (click)="exportarCarrerasAhorro()"
-              class="px-4 py-2 bg-green-500 hover:bg-green-400 text-white text-xs font-semibold rounded-lg transition-colors duration-200 flex items-center gap-2 shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
+              class="px-1.5 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
             </button>
+              
+            </div>
+          </div>
+          
+          <!-- Fila 2: Filtro y exportar -->
+          <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+            <div class="flex items-center gap-3">
+              <svg class="w-5 h-5 text-[#003B71]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+              </svg>
+              <span class="text-sm font-semibold text-[#003B71]">Filtrar por tipo de beneficio:</span>
+              <app-multi-select-dropdown
+                [options]="beneficioOptions"
+                [placeholder]="'Todos los beneficios'"
+                [selectAllText]="'Seleccionar todos'"
+                [width]="'w-72'"
+                [maxHeight]="'max-h-60'"
+                [(ngModel)]="beneficiosFiltroSeleccionados"
+                (selectionChange)="onBeneficioFilterChange($event)">
+              </app-multi-select-dropdown>
+            </div>
+            <div class="px-4 py-1 bg-[#FDB913] bg-opacity-20 rounded-lg">
+                <span class="text-xs font-bold text-[#003B71] uppercase">Ahorro Total:</span>
+                <span class="text-sm font-bold text-[#003B71] ml-2">{{ formatCurrency(totalAhorroCarreras) }}</span>
+              </div>
+            
           </div>
         </div>
         

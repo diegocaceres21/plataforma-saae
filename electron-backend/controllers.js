@@ -186,7 +186,109 @@ function getByApoyoFamiliar() {
   });
 }
 
-module.exports = { getAll, getAllVisible, getById, create, update, remove, createMultiple, getBySolicitud, getByApoyoFamiliar };
+function getSemesterGestiones() {
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT * FROM gestion 
+       WHERE tipo = 'Semestre' 
+       ORDER BY anio DESC, gestion DESC`,
+      [],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows);
+      }
+    );
+  });
+}
+
+function getReporteBeneficiosByGestion(id_gestion) {
+  return new Promise((resolve, reject) => {
+    const query = `
+      WITH datos_con_total AS (
+        SELECT b.nombre as beneficio,
+          b.tipo as tipo,
+          c.carrera as carrera, 
+          CASE 
+            WHEN b.limite_creditos IS NULL THEN r.total_creditos * r.valor_credito * r.porcentaje_descuento
+            WHEN r.total_creditos > b.limite_creditos THEN b.limite_creditos * r.valor_credito * r.porcentaje_descuento
+            ELSE r.total_creditos * r.valor_credito * r.porcentaje_descuento 
+          END AS descuento_total
+        FROM registro_estudiante AS r
+        LEFT JOIN beneficio AS b ON r.id_beneficio = b.id
+        LEFT JOIN carrera AS c ON r.id_carrera = c.id
+        WHERE r.id_gestion = $1 AND r.visible = true AND r.porcentaje_descuento > 0
+      )
+      SELECT tipo, 
+        beneficio, 
+        carrera,
+        COUNT(*) as estudiantes_total,
+        SUM(descuento_total) as descuento_total
+      FROM datos_con_total
+      GROUP BY beneficio, carrera, tipo
+      ORDER BY beneficio, carrera
+    `;
+    
+    pool.query(query, [id_gestion], (err, result) => {
+      if (err) {
+        console.error('Error in getReporteBeneficiosByGestion:', err);
+        reject(err);
+      } else {
+        resolve(result.rows);
+      }
+    });
+  });
+}
+
+function getEvolucionBeneficios() {
+  return new Promise((resolve, reject) => {
+    const query = `
+      WITH datos_con_total AS (
+        SELECT b.nombre as beneficio, 
+          g.gestion as gestion,
+          CASE 
+            WHEN b.limite_creditos IS NULL THEN r.total_creditos * r.valor_credito * r.porcentaje_descuento
+            WHEN r.total_creditos > b.limite_creditos THEN b.limite_creditos * r.valor_credito * r.porcentaje_descuento
+            ELSE r.total_creditos * r.valor_credito * r.porcentaje_descuento 
+          END AS descuento_total
+        FROM registro_estudiante AS r
+        LEFT JOIN beneficio AS b ON r.id_beneficio = b.id
+        LEFT JOIN gestion AS g ON r.id_gestion = g.id
+        WHERE r.porcentaje_descuento > 0
+      )
+      SELECT gestion, 
+        beneficio,
+        COUNT(*) as estudiantes_total,
+        SUM(descuento_total) as descuento_total
+      FROM datos_con_total
+      GROUP BY beneficio, gestion
+      ORDER BY gestion, beneficio
+    `;
+    
+    pool.query(query, [], (err, result) => {
+      if (err) {
+        console.error('Error in getEvolucionBeneficios:', err);
+        reject(err);
+      } else {
+        resolve(result.rows);
+      }
+    });
+  });
+}
+
+module.exports = { 
+  getAll, 
+  getAllVisible, 
+  getById, 
+  create, 
+  update, 
+  remove, 
+  createMultiple, 
+  getBySolicitud, 
+  getByApoyoFamiliar, 
+  getSemesterGestiones,
+  getReporteBeneficiosByGestion,
+  getEvolucionBeneficios
+};
 /**
  * Autentica usuario verificando username y password.
  * Devuelve { token, user: { id, username, rol } }

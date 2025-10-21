@@ -9,6 +9,7 @@ declare global {
       createGestion: (data: any) => Promise<any>;
       getAllGestion: () => Promise<any>;
       getAllVisibleGestion: () => Promise<any>;
+      getSemesterGestion: () => Promise<any>;
       updateGestion: (id: string, data: any) => Promise<any>;
       
       // APIs for apoyo_familiar table
@@ -77,6 +78,10 @@ declare global {
       obtenerPersonasPorCarnet: (carnet: string) => Promise<any>;
       logInSiaan: (credentials: any) => Promise<{ message?: string; token?: string; tokenExpiry?: string; error?: string }>;
       setExternalTokens: (data: { token?: string; uniqueCode?: string; tokenExpiry?: string }) => Promise<{ success: boolean; error?: string }>;
+      
+      // Reportes
+      getReporteBeneficiosByGestion: (id_gestion: string) => Promise<any>;
+      getEvolucionBeneficios: () => Promise<any>;
     };
     authAPI?: {
       login: (username: string, password: string) => Promise<{ token?: string; user?: any; error?: string }>;

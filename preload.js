@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   createGestion: (data) => ipcRenderer.invoke('gestion:create', data),
   getAllGestion: () => ipcRenderer.invoke('gestion:getAll'),
   getAllVisibleGestion: () => ipcRenderer.invoke('gestion:getAllVisible'),
+  getSemesterGestion: () => ipcRenderer.invoke('gestion:getSemester'),
   updateGestion: (id, data) => ipcRenderer.invoke('gestion:update', id, data),
 
   // CRUD for apoyo_familiar table
@@ -90,6 +91,10 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   obtenerPersonasPorCarnet: (carnet) => ipcRenderer.invoke('api:obtenerPersonasPorCarnet', carnet),
   logInSiaan: (credentials) => ipcRenderer.invoke('api:logInSiaan', credentials),
   setExternalTokens: (data) => ipcRenderer.invoke('api:setExternalTokens', data),
+
+  // Reportes
+  getReporteBeneficiosByGestion: (id_gestion) => ipcRenderer.invoke('reporte:getBeneficiosByGestion', id_gestion),
+  getEvolucionBeneficios: () => ipcRenderer.invoke('reporte:getEvolucionBeneficios'),
 });
 
 // Auth API

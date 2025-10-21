@@ -25,6 +25,21 @@ function registerRoutes(ipcMain) {
     return await controllers.getByApoyoFamiliar();
   });
 
+  // Special route for gestion - get semester gestiones only
+  ipcMain.handle('gestion:getSemester', async () => {
+    return await controllers.getSemesterGestiones();
+  });
+
+  // Special route for reportes - get beneficios data by gestion
+  ipcMain.handle('reporte:getBeneficiosByGestion', async (event, id_gestion) => {
+    return await controllers.getReporteBeneficiosByGestion(id_gestion);
+  });
+
+  // Special route for reportes - get evolucion beneficios (all gestiones)
+  ipcMain.handle('reporte:getEvolucionBeneficios', async () => {
+    return await controllers.getEvolucionBeneficios();
+  });
+
   // Autenticación
   ipcMain.handle('auth:login', async (event, username, password) => {
     try {

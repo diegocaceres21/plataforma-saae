@@ -11,10 +11,17 @@ import {
   LinearScale,
   BarElement,
   BarController,
+  LineElement,
+  LineController,
+  PointElement,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 } from 'chart.js';
 import * as XLSX from 'xlsx';
+import { MultiSelectDropdownComponent, MultiSelectOption } from '../../../../shared/componentes/multi-select-dropdown/multi-select-dropdown';
+import { Gestion } from '../../../interfaces/gestion';
+import { RouterLink } from "@angular/router";
 
 // Registrar componentes necesarios de Chart.js
 Chart.register(
@@ -22,17 +29,17 @@ Chart.register(
   LinearScale,
   BarElement,
   BarController,
+  LineElement,
+  LineController,
+  PointElement,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
-
-interface GestionOption {
-  id: string;
-  nombre: string;
-}
 
 interface BeneficioData {
   nombre: string;
+  tipo: string;
   totalEstudiantes: number;
   totalAhorro: number;
   color: string;
@@ -43,27 +50,65 @@ interface CarreraData {
   totalEstudiantes: number;
   totalAhorro: number;
   color: string;
+  beneficios?: { [key: string]: { estudiantes: number; ahorro: number } }; // Datos por beneficio
+}
+
+interface EvolucionGestionData {
+  gestion: string;
+  [beneficio: string]: number | string; // nombre del beneficio como clave y monto como valor
+}
+
+interface ReporteBackendData {
+  tipo: string;
+  beneficio: string;
+  carrera: string;
+  estudiantes_total: string;
+  descuento_total: string;
+}
+
+interface EvolucionBackendData {
+  gestion: string;
+  beneficio: string;
+  estudiantes_total: string;
+  descuento_total: string;
 }
 
 @Component({
   selector: 'app-reporte-beneficios',
   standalone: true,
-  imports: [CommonModule, FormsModule, BaseChartDirective],
+  imports: [CommonModule, FormsModule, BaseChartDirective, MultiSelectDropdownComponent, RouterLink],
   templateUrl: './reporte-beneficios.html',
   styleUrl: './reporte-beneficios.scss'
 })
 export class ReporteBeneficios implements OnInit {
   // Filtros
   gestionSeleccionada: string = '';
-  gestiones: GestionOption[] = [];
+  gestiones: Gestion[] = [];
+  beneficiosFiltroSeleccionados: string[] = [];
+  beneficioOptions: MultiSelectOption[] = [];
 
-  // Métricas principales
+  // Métricas principales (para las tarjetas - sin filtros)
   totalEstudiantes: number = 0;
   totalAhorro: number = 0;
+  
+  // Totales originales (sin filtros)
+  totalEstudiantesOriginal: number = 0;
+  totalAhorroOriginal: number = 0;
+
+  // Totales de carreras (afectados por filtros)
+  totalEstudiantesCarreras: number = 0;
+  totalAhorroCarreras: number = 0;
 
   // Datos para gráficos
   beneficiosData: BeneficioData[] = [];
   carrerasData: CarreraData[] = [];
+  carrerasDataOriginal: CarreraData[] = [];
+  evolucionData: EvolucionGestionData[] = [];
+
+  // Datos separados por tipo de beneficio
+  apoyosData: BeneficioData[] = [];
+  becasData: BeneficioData[] = [];
+  incentivosData: BeneficioData[] = [];
 
   // Estados
   isLoading: boolean = false;
@@ -242,232 +287,444 @@ export class ReporteBeneficios implements OnInit {
     }
   };
 
+  // Configuración para Chart de Evolución por Gestión
+  public lineChartType: ChartType = 'line';
+  public lineChartData: ChartConfiguration<'line'>['data'] = {
+    labels: [],
+    datasets: []
+  };
+  public lineChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: {
+          font: {
+            size: 12,
+            weight: 'bold'
+          },
+          color: '#003B71',
+          padding: 15,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
+      },
+      tooltip: {
+        backgroundColor: '#003B71',
+        titleColor: '#FDB913',
+        bodyColor: '#ffffff',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 12
+        },
+        callbacks: {
+          label: (context) => {
+            const label = context.dataset.label || '';
+            const value = context.parsed.y || 0;
+            return `${label}: Bs. ${value.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          font: {
+            size: 11,
+            weight: 'bold'
+          },
+          color: '#64748b',
+          callback: function(value) {
+            return 'Bs. ' + Number(value).toLocaleString('es-BO');
+          }
+        },
+        grid: {
+          color: '#e2e8f0',
+        },
+        border: {
+          width: 2,
+          color: '#cbd5e1'
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 12,
+            weight: 600
+          },
+          color: '#64748b'
+        },
+        grid: {
+          display: false
+        },
+        border: {
+          width: 2,
+          color: '#cbd5e1'
+        }
+      }
+    }
+  };
+
+  constructor() {}
+
   ngOnInit(): void {
-    this.initializeMockData();
-    this.loadData();
+    this.loadGestiones();
   }
 
-  private loadData(): void {
+  private async loadGestiones(): Promise<void> {
+    try {
+      // Llamar directamente al endpoint de gestiones de semestre
+      if (!window.academicoAPI?.getSemesterGestion) {
+        throw new Error('API getSemesterGestion no disponible');
+      }
+
+      const data: Gestion[] = await window.academicoAPI.getSemesterGestion();
+      this.gestiones = data;
+      
+      // Cargar datos de evolución SOLO UNA VEZ al inicio (independiente de la gestión seleccionada)
+      await this.loadEvolucionData();
+      
+      // Seleccionar la gestión más reciente por defecto
+      if (this.gestiones.length > 0) {
+        this.gestionSeleccionada = this.gestiones[0].id;
+        // Cargar datos de la gestión seleccionada
+        await this.loadData();
+      }
+    } catch (error) {
+      console.error('Error loading gestiones:', error);
+      this.gestiones = [];
+    }
+  }
+
+  private async loadEvolucionData(): Promise<void> {
+    try {
+      if (!window.academicoAPI?.getEvolucionBeneficios) {
+        throw new Error('API getEvolucionBeneficios no disponible');
+      }
+
+      const evolucionRawData = await window.academicoAPI.getEvolucionBeneficios();
+      this.processEvolucionData(evolucionRawData);
+      
+      // Renderizar el gráfico de evolución solo una vez
+      this.updateEvolucionChart();
+    } catch (error) {
+      console.error('Error loading evolución data:', error);
+      this.evolucionData = [];
+    }
+  }
+
+  private async loadData(): Promise<void> {
+    if (!this.gestionSeleccionada) {
+      console.warn('No hay gestión seleccionada');
+      return;
+    }
+
     this.isLoading = true;
 
-    // Simular carga de datos
-    setTimeout(() => {
+    try {
+      // Verificar que la API esté disponible
+      if (!window.academicoAPI?.getReporteBeneficiosByGestion) {
+        throw new Error('API de reportes no disponible');
+      }
+
+      // Obtener solo datos de la gestión seleccionada (NO evolución)
+      const rawData: ReporteBackendData[] = await window.academicoAPI.getReporteBeneficiosByGestion(this.gestionSeleccionada);
+      
+      // Procesar los datos
+      this.processReporteData(rawData);
+      
+      // Calcular métricas y actualizar gráficos (excepto evolución)
       this.calculateMetrics();
+      this.aplicarFiltroCarreras();
       this.updateChartData();
+      
+    } catch (error) {
+      console.error('Error loading reporte data:', error);
+      // En caso de error, inicializar con datos vacíos
+      this.beneficiosData = [];
+      this.carrerasData = [];
+      this.carrerasDataOriginal = [];
+      this.totalEstudiantes = 0;
+      this.totalAhorro = 0;
+      this.totalEstudiantesCarreras = 0;
+      this.totalAhorroCarreras = 0;
+    } finally {
       this.isLoading = false;
-    }, 500);
+    }
+  }
+
+  private processReporteData(rawData: ReporteBackendData[]): void {
+    // Paleta de colores UCB
+    const coloresUCB = [
+      '#003B71', '#FDB913', '#005A9C', '#F7931E', '#00518F',
+      '#FCBF49', '#004A7C', '#FFA500', '#0066A1', '#FFD700'
+    ];
+
+    // 1. Procesar datos de beneficios
+    const beneficiosMap = new Map<string, { tipo: string; estudiantes: number; ahorro: number }>();
+    
+    rawData.forEach(row => {
+      const beneficio = row.beneficio;
+      const tipo = row.tipo;
+      const estudiantes = parseInt(row.estudiantes_total);
+      const ahorro = parseFloat(row.descuento_total);
+
+      if (!beneficiosMap.has(beneficio)) {
+        beneficiosMap.set(beneficio, { tipo, estudiantes: 0, ahorro: 0 });
+      }
+
+      const beneficioData = beneficiosMap.get(beneficio)!;
+      beneficioData.estudiantes += estudiantes;
+      beneficioData.ahorro += ahorro;
+    });
+
+    this.beneficiosData = Array.from(beneficiosMap.entries()).map(([nombre, data], index) => ({
+      nombre,
+      tipo: data.tipo,
+      totalEstudiantes: data.estudiantes,
+      totalAhorro: data.ahorro,
+      color: coloresUCB[index % coloresUCB.length]
+    }));
+
+    // Ordenar por total de estudiantes descendente
+    this.beneficiosData.sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+
+    // Separar beneficios por tipo
+    this.apoyosData = this.beneficiosData.filter(b => b.tipo === 'Apoyo').sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+    this.becasData = this.beneficiosData.filter(b => b.tipo === 'Beca').sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+    this.incentivosData = this.beneficiosData.filter(b => b.tipo === 'Incentivo').sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+
+    // Inicializar opciones del multi-select
+    this.beneficioOptions = this.beneficiosData.map(b => ({
+      value: b.nombre,
+      label: b.nombre
+    }));
+
+    // 2. Procesar datos de carreras con desglose por beneficio
+    const carrerasMap = new Map<string, {
+      estudiantes: number;
+      ahorro: number;
+      beneficios: { [key: string]: { estudiantes: number; ahorro: number } };
+    }>();
+
+    rawData.forEach(row => {
+      const carrera = row.carrera;
+      const beneficio = row.beneficio;
+      const estudiantes = parseInt(row.estudiantes_total);
+      const ahorro = parseFloat(row.descuento_total);
+
+      if (!carrerasMap.has(carrera)) {
+        carrerasMap.set(carrera, { estudiantes: 0, ahorro: 0, beneficios: {} });
+      }
+
+      const carreraData = carrerasMap.get(carrera)!;
+      carreraData.estudiantes += estudiantes;
+      carreraData.ahorro += ahorro;
+
+      // Agregar desglose por beneficio
+      if (!carreraData.beneficios[beneficio]) {
+        carreraData.beneficios[beneficio] = { estudiantes: 0, ahorro: 0 };
+      }
+      carreraData.beneficios[beneficio].estudiantes += estudiantes;
+      carreraData.beneficios[beneficio].ahorro += ahorro;
+    });
+
+    this.carrerasData = Array.from(carrerasMap.entries()).map(([nombre, data], index) => ({
+      nombre,
+      totalEstudiantes: data.estudiantes,
+      totalAhorro: data.ahorro,
+      color: coloresUCB[index % coloresUCB.length],
+      beneficios: data.beneficios
+    }));
+
+    // Ordenar por total de estudiantes descendente
+    this.carrerasData.sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+
+    // Guardar copia original para filtrado
+    this.carrerasDataOriginal = JSON.parse(JSON.stringify(this.carrerasData));
+    
+    // Guardar totales originales
+    this.totalEstudiantesOriginal = this.carrerasData.reduce((sum, c) => sum + c.totalEstudiantes, 0);
+    this.totalAhorroOriginal = this.carrerasData.reduce((sum, c) => sum + c.totalAhorro, 0);
+  }
+
+  private processEvolucionData(rawData: EvolucionBackendData[]): void {
+    // Agrupar datos por gestión
+    const gestionesMap = new Map<string, { [beneficio: string]: number }>();
+    
+    rawData.forEach(row => {
+      const gestion = row.gestion;
+      const beneficio = row.beneficio;
+      const descuento = parseFloat(row.descuento_total);
+
+      if (!gestionesMap.has(gestion)) {
+        gestionesMap.set(gestion, {});
+      }
+
+      const gestionData = gestionesMap.get(gestion)!;
+      gestionData[beneficio] = descuento;
+    });
+
+    // Convertir a array y ordenar por gestión
+    this.evolucionData = Array.from(gestionesMap.entries()).map(([gestion, beneficios]) => ({
+      gestion,
+      ...beneficios
+    }));
+
+    // Ordenar por gestión (cronológicamente)
+    this.evolucionData.sort((a, b) => a.gestion.localeCompare(b.gestion));
+
   }
 
   private updateChartData(): void {
+    // Ordenar carreras por total de estudiantes para el gráfico de estudiantes
+    const carrerasOrdenadasPorEstudiantes = [...this.carrerasData].sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+    
     // Actualizar datos del gráfico de estudiantes
     this.barChartDataEstudiantes = {
-      labels: this.carrerasData.map(c => c.nombre),
+      labels: carrerasOrdenadasPorEstudiantes.map(c => c.nombre),
       datasets: [{
         label: 'Estudiantes',
-        data: this.carrerasData.map(c => c.totalEstudiantes),
-        backgroundColor: '#003B71',//this.carrerasData.map(c => c.color + 'dd'),
-        //borderColor: this.carrerasData.map(c => c.color),
+        data: carrerasOrdenadasPorEstudiantes.map(c => c.totalEstudiantes),
+        backgroundColor: '#003B71',
         borderWidth: 2,
         borderRadius: 8,
         borderSkipped: false,
       }]
     };
 
+    // Ordenar carreras por total de ahorro para el gráfico de ahorro
+    const carrerasOrdenadasPorAhorro = [...this.carrerasData].sort((a, b) => b.totalAhorro - a.totalAhorro);
+    
     // Actualizar datos del gráfico de ahorro
     this.barChartDataAhorro = {
-      labels: this.carrerasData.map(c => c.nombre),
+      labels: carrerasOrdenadasPorAhorro.map(c => c.nombre),
       datasets: [{
         label: 'Ahorro',
-        data: this.carrerasData.map(c => c.totalAhorro),
-        backgroundColor: "#003B71",//this.carrerasData.map(c => c.color + 'dd'),
-        //borderColor: this.carrerasData.map(c => c.color),
+        data: carrerasOrdenadasPorAhorro.map(c => c.totalAhorro),
+        backgroundColor: "#003B71",
         borderWidth: 2,
         borderRadius: 7,
         borderSkipped: false,
       }]
     };
+
+    // NO actualizar el gráfico de evolución aquí - se actualiza solo una vez al inicio
   }
 
-  private initializeMockData(): void {
-    // Mock data de gestiones
-    this.gestiones = [
-      { id: '1', nombre: '2024-I' },
-      { id: '2', nombre: '2024-II' },
-      { id: '3', nombre: '2023-II' },
-      { id: '4', nombre: '2023-I' }
-    ];
+  private updateEvolucionChart(): void {
+    if (this.evolucionData.length === 0) return;
+    
+    console.log('Datos de evolución:', this.evolucionData);
+    
+    const gestiones = this.evolucionData.map(d => d.gestion);
+    
+    // Obtener todos los beneficios únicos de evolucionData (excluyendo 'gestion')
+    const beneficiosSet = new Set<string>();
+    this.evolucionData.forEach(row => {
+      Object.keys(row).forEach(key => {
+        if (key !== 'gestion') {
+          beneficiosSet.add(key);
+        }
+      });
+    });
+    
+    const beneficios = Array.from(beneficiosSet);
+    const colores = ['#003B71', '#FDB913', '#005A9C', '#F7931E', '#00518F'];
+    
+    // Crear datasets usando solo evolucionData
+    const datasets = beneficios.map((beneficio, index) => {
+      return {
+        label: beneficio,
+        data: this.evolucionData.map(d => d[beneficio] as number || 0),
+        borderColor: colores[index % colores.length],
+        backgroundColor: colores[index % colores.length],
+        borderWidth: 3,
+        tension: 0.4,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointHoverBorderWidth: 3,
+        fill: false
+      };
+    });
 
-    // Seleccionar la primera gestión por defecto
-    this.gestionSeleccionada = this.gestiones[0]?.id || '';
+    this.lineChartData = {
+      labels: gestiones,
+      datasets: datasets
+    };
 
-    // Mock data de beneficios - Paleta UCB
-    this.beneficiosData = [
-      {
-        nombre: 'Apoyo Familiar',
-        totalEstudiantes: 145,
-        totalAhorro: 285670.50,
-        color: '#003B71' // Azul UCB primario
-      },
-      {
-        nombre: 'Excelencia Académica',
-        totalEstudiantes: 78,
-        totalAhorro: 156340.25,
-        color: '#FDB913' // Amarillo UCB
-      },
-      {
-        nombre: 'Deportista Destacado',
-        totalEstudiantes: 32,
-        totalAhorro: 64280.00,
-        color: '#005A9C' // Azul medio
-      },
-      {
-        nombre: 'Mérito Cultural',
-        totalEstudiantes: 25,
-        totalAhorro: 48950.75,
-        color: '#F7931E' // Naranja dorado
-      },
-      {
-        nombre: 'Beca Completa',
-        totalEstudiantes: 15,
-        totalAhorro: 98450.00,
-        color: '#00518F' // Azul intermedio
-      }
-    ];
-
-    // Mock data de carreras (20 carreras) - Paleta UCB
-    this.carrerasData = [
-      {
-        nombre: 'Ingeniería de Sistemas',
-        totalEstudiantes: 68,
-        totalAhorro: 142850.00,
-        color: '#003B71'
-      },
-      {
-        nombre: 'Administración de Empresas',
-        totalEstudiantes: 52,
-        totalAhorro: 108640.50,
-        color: '#FDB913'
-      },
-      {
-        nombre: 'Contaduría Pública',
-        totalEstudiantes: 45,
-        totalAhorro: 94275.75,
-        color: '#005A9C'
-      },
-      {
-        nombre: 'Derecho',
-        totalEstudiantes: 38,
-        totalAhorro: 79590.25,
-        color: '#F7931E'
-      },
-      {
-        nombre: 'Psicología',
-        totalEstudiantes: 31,
-        totalAhorro: 64925.00,
-        color: '#00518F'
-      },
-      {
-        nombre: 'Ingeniería Civil',
-        totalEstudiantes: 24,
-        totalAhorro: 50280.50,
-        color: '#FCBF49'
-      },
-      {
-        nombre: 'Arquitectura',
-        totalEstudiantes: 19,
-        totalAhorro: 39785.25,
-        color: '#004A7C'
-      },
-      {
-        nombre: 'Medicina',
-        totalEstudiantes: 32,
-        totalAhorro: 67140.00,
-        color: '#FFA500'
-      },
-      {
-        nombre: 'Comunicación Social',
-        totalEstudiantes: 28,
-        totalAhorro: 58760.00,
-        color: '#0066A1'
-      },
-      {
-        nombre: 'Turismo y Hotelería',
-        totalEstudiantes: 16,
-        totalAhorro: 33560.25,
-        color: '#FFD700'
-      },
-      {
-        nombre: 'Ingeniería Industrial',
-        totalEstudiantes: 41,
-        totalAhorro: 85910.50,
-        color: '#003B71'
-      },
-      {
-        nombre: 'Marketing',
-        totalEstudiantes: 35,
-        totalAhorro: 73325.00,
-        color: '#FDB913'
-      },
-      {
-        nombre: 'Ingeniería Comercial',
-        totalEstudiantes: 29,
-        totalAhorro: 60745.75,
-        color: '#005A9C'
-      },
-      {
-        nombre: 'Diseño Gráfico',
-        totalEstudiantes: 22,
-        totalAhorro: 46090.00,
-        color: '#F7931E'
-      },
-      {
-        nombre: 'Odontología',
-        totalEstudiantes: 18,
-        totalAhorro: 37710.50,
-        color: '#00518F'
-      },
-      {
-        nombre: 'Enfermería',
-        totalEstudiantes: 25,
-        totalAhorro: 52375.00,
-        color: '#FCBF49'
-      },
-      {
-        nombre: 'Ingeniería Financiera',
-        totalEstudiantes: 33,
-        totalAhorro: 69165.75,
-        color: '#004A7C'
-      },
-      {
-        nombre: 'Ingeniería Mecatrónica',
-        totalEstudiantes: 21,
-        totalAhorro: 44020.25,
-        color: '#FFA500'
-      },
-      {
-        nombre: 'Trabajo Social',
-        totalEstudiantes: 14,
-        totalAhorro: 29330.00,
-        color: '#0066A1'
-      },
-      {
-        nombre: 'Bioquímica y Farmacia',
-        totalEstudiantes: 17,
-        totalAhorro: 35615.50,
-        color: '#FFD700'
-      }
-    ];
+    console.log('Gráfico de evolución configurado:', this.lineChartData);
   }
 
   private calculateMetrics(): void {
-    // Calcular totales
-    this.totalEstudiantes = this.beneficiosData.reduce((sum, b) => sum + b.totalEstudiantes, 0);
-    this.totalAhorro = this.beneficiosData.reduce((sum, b) => sum + b.totalAhorro, 0);
+    // Calcular totales de beneficios (estos no cambian con filtros de carreras)
+    const totalEstudiantesBeneficios = this.beneficiosData.reduce((sum, b) => sum + b.totalEstudiantes, 0);
+    const totalAhorroBeneficios = this.beneficiosData.reduce((sum, b) => sum + b.totalAhorro, 0);
+    
+    // Inicializar totales con los valores de carreras originales
+    this.totalEstudiantes = this.totalEstudiantesOriginal || totalEstudiantesBeneficios;
+    this.totalAhorro = this.totalAhorroOriginal || totalAhorroBeneficios;
   }
 
   onGestionChange(): void {
     // Recargar datos cuando cambia la gestión
     this.loadData();
+  }
+
+  // Método de filtrado con multi-select
+  onBeneficioFilterChange(selectedValues: string[]): void {
+    this.beneficiosFiltroSeleccionados = selectedValues;
+    this.aplicarFiltroCarreras();
+  }
+
+  private aplicarFiltroCarreras(): void {
+    if (this.beneficiosFiltroSeleccionados.length === 0) {
+      // Sin filtros, mostrar todos los datos ordenados por total de estudiantes (descendente)
+      this.carrerasData = [...this.carrerasDataOriginal].sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
+    } else {
+      // Filtrar y recalcular totales por carrera según los beneficios seleccionados
+      this.carrerasData = this.carrerasDataOriginal.map(carrera => {
+        if (!carrera.beneficios) return carrera;
+
+        let totalEstudiantes = 0;
+        let totalAhorro = 0;
+
+        this.beneficiosFiltroSeleccionados.forEach(beneficio => {
+          if (carrera.beneficios && carrera.beneficios[beneficio]) {
+            totalEstudiantes += carrera.beneficios[beneficio].estudiantes;
+            totalAhorro += carrera.beneficios[beneficio].ahorro;
+          }
+        });
+
+        return {
+          ...carrera,
+          totalEstudiantes,
+          totalAhorro
+        };
+      })
+      .filter(c => c.totalEstudiantes > 0 || c.totalAhorro > 0)
+      .sort((a, b) => b.totalEstudiantes - a.totalEstudiantes); // Ordenar de mayor a menor por estudiantes
+    }
+    
+    // Calcular totales de carreras (estos SÍ se ven afectados por filtros)
+    this.totalEstudiantesCarreras = this.carrerasData.reduce((sum, c) => sum + c.totalEstudiantes, 0);
+    this.totalAhorroCarreras = this.carrerasData.reduce((sum, c) => sum + c.totalAhorro, 0);
+    
+    // Actualizar solo los gráficos, NO las tarjetas principales
+    this.updateChartData();
   }
 
   // Helpers para gráficos de barras horizontales
@@ -477,6 +734,25 @@ export class ReporteBeneficios implements OnInit {
     } else {
       return Math.max(...this.beneficiosData.map(b => b.totalAhorro));
     }
+  }
+
+  // Helpers para obtener máximos por tipo
+  getMaxValueByTipo(data: BeneficioData[], type: 'estudiantes' | 'ahorro'): number {
+    if (data.length === 0) return 0;
+    if (type === 'estudiantes') {
+      return Math.max(...data.map(b => b.totalEstudiantes));
+    } else {
+      return Math.max(...data.map(b => b.totalAhorro));
+    }
+  }
+
+  // Helpers para obtener totales por tipo
+  getTotalEstudiantesByTipo(data: BeneficioData[]): number {
+    return data.reduce((sum, b) => sum + b.totalEstudiantes, 0);
+  }
+
+  getTotalAhorroByTipo(data: BeneficioData[]): number {
+    return data.reduce((sum, b) => sum + b.totalAhorro, 0);
   }
 
   getBarWidth(value: number, maxValue: number): number {
@@ -560,6 +836,59 @@ export class ReporteBeneficios implements OnInit {
     this.exportToExcel(data, `Ahorro_por_Carrera_${this.getGestionNombre()}`);
   }
 
+  exportarEvolucion(): void {
+    if (this.evolucionData.length === 0) {
+      console.warn('No hay datos de evolución para exportar');
+      return;
+    }
+
+    // Obtener todos los beneficios únicos
+    const beneficios = this.beneficiosData.map(b => b.nombre);
+
+    // Crear datos para Excel con estructura: Gestión | Beneficio 1 | Beneficio 2 | ... | Total
+    const data = this.evolucionData.map(row => {
+      const excelRow: any = {
+        'Gestión': row.gestion
+      };
+
+      let totalGestion = 0;
+
+      // Agregar columna por cada beneficio
+      beneficios.forEach(beneficio => {
+        const valor = row[beneficio] as number || 0;
+        excelRow[beneficio] = valor;
+        totalGestion += valor;
+      });
+
+      // Agregar total de la gestión
+      excelRow['Total'] = totalGestion;
+
+      return excelRow;
+    });
+
+    // Calcular totales por beneficio
+    const totalesRow: any = {
+      'Gestión': 'TOTAL'
+    };
+
+    let granTotal = 0;
+
+    beneficios.forEach(beneficio => {
+      const totalBeneficio = this.evolucionData.reduce((sum, row) => {
+        return sum + (row[beneficio] as number || 0);
+      }, 0);
+      totalesRow[beneficio] = totalBeneficio;
+      granTotal += totalBeneficio;
+    });
+
+    totalesRow['Total'] = granTotal;
+
+    // Agregar fila de totales
+    data.push(totalesRow);
+
+    this.exportToExcel(data, `Evolucion_Beneficios`);
+  }
+
   private exportToExcel(data: any[], filename: string): void {
     // Crear workbook y worksheet
     const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
@@ -590,6 +919,6 @@ export class ReporteBeneficios implements OnInit {
 
   private getGestionNombre(): string {
     const gestion = this.gestiones.find(g => g.id === this.gestionSeleccionada);
-    return gestion ? gestion.nombre.replace(/\//g, '-') : 'Sin_Gestion';
+    return gestion ? gestion.gestion.replace(/\//g, '-') : 'Sin_Gestion';
   }
 }
