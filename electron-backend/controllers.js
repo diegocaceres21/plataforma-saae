@@ -101,8 +101,19 @@ function create(table, data) {
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(',');
   return new Promise((resolve, reject) => {
     pool.query(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${placeholders}) RETURNING *`, vals, (err, result) => {
-      if (err) reject(err);
-      else resolve(result.rows[0]);
+      if (err) {
+        // Check for unique constraint violation on registro_estudiante
+        if (err.code === '23505' && table === 'registro_estudiante' && err.constraint === 'registro_estudiante_unique') {
+          const customError = new Error('El estudiante ya tiene un beneficio registrado en esta gestión');
+          customError.code = 'DUPLICATE_BENEFIT';
+          customError.originalError = err;
+          reject(customError);
+        } else {
+          reject(err);
+        }
+      } else {
+        resolve(result.rows[0]);
+      }
     });
   });
 }

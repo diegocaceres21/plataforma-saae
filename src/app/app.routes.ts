@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { Menu } from './shared/componentes/menu/menu';
-import { RegistroMasivo } from './apoyos-incentivos-becas/apoyo-familiar/componentes/registro-masivo/registro-masivo';
+import { RegistroMasivo } from './apoyos-incentivos-becas/apoyo-familiar/componentes/masivo/registro-masivo/registro-masivo';
+import { BeneficiosMasivo } from './apoyos-incentivos-becas/apoyo-familiar/componentes/masivo/beneficios-masivo/beneficios-masivo';
 import { MainIndividual } from './apoyos-incentivos-becas/apoyo-familiar/componentes/individual/main-individual/main-individual';
 import { RegistroIndividual } from './apoyos-incentivos-becas/apoyo-familiar/componentes/individual/registro-individual/registro-individual';
 import { VistaIndividual } from './apoyos-incentivos-becas/apoyo-familiar/componentes/individual/vista-individual/vista-individual';
@@ -24,6 +25,7 @@ export const routes: Routes = [
     { path: 'reporte-beneficios', component: ReporteBeneficios },
     { path: 'vista-individual', component: VistaIndividual },
     { path: 'registro-masivo', component: RegistroMasivo },
+    { path: 'beneficios-masivo', component: BeneficiosMasivo },
     { path: 'beneficios-individual', component: BeneficiosIndividual },
     { path: 'reporte-pagos', component:  Busqueda},
     { path: 'resultado-pagos', component:  Reporte},

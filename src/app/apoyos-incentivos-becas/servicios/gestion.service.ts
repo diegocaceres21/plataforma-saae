@@ -46,11 +46,11 @@ export class GestionService {
     this._error.next(null);
 
     try {
-      if (!window.academicoAPI?.getSemesterGestion) {
-        throw new Error('academicoAPI.getSemesterGestion not available');
+      if (!window.academicoAPI?.getAllVisibleGestion) {
+        throw new Error('academicoAPI.getAllVisibleGestion not available');
       }
 
-      const data: Gestion[] = await window.academicoAPI.getSemesterGestion();
+      const data: Gestion[] = await window.academicoAPI.getAllVisibleGestion();
       this._gestionData.next(Array.isArray(data) ? data : []);
     } catch (error) {
       const errorMessage = `Error loading gestion data: ${error}`;
