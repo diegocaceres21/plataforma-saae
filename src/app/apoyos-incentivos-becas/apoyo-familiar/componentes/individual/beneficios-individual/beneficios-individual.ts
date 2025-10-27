@@ -177,9 +177,6 @@ export class BeneficiosIndividual implements OnInit {
           referencia_primer_pago: referencia || 'N/A',
         };
 
-        console.log(this.estudiante);
-
-
         // Calculate financial details
         if (carreraInfo) {
           this.estudiante.valor_credito = carreraInfo.tarifario?.valor_credito || 0;

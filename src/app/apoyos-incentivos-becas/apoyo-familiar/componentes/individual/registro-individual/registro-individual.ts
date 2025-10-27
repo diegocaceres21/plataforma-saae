@@ -141,6 +141,7 @@ export class RegistroIndividual implements OnInit {
             id_carrera: carreraInfo?.id, // Campo principal que se guardará en BD
             id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
             total_creditos: totalCreditos || 0,
+            creditos_descuento: totalCreditos || 0,
             plan_primer_pago: planAccedido || 'N/A',
             monto_primer_pago: pagoRealizado || 0,
             referencia_primer_pago: referencia || 'N/A',

@@ -369,10 +369,11 @@ export class BeneficiosMasivo implements OnInit {
 
       const registros = await window.academicoAPI.getAllRegistroEstudiante();
       
-      // Find existing benefit for this student in this gestion
+      // Find existing benefit for this student in this gestion with porcentaje_descuento > 0
       const registroExistente = registros.find((r: any) => 
         r.ci_estudiante === ciEstudiante && 
-        r.id_gestion === idGestion
+        r.id_gestion === idGestion &&
+        r.porcentaje_descuento > 0  // Only consider if there's an actual discount
       );
 
       if (registroExistente) {
@@ -575,11 +576,9 @@ export class BeneficiosMasivo implements OnInit {
         return;
       }
 
-      // Calcular descuento
-      const montoDescuento = (pagoRealizado * estudiante.porcentaje);
-
-      // Calcular nuevo monto a pagar
-      const nuevoMonto = pagoRealizado - montoDescuento;
+      // Calcular valor_credito y credito_tecnologico
+      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
 
       // Crear registro
       const registro: RegistroEstudiante = {
@@ -592,13 +591,13 @@ export class BeneficiosMasivo implements OnInit {
         id_carrera: carreraInfo.id,
         id_beneficio: beneficio.id,
         total_creditos: totalCreditos,
-        valor_credito: 0, // No aplica para beneficios
-        credito_tecnologico: 0, // No aplica para beneficios
+        valor_credito: valorCredito,
+        credito_tecnologico: creditoTecnologico,
         porcentaje_descuento: estudiante.porcentaje,
-        monto_primer_pago: nuevoMonto,
+        monto_primer_pago: pagoRealizado,
         plan_primer_pago: planAccedido,
         referencia_primer_pago: referencia,
-        total_semestre: pagoRealizado,
+        total_semestre: (valorCredito * totalCreditos) + creditoTecnologico,
         registrado: false,
         id_gestion: this.semestreActual[0]?.id || ''
       };
@@ -802,6 +801,7 @@ export class BeneficiosMasivo implements OnInit {
 
     let exitosos = 0;
     let fallidos = 0;
+    
 
     // Process each student individually
     for (const estudiante of estudiantesValidos) {
@@ -814,16 +814,16 @@ export class BeneficiosMasivo implements OnInit {
           nombre_estudiante: estudiante.registro!.nombre_estudiante,
           id_carrera: estudiante.registro!.id_carrera,
           id_beneficio: estudiante.registro!.id_beneficio,
-          valor_credito: 0,
+          valor_credito: estudiante.registro!.valor_credito,
           total_creditos: estudiante.registro!.total_creditos,
-          credito_tecnologico: 0,
+          credito_tecnologico: estudiante.registro!.credito_tecnologico,
           porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
           monto_primer_pago: estudiante.registro!.monto_primer_pago,
           plan_primer_pago: estudiante.registro!.plan_primer_pago,
           referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
           total_semestre: estudiante.registro!.total_semestre,
           registrado: false,
-          comentarios: `Beneficio: ${estudiante.beneficio}`,
+          comentarios: null,
           visible: true
         };
 
@@ -945,9 +945,9 @@ export class BeneficiosMasivo implements OnInit {
       estudiante.registro.porcentaje_descuento = porcentajeDecimal;
       
       // Recalculate discount
-      const pagoRealizado = estudiante.registro.total_semestre;
+      /*const pagoRealizado = estudiante.registro.total_semestre;
       const montoDescuento = pagoRealizado * porcentajeDecimal;
-      estudiante.registro.monto_primer_pago = pagoRealizado - montoDescuento;
+      estudiante.registro.monto_primer_pago = pagoRealizado - montoDescuento;*/
     }
 
     // Check if different from beneficio default (compare in decimal)
@@ -1133,8 +1133,12 @@ export class BeneficiosMasivo implements OnInit {
 
       // Calculate discount (selectedPorcentaje is in 0-100 format, convert to decimal)
       const porcentajeDecimal = this.selectedPorcentaje / 100;
-      const montoDescuento = pagoRealizado * porcentajeDecimal;
-      const nuevoMonto = pagoRealizado - montoDescuento;
+      //const montoDescuento = pagoRealizado * porcentajeDecimal;
+      //const nuevoMonto = pagoRealizado - montoDescuento;
+
+      // Calculate valor_credito and credito_tecnologico
+      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
 
       // Create new estudiante entry (store as decimal 0-1)
       const nuevoEstudiante: EstudianteBeneficio = {
@@ -1159,13 +1163,13 @@ export class BeneficiosMasivo implements OnInit {
         id_carrera: carreraInfo.id,
         id_beneficio: beneficio.id,
         total_creditos: totalCreditos,
-        valor_credito: 0,
-        credito_tecnologico: 0,
+        valor_credito: valorCredito,
+        credito_tecnologico: creditoTecnologico,
         porcentaje_descuento: porcentajeDecimal, // Already in decimal format
-        monto_primer_pago: nuevoMonto,
+        monto_primer_pago: pagoRealizado,
         plan_primer_pago: planAccedido,
         referencia_primer_pago: referencia,
-        total_semestre: pagoRealizado,
+        total_semestre: (totalCreditos * valorCredito) + creditoTecnologico,
         registrado: false,
         id_gestion: this.semestreActual[0]?.id || ''
       };

@@ -82,8 +82,9 @@ interface EvolucionBackendData {
 })
 export class ReporteBeneficios implements OnInit {
   // Filtros
-  gestionSeleccionada: string = '';
+  gestionesSeleccionadas: string[] = [];
   gestiones: Gestion[] = [];
+  gestionOptions: MultiSelectOption[] = [];
   beneficiosFiltroSeleccionados: string[] = [];
   beneficioOptions: MultiSelectOption[] = [];
 
@@ -392,18 +393,25 @@ export class ReporteBeneficios implements OnInit {
       const data: Gestion[] = await window.academicoAPI.getSemesterGestion();
       this.gestiones = data;
       
+      // Inicializar opciones del multi-select
+      this.gestionOptions = this.gestiones.map(g => ({
+        value: g.id,
+        label: g.gestion
+      }));
+      
       // Cargar datos de evolución SOLO UNA VEZ al inicio (independiente de la gestión seleccionada)
       await this.loadEvolucionData();
       
       // Seleccionar la gestión más reciente por defecto
       if (this.gestiones.length > 0) {
-        this.gestionSeleccionada = this.gestiones[0].id;
+        this.gestionesSeleccionadas = [this.gestiones[0].id];
         // Cargar datos de la gestión seleccionada
         await this.loadData();
       }
     } catch (error) {
       console.error('Error loading gestiones:', error);
       this.gestiones = [];
+      this.gestionOptions = [];
     }
   }
 
@@ -425,8 +433,8 @@ export class ReporteBeneficios implements OnInit {
   }
 
   private async loadData(): Promise<void> {
-    if (!this.gestionSeleccionada) {
-      console.warn('No hay gestión seleccionada');
+    if (!this.gestionesSeleccionadas || this.gestionesSeleccionadas.length === 0) {
+      console.warn('No hay gestiones seleccionadas');
       return;
     }
 
@@ -438,11 +446,16 @@ export class ReporteBeneficios implements OnInit {
         throw new Error('API de reportes no disponible');
       }
 
-      // Obtener solo datos de la gestión seleccionada (NO evolución)
-      const rawData: ReporteBackendData[] = await window.academicoAPI.getReporteBeneficiosByGestion(this.gestionSeleccionada);
+      // Obtener datos de todas las gestiones seleccionadas
+      const allRawData: ReporteBackendData[] = [];
       
-      // Procesar los datos
-      this.processReporteData(rawData);
+      for (const gestionId of this.gestionesSeleccionadas) {
+        const rawData: ReporteBackendData[] = await window.academicoAPI.getReporteBeneficiosByGestion(gestionId);
+        allRawData.push(...rawData);
+      }
+      
+      // Procesar los datos consolidados
+      this.processReporteData(allRawData);
       
       // Calcular métricas y actualizar gráficos (excepto evolución)
       this.calculateMetrics();
@@ -626,7 +639,6 @@ export class ReporteBeneficios implements OnInit {
   private updateEvolucionChart(): void {
     if (this.evolucionData.length === 0) return;
     
-    console.log('Datos de evolución:', this.evolucionData);
     
     const gestiones = this.evolucionData.map(d => d.gestion);
     
@@ -665,8 +677,6 @@ export class ReporteBeneficios implements OnInit {
       labels: gestiones,
       datasets: datasets
     };
-
-    console.log('Gráfico de evolución configurado:', this.lineChartData);
   }
 
   private calculateMetrics(): void {
@@ -679,15 +689,15 @@ export class ReporteBeneficios implements OnInit {
     this.totalAhorro = this.totalAhorroOriginal || totalAhorroBeneficios;
   }
 
-  onGestionChange(): void {
-    // Recargar datos cuando cambia la gestión
-    this.loadData();
-  }
-
   // Método de filtrado con multi-select
   onBeneficioFilterChange(selectedValues: string[]): void {
     this.beneficiosFiltroSeleccionados = selectedValues;
     this.aplicarFiltroCarreras();
+  }
+
+  onGestionFilterChange(selectedValues: string[]): void {
+    this.gestionesSeleccionadas = selectedValues;
+    this.loadData();
   }
 
   private aplicarFiltroCarreras(): void {
@@ -918,7 +928,23 @@ export class ReporteBeneficios implements OnInit {
   }
 
   private getGestionNombre(): string {
-    const gestion = this.gestiones.find(g => g.id === this.gestionSeleccionada);
-    return gestion ? gestion.gestion.replace(/\//g, '-') : 'Sin_Gestion';
+    if (this.gestionesSeleccionadas.length === 0) {
+      return 'Sin_Gestion';
+    }
+    
+    if (this.gestionesSeleccionadas.length === 1) {
+      const gestion = this.gestiones.find(g => g.id === this.gestionesSeleccionadas[0]);
+      return gestion ? gestion.gestion.replace(/\//g, '-') : 'Sin_Gestion';
+    }
+    
+    // Si hay múltiples gestiones, crear un nombre descriptivo
+    const primeraGestion = this.gestiones.find(g => g.id === this.gestionesSeleccionadas[0]);
+    const ultimaGestion = this.gestiones.find(g => g.id === this.gestionesSeleccionadas[this.gestionesSeleccionadas.length - 1]);
+    
+    if (primeraGestion && ultimaGestion) {
+      return `${primeraGestion.gestion.replace(/\//g, '-')}_a_${ultimaGestion.gestion.replace(/\//g, '-')}`;
+    }
+    
+    return 'Multiples_Gestiones';
   }
 }

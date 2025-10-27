@@ -50,15 +50,6 @@ export class Reporte implements OnInit, OnDestroy {
     this.router.navigate(['/reporte-pagos']);
   }
 
-  // Métodos placeholder para exportación (se implementarán después)
-  exportarPDF(): void {
-    console.log('Exportar a PDF - Por implementar');
-  }
-
-  exportarExcel(): void {
-    console.log('Exportar a Excel - Por implementar');
-  }
-
 
   async exportarWord() {
     const response = await fetch('certificado.docx');

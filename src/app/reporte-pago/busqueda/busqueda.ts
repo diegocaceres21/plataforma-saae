@@ -33,7 +33,6 @@ export class Busqueda {
 
   onStudentSelected(student: StudentSearchResult) {
     this.selectedStudent = student;
-    console.log('Estudiante seleccionado:', student);
   }
 
   toggleDateFilter() {

@@ -810,13 +810,13 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
   // Métodos para vista detallada
   openDetailModal(solicitudAgrupada: SolicitudAgrupada): void {
+    for (const registro of solicitudAgrupada.registros) {
+      const beneficio = this.beneficios.find(b => b.id === registro.id_beneficio);
+      registro.creditos_descuento = beneficio?.limite_creditos ? registro.total_creditos > beneficio?.limite_creditos ? beneficio.limite_creditos : registro.total_creditos : registro.total_creditos;
+    }
     this.selectedSolicitud = { ...solicitudAgrupada };
     this.showDetailModal = true;
     this.expandedDetailItems.clear();
-    // Por defecto expandir todos los items para vista detallada
-    /*solicitudAgrupada.registros.forEach((_, index) => {
-      this.expandedDetailItems.add(index);
-    });*/
   }
 
   closeDetailModal(): void {

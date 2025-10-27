@@ -31,16 +31,15 @@
           <!-- Filtro de Gestión -->
           <div class="flex items-center gap-3">
             <label class="text-sm font-semibold text-slate-600">Período:</label>
-            <select 
-              [(ngModel)]="gestionSeleccionada"
-              (ngModelChange)="onGestionChange()"
-              class="px-5 py-2.5 border-2 border-[#003B71] rounded-lg bg-white text-sm font-semibold text-[#003B71] 
-                     focus:outline-none focus:ring-2 focus:ring-[#FDB913] focus:border-[#FDB913] transition-all cursor-pointer
-                     hover:border-[#00518F] shadow-sm">
-              @for (gestion of gestiones; track gestion.id) {
-                <option [value]="gestion.id">{{ gestion.gestion }}</option>
-              }
-            </select>
+            <app-multi-select-dropdown
+              [options]="gestionOptions"
+              [placeholder]="'Seleccionar gestiones'"
+              [selectAllText]="'Seleccionar todas'"
+              [width]="'w-72'"
+              [maxHeight]="'max-h-60'"
+              [(ngModel)]="gestionesSeleccionadas"
+              (selectionChange)="onGestionFilterChange($event)">
+            </app-multi-select-dropdown>
           </div>
         </div>
       </div>
@@ -196,8 +195,8 @@
           <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
             <div class="flex items-center justify-between mb-8">
               <div>
-                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
-                <p class="text-sm text-slate-500">Ahorro por tipo de apoyo</p>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Monto Total</h3>
+                <p class="text-sm text-slate-500">Monto por tipo de apoyo</p>
               </div>
               <div class="flex items-center gap-3">
                 <div class="px-4 py-2 bg-opacity-20 rounded-lg">
@@ -306,8 +305,8 @@
           <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
             <div class="flex items-center justify-between mb-8">
               <div>
-                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
-                <p class="text-sm text-slate-500">Ahorro por tipo de beca</p>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Monto Total</h3>
+                <p class="text-sm text-slate-500">Monto por tipo de beca</p>
               </div>
               <div class="flex items-center gap-3">
                 <div class="px-4 py-2 bg-opacity-20 rounded-lg">
@@ -416,8 +415,8 @@
           <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8">
             <div class="flex items-center justify-between mb-8">
               <div>
-                <h3 class="text-lg font-bold text-[#003B71] mb-1">Impacto Económico</h3>
-                <p class="text-sm text-slate-500">Ahorro por tipo de incentivo</p>
+                <h3 class="text-lg font-bold text-[#003B71] mb-1">Monto Total</h3>
+                <p class="text-sm text-slate-500">Monto por tipo de incentivo</p>
               </div>
               <div class="flex items-center gap-3">
                 <div class="px-4 py-2 bg-opacity-20 rounded-lg">
@@ -534,8 +533,8 @@
           <!-- Fila 1: Título y métricas -->
           <div class="flex items-center justify-between mb-4">
             <div>
-              <h3 class="text-lg font-bold text-[#003B71] mb-1">Ahorro por Carrera</h3>
-              <p class="text-sm text-slate-500">Impacto económico por programa académico</p>
+              <h3 class="text-lg font-bold text-[#003B71] mb-1">Monto Total por Carrera</h3>
+              <p class="text-sm text-slate-500">Monto total por programa académico</p>
             </div>
             
             <div class="flex items-center gap-3">
