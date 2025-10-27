@@ -342,34 +342,51 @@ export class RegistroMasivo implements OnInit {
     this.processedGroups = [];
 
     try {
+      // OPTIMIZATION 1: Pre-load carreras into a Map for O(1) lookups
+      const carrerasMap = new Map<string, any>();
+      this.carreraService.currentData.forEach((c: any) => {
+        const carreraNormalized = c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        carrerasMap.set(carreraNormalized, c);
+      });
+
+      // OPTIMIZATION 2: Process groups in parallel batches
+      const BATCH_SIZE = 5; // Process 5 groups at a time
       const totalGrupos = this.uploadedGroups.length;
 
-      // Process each group
-      for (let i = 0; i < this.uploadedGroups.length; i++) {
-        const grupo = this.uploadedGroups[i];
+      for (let i = 0; i < this.uploadedGroups.length; i += BATCH_SIZE) {
+        const batch = this.uploadedGroups.slice(i, i + BATCH_SIZE);
+        
+        // Update loading message with progress (without calling show() again)
+        const progreso = Math.min(i + BATCH_SIZE, totalGrupos);
+        this.loadingService['messageSubject'].next(`Procesando grupos... (${progreso}/${totalGrupos})`);
 
-        // Update loading message with progress
-        this.loadingService.show(`Procesando grupo ${i + 1} de ${totalGrupos}...`);
+        // Process batch in parallel
+        const results = await Promise.allSettled(
+          batch.map(grupo => this.procesarGrupoOptimizado(grupo, carrerasMap))
+        );
 
-        try {
-          const registros = await this.procesarGrupo(grupo);
-
-          // Calculate discount percentages for this group
-          this.calcularPorcentajesGrupo(registros);
-
-          this.processedGroups.push({
-            ...grupo,
-            registros,
-            hasErrors: false
-          });
-        } catch (error) {
-          console.error(`Error procesando grupo ${grupo.rowNumber}:`, error);
-          this.processedGroups.push({
-            ...grupo,
-            hasErrors: true,
-            errorMessage: error instanceof Error ? error.message : 'Error desconocido'
-          });
-        }
+        // Process results
+        results.forEach((result, index) => {
+          const grupo = batch[index];
+          
+          if (result.status === 'fulfilled') {
+            const registros = result.value;
+            this.calcularPorcentajesGrupo(registros);
+            
+            this.processedGroups.push({
+              ...grupo,
+              registros,
+              hasErrors: false
+            });
+          } else {
+            console.error(`Error procesando grupo ${grupo.rowNumber}:`, result.reason);
+            this.processedGroups.push({
+              ...grupo,
+              hasErrors: true,
+              errorMessage: result.reason instanceof Error ? result.reason.message : 'Error desconocido'
+            });
+          }
+        });
       }
 
       const exitosos = this.processedGroups.filter(g => !g.hasErrors).length;
@@ -419,7 +436,7 @@ export class RegistroMasivo implements OnInit {
     }
   }
 
-  private async procesarGrupo(grupo: GrupoFamiliar): Promise<RegistroEstudiante[]> {
+  private async procesarGrupoOptimizado(grupo: GrupoFamiliar, carrerasMap: Map<string, any>): Promise<RegistroEstudiante[]> {
     const registros: RegistroEstudiante[] = [];
 
     if (!window.academicoAPI) {
@@ -510,12 +527,9 @@ export class RegistroMasivo implements OnInit {
           // Get payment information
           const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
 
-          // Get career info from service
-          const carreras = this.carreraService.currentData;
-          const carreraInfo = carreras.find(c =>
-            c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
-            carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          );
+          // OPTIMIZATION: O(1) lookup from map instead of O(n) find
+          const carreraNormalized = carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          const carreraInfo = carrerasMap.get(carreraNormalized);
 
           if (!carreraInfo) {
             // Carrera del kardex no coincide con BD: marcar para selección
@@ -1486,85 +1500,44 @@ export class RegistroMasivo implements OnInit {
     this.loadingService.show('Guardando registros en la base de datos...');
     this.resultadosGuardado = [];
 
-    let gruposExitosos = 0;
-    let gruposFallidos = 0;
-
     try {
-      // Process each group
-      for (const grupo of this.processedGroups) {
-        try {
-          if (!grupo.registros || grupo.registros.length === 0) {
-            continue;
+      // OPTIMIZATION: Process groups in batches with controlled concurrency
+      const BATCH_SIZE = 3; // Process 3 groups at a time to avoid overwhelming DB
+      const totalGrupos = this.processedGroups.length;
+
+      for (let i = 0; i < this.processedGroups.length; i += BATCH_SIZE) {
+        const batch = this.processedGroups.slice(i, i + BATCH_SIZE);
+        
+        // Update loading message with progress
+        const progreso = Math.min(i + BATCH_SIZE, totalGrupos);
+        this.loadingService['messageSubject'].next(`Guardando grupos... (${progreso}/${totalGrupos})`);
+
+        // Process batch in parallel
+        const results = await Promise.allSettled(
+          batch.map(grupo => this.guardarGrupoOptimizado(grupo))
+        );
+
+        // Process results
+        results.forEach((result, index) => {
+          const grupo = batch[index];
+          
+          if (result.status === 'fulfilled') {
+            this.resultadosGuardado.push(result.value);
+          } else {
+            const errorMessage = result.reason instanceof Error ? result.reason.message : 'Error desconocido';
+            this.resultadosGuardado.push({
+              grupo: grupo,
+              exito: false,
+              error: 'Error al guardar el grupo',
+              detalles: errorMessage
+            });
+            console.error(`Error guardando grupo ${grupo.rowNumber}:`, result.reason);
           }
-
-          // Create solicitud for this family group
-          const solicitudData = {
-            fecha: new Date().toISOString().split('T')[0], // Only date part (YYYY-MM-DD)
-            id_gestion: this.semestreActual[0]?.id || '',
-            estado: 'PENDIENTE',
-            cantidad_estudiantes: grupo.registros.length,
-            comentarios: `Grupo familiar ${grupo.rowNumber}`,
-            visible: true
-          };
-
-          const solicitudResult = await window.academicoAPI.createSolicitud(solicitudData);
-
-          if (!solicitudResult || !solicitudResult.id) {
-            throw new Error('No se pudo crear la solicitud');
-          }
-
-          const id_solicitud = solicitudResult.id;
-
-          // Prepare student records with solicitud ID
-          // Only include fields that exist in the database schema
-          const registrosParaGuardar = grupo.registros.map(registro => ({
-            id_solicitud: id_solicitud,
-            id_estudiante_siaan: registro.id_estudiante_siaan,
-            id_gestion: registro.id_gestion,
-            ci_estudiante: registro.ci_estudiante,
-            nombre_estudiante: registro.nombre_estudiante,
-            id_carrera: registro.id_carrera, // Campo principal - ID de carrera
-            id_beneficio: registro.id_beneficio, // ID del beneficio "APOYO FAMILIAR"
-            valor_credito: registro.valor_credito,
-            total_creditos: registro.total_creditos,
-            credito_tecnologico: registro.credito_tecnologico,
-            porcentaje_descuento: registro.porcentaje_descuento,
-            monto_primer_pago: registro.monto_primer_pago,
-            plan_primer_pago: registro.plan_primer_pago,
-            referencia_primer_pago: registro.referencia_primer_pago,
-            total_semestre: registro.total_semestre,
-            registrado: false,
-            comentarios: registro.comentarios || '',
-            visible: true
-          }));
-
-          // Save all students in this group
-          const registrosResult = await window.academicoAPI.createMultipleRegistroEstudiante(registrosParaGuardar);
-
-          // Success
-          gruposExitosos++;
-          this.resultadosGuardado.push({
-            grupo: grupo,
-            exito: true,
-            id_solicitud: id_solicitud,
-            estudiantes_guardados: grupo.registros.length
-          });
-
-        } catch (error) {
-          // Failed to save this group
-          gruposFallidos++;
-          const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-
-          this.resultadosGuardado.push({
-            grupo: grupo,
-            exito: false,
-            error: 'Error al guardar el grupo',
-            detalles: errorMessage
-          });
-
-          console.error(`Error guardando grupo ${grupo.rowNumber}:`, error);
-        }
+        });
       }
+
+      const gruposExitosos = this.resultadosGuardado.filter(r => r.exito).length;
+      const gruposFallidos = this.resultadosGuardado.filter(r => !r.exito).length;
 
       this.loadingService.setLoading(false);
 
@@ -1600,6 +1573,77 @@ export class RegistroMasivo implements OnInit {
         'Ocurrió un error inesperado durante el guardado'
       );
     }
+  }
+
+  private async guardarGrupoOptimizado(grupo: GrupoFamiliar): Promise<ResultadoGuardadoGrupo> {
+    if (!grupo.registros || grupo.registros.length === 0) {
+      throw new Error('Grupo sin registros');
+    }
+
+    if (!window.academicoAPI) {
+      throw new Error('API no disponible');
+    }
+
+    // Create solicitud for this family group
+    const solicitudData = {
+      fecha: new Date().toISOString().split('T')[0],
+      id_gestion: this.semestreActual[0]?.id || '',
+      estado: 'PENDIENTE',
+      cantidad_estudiantes: grupo.registros.length,
+      comentarios: `Grupo familiar ${grupo.rowNumber}`,
+      visible: true
+    };
+
+    const solicitudResult = await window.academicoAPI.createSolicitud(solicitudData);
+
+    if (!solicitudResult || !solicitudResult.id) {
+      throw new Error('No se pudo crear la solicitud');
+    }
+
+    const id_solicitud = solicitudResult.id;
+
+    // Prepare student records with solicitud ID
+    const registrosParaGuardar = grupo.registros.map(registro => ({
+      id_solicitud: id_solicitud,
+      id_estudiante_siaan: registro.id_estudiante_siaan,
+      id_gestion: registro.id_gestion,
+      ci_estudiante: registro.ci_estudiante,
+      nombre_estudiante: registro.nombre_estudiante,
+      id_carrera: registro.id_carrera,
+      id_beneficio: registro.id_beneficio,
+      valor_credito: registro.valor_credito,
+      total_creditos: registro.total_creditos,
+      credito_tecnologico: registro.credito_tecnologico,
+      porcentaje_descuento: registro.porcentaje_descuento,
+      monto_primer_pago: registro.monto_primer_pago,
+      plan_primer_pago: registro.plan_primer_pago,
+      referencia_primer_pago: registro.referencia_primer_pago,
+      total_semestre: registro.total_semestre,
+      registrado: false,
+      comentarios: registro.comentarios || '',
+      visible: true
+    }));
+
+    // OPTIMIZATION: Use transaction-based batch insert
+    const resultado = await window.academicoAPI.createMultipleWithTransaction(registrosParaGuardar);
+
+    // Check if all students were saved successfully
+    if (resultado.exitosos.length !== registrosParaGuardar.length) {
+      // Partial failure
+      const erroresDetallados = Object.entries(resultado.errores)
+        .map(([index, error]) => `Estudiante ${parseInt(index) + 1}: ${error}`)
+        .join('; ');
+      
+      throw new Error(`Guardado parcial: ${resultado.exitosos.length}/${registrosParaGuardar.length} exitosos. Errores: ${erroresDetallados}`);
+    }
+
+    // Success
+    return {
+      grupo: grupo,
+      exito: true,
+      id_solicitud: id_solicitud,
+      estudiantes_guardados: grupo.registros.length
+    };
   }
 
   // Results modal methods

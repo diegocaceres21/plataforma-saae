@@ -765,6 +765,19 @@ export class ReporteBeneficios implements OnInit {
     return data.reduce((sum, b) => sum + b.totalAhorro, 0);
   }
 
+  // Métodos para obtener datos ordenados por ahorro (de mayor a menor)
+  getApoyosDataByAhorro(): BeneficioData[] {
+    return [...this.apoyosData].sort((a, b) => b.totalAhorro - a.totalAhorro);
+  }
+
+  getBecasDataByAhorro(): BeneficioData[] {
+    return [...this.becasData].sort((a, b) => b.totalAhorro - a.totalAhorro);
+  }
+
+  getIncentivosDataByAhorro(): BeneficioData[] {
+    return [...this.incentivosData].sort((a, b) => b.totalAhorro - a.totalAhorro);
+  }
+
   getBarWidth(value: number, maxValue: number): number {
     return maxValue > 0 ? (value / maxValue) * 100 : 0;
   }

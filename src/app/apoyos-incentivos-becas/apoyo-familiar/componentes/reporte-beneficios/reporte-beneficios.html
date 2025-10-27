@@ -208,7 +208,7 @@
             
             @if (apoyosData.length > 0) {
               <div class="space-y-5">
-                @for (beneficio of apoyosData; track beneficio.nombre) {
+                @for (beneficio of getApoyosDataByAhorro(); track beneficio.nombre) {
                   <div class="group">
                     <div class="flex items-center justify-between mb-3">
                       <div class="flex items-center gap-3">
@@ -318,7 +318,7 @@
             
             @if (becasData.length > 0) {
               <div class="space-y-5">
-                @for (beneficio of becasData; track beneficio.nombre) {
+                @for (beneficio of getBecasDataByAhorro(); track beneficio.nombre) {
                   <div class="group">
                     <div class="flex items-center justify-between mb-3">
                       <div class="flex items-center gap-3">
@@ -428,7 +428,7 @@
             
             @if (incentivosData.length > 0) {
               <div class="space-y-5">
-                @for (beneficio of incentivosData; track beneficio.nombre) {
+                @for (beneficio of getIncentivosDataByAhorro(); track beneficio.nombre) {
                   <div class="group">
                     <div class="flex items-center justify-between mb-3">
                       <div class="flex items-center gap-3">

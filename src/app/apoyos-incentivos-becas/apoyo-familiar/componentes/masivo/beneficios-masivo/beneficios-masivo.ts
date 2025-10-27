@@ -367,14 +367,8 @@ export class BeneficiosMasivo implements OnInit {
         return { existe: false };
       }
 
-      const registros = await window.academicoAPI.getAllRegistroEstudiante();
-      
-      // Find existing benefit for this student in this gestion with porcentaje_descuento > 0
-      const registroExistente = registros.find((r: any) => 
-        r.ci_estudiante === ciEstudiante && 
-        r.id_gestion === idGestion &&
-        r.porcentaje_descuento > 0  // Only consider if there's an actual discount
-      );
+      // Use optimized endpoint that directly checks for a specific student in a specific gestion
+      const registroExistente = await window.academicoAPI.checkExistingBenefit(ciEstudiante, idGestion);
 
       if (registroExistente) {
         // Get beneficio name
@@ -410,9 +404,65 @@ export class BeneficiosMasivo implements OnInit {
     this.processedEstudiantes = [];
 
     try {
-      for (const estudiante of this.uploadedEstudiantes) {
-        await this.procesarEstudiante(estudiante);
-        this.processedEstudiantes.push(estudiante);
+      // OPTIMIZATION 1: Pre-load all beneficios into a Map for O(1) lookups
+      const beneficiosMap = new Map<string, Beneficio>();
+      this.beneficioService.currentData.forEach((b: Beneficio) => {
+        beneficiosMap.set(b.nombre.toLowerCase(), b);
+      });
+
+      // OPTIMIZATION 2: Pre-load all carreras into a Map for O(1) lookups
+      const carrerasMap = new Map<string, any>();
+      this.carreraService.currentData.forEach((c: any) => {
+        const carreraNormalized = c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        carrerasMap.set(carreraNormalized, c);
+      });
+
+      // OPTIMIZATION 3: Batch check existing benefits for all students at once
+      const carnets = this.uploadedEstudiantes
+        .filter(e => e.carnet)
+        .map(e => e.carnet!.trim());
+      
+      const idGestionActual = this.semestreActual[0]?.id || '';
+      
+      let registrosExistentesMap = new Map<string, any>();
+      if (window.academicoAPI && carnets.length > 0) {
+        const registrosExistentes = await window.academicoAPI.checkExistingBenefitsBatch(
+          carnets,
+          idGestionActual
+        );
+        
+        // Create map for O(1) lookups
+        registrosExistentes.forEach((reg: any) => {
+          registrosExistentesMap.set(reg.ci_estudiante, reg);
+        });
+      }
+
+      // OPTIMIZATION 4: Process students in parallel batches
+      const BATCH_SIZE = 10; // Process 10 students at a time
+      for (let i = 0; i < this.uploadedEstudiantes.length; i += BATCH_SIZE) {
+        const batch = this.uploadedEstudiantes.slice(i, i + BATCH_SIZE);
+        
+        // Update loading message with progress (without calling show() again)
+        const progreso = Math.min(i + BATCH_SIZE, this.uploadedEstudiantes.length);
+        this.loadingService['messageSubject'].next(`Procesando estudiantes... (${progreso}/${this.uploadedEstudiantes.length})`);
+        
+        // Process batch in parallel
+        const results = await Promise.allSettled(
+          batch.map(estudiante => 
+            this.procesarEstudianteOptimizado(
+              estudiante,
+              beneficiosMap,
+              carrerasMap,
+              registrosExistentesMap,
+              idGestionActual
+            )
+          )
+        );
+
+        // Add processed students
+        results.forEach((result, index) => {
+          this.processedEstudiantes.push(batch[index]);
+        });
       }
 
       this.currentStep = 3;
@@ -422,6 +472,7 @@ export class BeneficiosMasivo implements OnInit {
         `${this.processedEstudiantes.length} estudiante(s) procesado(s)`,
         3000
       );
+
     } catch (error) {
       console.error('Error processing students:', error);
       this.toastService.error(
@@ -435,7 +486,13 @@ export class BeneficiosMasivo implements OnInit {
     }
   }
 
-  private async procesarEstudiante(estudiante: EstudianteBeneficio): Promise<void> {
+  private async procesarEstudianteOptimizado(
+    estudiante: EstudianteBeneficio,
+    beneficiosMap: Map<string, Beneficio>,
+    carrerasMap: Map<string, any>,
+    registrosExistentesMap: Map<string, any>,
+    idGestionActual: string
+  ): Promise<void> {
     // Validar datos básicos
     if (!estudiante.carnet) {
       estudiante.hasErrors = true;
@@ -449,10 +506,8 @@ export class BeneficiosMasivo implements OnInit {
       return;
     }
 
-    // Validar que el beneficio exista
-    const beneficio = this.beneficioService.currentData.find(
-      (b: Beneficio) => b.nombre.toLowerCase() === estudiante.beneficio!.toLowerCase()
-    );
+    // OPTIMIZATION: O(1) lookup instead of O(n) find
+    const beneficio = beneficiosMap.get(estudiante.beneficio.toLowerCase());
 
     if (!beneficio) {
       estudiante.hasErrors = true;
@@ -479,7 +534,7 @@ export class BeneficiosMasivo implements OnInit {
       return;
     }
 
-    // Verificar si el porcentaje difiere del porcentaje del beneficio (will be set if no other warning)
+    // Verificar si el porcentaje difiere del porcentaje del beneficio
     let porcentajeWarning = false;
     if (beneficio.porcentaje && beneficio.porcentaje > 0) {
       const porcentajeBeneficio = beneficio.porcentaje;
@@ -489,7 +544,6 @@ export class BeneficiosMasivo implements OnInit {
         porcentajeWarning = true;
       }
     }
-
 
     if (!window.academicoAPI) {
       estudiante.hasErrors = true;
@@ -512,22 +566,32 @@ export class BeneficiosMasivo implements OnInit {
       const ciEstudiante = persona.documentoIdentidad || persona.numeroDocumento || estudiante.carnet || '';
       const nombreEstudiante = persona.nombreCompleto || persona.nombre || estudiante.nombre || 'N/A';
 
-      // Verificar si el estudiante ya tiene un beneficio en la gestión actual
-      const idGestionActual = this.semestreActual[0]?.id || '';
-      const beneficioExistente = await this.verificarBeneficioExistente(ciEstudiante, idGestionActual);
+      // OPTIMIZATION: O(1) lookup from pre-loaded map instead of database query
+      const registroExistente = registrosExistentesMap.get(ciEstudiante);
 
-      if (beneficioExistente.existe) {
+      if (registroExistente) {
         // Check if it's the SAME benefit (ERROR) or DIFFERENT benefit (WARNING)
-        if (beneficioExistente.idBeneficio === beneficio.id) {
+        if (registroExistente.id_beneficio === beneficio.id) {
           // Same benefit - this is an ERROR
+          const beneficioExistenteNombre = beneficiosMap.get(
+            Array.from(beneficiosMap.keys()).find(
+              key => beneficiosMap.get(key)!.id === registroExistente.id_beneficio
+            ) || ''
+          )?.nombre || 'Desconocido';
+          
           estudiante.hasErrors = true;
-          estudiante.errorMessage = `Ya tiene el beneficio "${beneficioExistente.beneficioNombre}" (${beneficioExistente.porcentaje?.toFixed(0)}%) registrado`;
+          estudiante.errorMessage = `Ya tiene el beneficio "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%) registrado`;
           return;
         } else {
           // Different benefit - this is a WARNING (allow to continue)
+          const beneficioExistenteNombre = beneficiosMap.get(
+            Array.from(beneficiosMap.keys()).find(
+              key => beneficiosMap.get(key)!.id === registroExistente.id_beneficio
+            ) || ''
+          )?.nombre || 'Otro beneficio';
+          
           estudiante.hasWarning = true;
-          estudiante.warningMessage = `Ya tiene "${beneficioExistente.beneficioNombre}" (${beneficioExistente.porcentaje?.toFixed(0)}%)`;
-          // Don't return - continue processing
+          estudiante.warningMessage = `Ya tiene "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%)`;
         }
       }
 
@@ -539,7 +603,6 @@ export class BeneficiosMasivo implements OnInit {
         estudiante.errorMessage = 'No se encontró kardex para el estudiante';
         return;
       }
-
 
       // Obtener información del kardex
       const [totalCreditos, carrera, sinKardex] = await this.obtenerInformacionKardex(kardex);
@@ -563,12 +626,9 @@ export class BeneficiosMasivo implements OnInit {
         return;
       }
 
-      // Buscar información de la carrera
-      const carreras = this.carreraService.currentData;
-      const carreraInfo = carreras.find(c =>
-        c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
-        carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-      );
+      // OPTIMIZATION: O(1) lookup from map instead of O(n) find
+      const carreraNormalized = carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const carreraInfo = carrerasMap.get(carreraNormalized);
 
       if (!carreraInfo) {
         estudiante.hasErrors = true;
@@ -599,13 +659,13 @@ export class BeneficiosMasivo implements OnInit {
         referencia_primer_pago: referencia,
         total_semestre: (valorCredito * totalCreditos) + creditoTecnologico,
         registrado: false,
-        id_gestion: this.semestreActual[0]?.id || ''
+        id_gestion: idGestionActual
       };
 
       estudiante.registro = registro;
       estudiante.hasErrors = false;
 
-      // Set percentage warning only if there's no other warning (e.g., duplicate benefit warning)
+      // Set percentage warning only if there's no other warning
       if (!estudiante.hasWarning && porcentajeWarning && estudiante.porcentajeSugerido) {
         estudiante.hasWarning = true;
         estudiante.warningMessage = `Porcentaje sugerido: ${(estudiante.porcentajeSugerido * 100).toFixed(0)}% (tiene ${(estudiante.porcentaje * 100).toFixed(0)}%)`;
@@ -799,84 +859,105 @@ export class BeneficiosMasivo implements OnInit {
       return;
     }
 
-    let exitosos = 0;
-    let fallidos = 0;
-    
+    try {
+      // OPTIMIZATION: Prepare all records for batch insert
+      const registrosParaGuardar = estudiantesValidos.map(estudiante => ({
+        id_solicitud: undefined,
+        id_estudiante_siaan: estudiante.registro!.id_estudiante_siaan,
+        id_gestion: estudiante.registro!.id_gestion,
+        ci_estudiante: estudiante.registro!.ci_estudiante,
+        nombre_estudiante: estudiante.registro!.nombre_estudiante,
+        id_carrera: estudiante.registro!.id_carrera,
+        id_beneficio: estudiante.registro!.id_beneficio,
+        valor_credito: estudiante.registro!.valor_credito,
+        total_creditos: estudiante.registro!.total_creditos,
+        credito_tecnologico: estudiante.registro!.credito_tecnologico,
+        porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
+        monto_primer_pago: estudiante.registro!.monto_primer_pago,
+        plan_primer_pago: estudiante.registro!.plan_primer_pago,
+        referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
+        total_semestre: estudiante.registro!.total_semestre,
+        registrado: false,
+        comentarios: null,
+        visible: true
+      }));
 
-    // Process each student individually
-    for (const estudiante of estudiantesValidos) {
-      try {
-        const registroParaGuardar = {
-          id_solicitud: undefined,
-          id_estudiante_siaan: estudiante.registro!.id_estudiante_siaan,
-          id_gestion: estudiante.registro!.id_gestion,
-          ci_estudiante: estudiante.registro!.ci_estudiante,
-          nombre_estudiante: estudiante.registro!.nombre_estudiante,
-          id_carrera: estudiante.registro!.id_carrera,
-          id_beneficio: estudiante.registro!.id_beneficio,
-          valor_credito: estudiante.registro!.valor_credito,
-          total_creditos: estudiante.registro!.total_creditos,
-          credito_tecnologico: estudiante.registro!.credito_tecnologico,
-          porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
-          monto_primer_pago: estudiante.registro!.monto_primer_pago,
-          plan_primer_pago: estudiante.registro!.plan_primer_pago,
-          referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
-          total_semestre: estudiante.registro!.total_semestre,
-          registrado: false,
-          comentarios: null,
-          visible: true
-        };
+      // OPTIMIZATION: Single batch insert with transaction
+      const resultado = await window.academicoAPI.createMultipleWithTransaction(registrosParaGuardar);
 
-        // Save individual student
-        const resultado = await window.academicoAPI.createRegistroEstudiante(registroParaGuardar);
+      // Process results
+      estudiantesValidos.forEach((estudiante, index) => {
+        const exitoso = resultado.exitosos.includes(index);
         
-        // Success
-        this.resultadosGuardado.push({
-          estudiante: estudiante,
-          exito: true,
-          id_solicitud: resultado?.id || undefined,
-          error: undefined,
-          detalles: undefined
-        });
-        
-        exitosos++;
+        if (exitoso) {
+          this.resultadosGuardado.push({
+            estudiante: estudiante,
+            exito: true,
+            id_solicitud: resultado.ids[resultado.exitosos.indexOf(index)]?.toString(),
+            error: undefined,
+            detalles: undefined
+          });
+        } else {
+          const errorMsg = resultado.errores[index] || 'Error desconocido';
+          this.resultadosGuardado.push({
+            estudiante: estudiante,
+            exito: false,
+            id_solicitud: undefined,
+            error: 'Error al guardar',
+            detalles: errorMsg
+          });
+        }
+      });
 
-      } catch (error: any) {
-        console.error(`Error guardando ${estudiante.nombre}:`, error);
-        
-        // Individual failure - continue with others
+      const exitosos = resultado.exitosos.length;
+      const fallidos = estudiantesValidos.length - exitosos;
+
+      this.loadingService.hide();
+
+      // Show results modal
+      this.showResumenModal = true;
+
+      // Show summary toast
+      if (fallidos === 0) {
+        this.toastService.success(
+          'Guardado exitoso',
+          `Se guardaron ${exitosos} estudiante(s) correctamente`,
+          5000
+        );
+      } else if (exitosos === 0) {
+        this.toastService.error(
+          'Error al guardar',
+          `No se pudo guardar ningún estudiante. Fallaron ${fallidos}`,
+          5000
+        );
+      } else {
+        this.toastService.warning(
+          'Guardado parcial',
+          `${exitosos} exitoso(s), ${fallidos} fallido(s)`,
+          5000
+        );
+      }
+
+    } catch (error: any) {
+      console.error('Error en guardado masivo:', error);
+      this.loadingService.hide();
+      
+      // If batch transaction fails completely, mark all as failed
+      estudiantesValidos.forEach(estudiante => {
         this.resultadosGuardado.push({
           estudiante: estudiante,
           exito: false,
           id_solicitud: undefined,
-          error: 'Error al guardar',
-          detalles: error.message || error.toString() || 'Error desconocido'
+          error: 'Error en transacción',
+          detalles: error.message || error.toString() || 'Error desconocido en la transacción'
         });
-        
-        fallidos++;
-      }
-    }
+      });
 
-    this.loadingService.hide();
-    this.showResumenModal = true;
-
-    // Show summary toast
-    if (exitosos > 0 && fallidos === 0) {
-      this.toastService.success(
-        'Guardado exitoso',
-        `Se guardaron ${exitosos} beneficio(s) correctamente`,
-        5000
-      );
-    } else if (exitosos > 0 && fallidos > 0) {
-      this.toastService.warning(
-        'Guardado parcial',
-        `${exitosos} exitoso(s), ${fallidos} fallido(s)`,
-        5000
-      );
-    } else if (fallidos > 0) {
+      this.showResumenModal = true;
+      
       this.toastService.error(
-        'Error al guardar',
-        `No se pudo guardar ningún registro (${fallidos} fallido(s))`,
+        'Error crítico',
+        'Error al guardar los registros. Consulte los detalles.',
         5000
       );
     }

@@ -21,8 +21,28 @@ function registerRoutes(ipcMain) {
     return await controllers.getBySolicitud(id_solicitud);
   });
 
+  ipcMain.handle('registro_estudiante:getBySolicitudInactivos', async (event, id_solicitud) => {
+    return await controllers.getBySolicitudInactivos(id_solicitud);
+  });
+
   ipcMain.handle('registro_estudiante:getByApoyoFamiliar', async (event) => {
     return await controllers.getByApoyoFamiliar();
+  });
+
+  ipcMain.handle('registro_estudiante:getByApoyoFamiliarInactivos', async (event) => {
+    return await controllers.getByApoyoFamiliarInactivos();
+  });
+
+  ipcMain.handle('registro_estudiante:checkExistingBenefit', async (event, ci_estudiante, id_gestion) => {
+    return await controllers.checkExistingBenefit(ci_estudiante, id_gestion);
+  });
+
+  ipcMain.handle('registro_estudiante:checkExistingBenefitsBatch', async (event, carnets, id_gestion) => {
+    return await controllers.checkExistingBenefitsBatch(carnets, id_gestion);
+  });
+
+  ipcMain.handle('registro_estudiante:createMultipleWithTransaction', async (event, dataArray) => {
+    return await controllers.createMultipleWithTransaction('registro_estudiante', dataArray);
   });
 
   // Special route for gestion - get semester gestiones only

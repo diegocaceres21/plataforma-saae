@@ -31,7 +31,7 @@ module.exports = {
       'id', 'id_solicitud', 'id_estudiante_siaan', 'id_gestion', 'ci_estudiante', 'nombre_estudiante', 
       'carrera', 'valor_credito', 'total_creditos', 'credito_tecnologico', 'porcentaje_descuento', 
       'monto_primer_pago', 'plan_primer_pago', 'referencia_primer_pago', 'total_semestre', 'registrado', 'comentarios',
-      'visible', 'created_at', 'updated_at', 'id_beneficio', 'id_carrera'
+      'visible', 'created_at', 'updated_at', 'id_beneficio', 'id_carrera', 'inactivo'
     ]
   },
   beneficio: {

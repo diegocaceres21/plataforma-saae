@@ -62,11 +62,16 @@ declare global {
       getAllVisibleRegistroEstudiante: () => Promise<any>;
       getRegistroEstudianteById: (id: string) => Promise<any>;
       getRegistroEstudiantesBySolicitud: (id_solicitud: string) => Promise<any>;
+      getRegistroEstudiantesBySolicitudInactivos: (id_solicitud: string) => Promise<any>;
       getRegistroEstudiantesByApoyoFamiliar: () => Promise<any>;
+      getRegistroEstudiantesByApoyoFamiliarInactivos: () => Promise<any>;
+      checkExistingBenefit: (ci_estudiante: string, id_gestion: string) => Promise<any>;
+      checkExistingBenefitsBatch: (carnets: string[], id_gestion: string) => Promise<any[]>;
       createRegistroEstudiante: (data: any) => Promise<any>;
       updateRegistroEstudiante: (id: string, data: any) => Promise<any>;
       removeRegistroEstudiante: (id: string) => Promise<any>;
       createMultipleRegistroEstudiante: (data: any[]) => Promise<any>;
+      createMultipleWithTransaction: (data: any[]) => Promise<{ exitosos: number[]; errores: Record<number, string>; ids: number[] }>;
       
       // External APIs
       obtenerIDPersona: (carnet: string) => Promise<any>;

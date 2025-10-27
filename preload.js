@@ -75,11 +75,16 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   getAllVisibleRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAllVisible'),
   getRegistroEstudianteById: (id) => ipcRenderer.invoke('registro_estudiante:getById', id),
   getRegistroEstudiantesBySolicitud: (id_solicitud) => ipcRenderer.invoke('registro_estudiante:getBySolicitud', id_solicitud),
+  getRegistroEstudiantesBySolicitudInactivos: (id_solicitud) => ipcRenderer.invoke('registro_estudiante:getBySolicitudInactivos', id_solicitud),
   getRegistroEstudiantesByApoyoFamiliar: () => ipcRenderer.invoke('registro_estudiante:getByApoyoFamiliar'),
+  getRegistroEstudiantesByApoyoFamiliarInactivos: () => ipcRenderer.invoke('registro_estudiante:getByApoyoFamiliarInactivos'),
+  checkExistingBenefit: (ci_estudiante, id_gestion) => ipcRenderer.invoke('registro_estudiante:checkExistingBenefit', ci_estudiante, id_gestion),
+  checkExistingBenefitsBatch: (carnets, id_gestion) => ipcRenderer.invoke('registro_estudiante:checkExistingBenefitsBatch', carnets, id_gestion),
   createRegistroEstudiante: (data) => ipcRenderer.invoke('registro_estudiante:create', data),
   updateRegistroEstudiante: (id, data) => ipcRenderer.invoke('registro_estudiante:update', id, data),
   removeRegistroEstudiante: (id) => ipcRenderer.invoke('registro_estudiante:remove', id),
   createMultipleRegistroEstudiante: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultiple', dataArray),
+  createMultipleWithTransaction: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultipleWithTransaction', dataArray),
 
   // External API endpoints
   obtenerIDPersona: (carnet) => ipcRenderer.invoke('api:obtenerIDPersona', carnet),

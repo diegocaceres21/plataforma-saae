@@ -174,7 +174,16 @@ function createMultiple(table, dataArray) {
 
 function getBySolicitud(id_solicitud) {
   return new Promise((resolve, reject) => {
-    pool.query(`SELECT * FROM registro_estudiante WHERE id_solicitud = $1`, [id_solicitud], (err, result) => {
+    pool.query(`SELECT * FROM registro_estudiante WHERE id_solicitud = $1 AND inactivo = false`, [id_solicitud], (err, result) => {
+      if (err) reject(err);
+      else resolve(result.rows);
+    });
+  });
+}
+
+function getBySolicitudInactivos(id_solicitud) {
+  return new Promise((resolve, reject) => {
+    pool.query(`SELECT * FROM registro_estudiante WHERE id_solicitud = $1 AND inactivo = true`, [id_solicitud], (err, result) => {
       if (err) reject(err);
       else resolve(result.rows);
     });
@@ -186,7 +195,7 @@ function getByApoyoFamiliar() {
     pool.query(
       `SELECT re.* FROM registro_estudiante re
        JOIN beneficio b ON re.id_beneficio = b.id
-       WHERE UPPER(b.nombre) = 'APOYO FAMILIAR' AND re.visible = true
+       WHERE UPPER(b.nombre) = 'APOYO FAMILIAR' AND re.visible = true AND re.inactivo = false
        ORDER BY re.created_at DESC`,
       [],
       (err, result) => {
@@ -194,6 +203,116 @@ function getByApoyoFamiliar() {
         else resolve(result.rows);
       }
     );
+  });
+}
+
+function getByApoyoFamiliarInactivos() {
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT re.* FROM registro_estudiante re
+       JOIN beneficio b ON re.id_beneficio = b.id
+       WHERE UPPER(b.nombre) = 'APOYO FAMILIAR' AND re.visible = true AND re.inactivo = true
+       ORDER BY re.created_at DESC`,
+      [],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows);
+      }
+    );
+  });
+}
+
+function checkExistingBenefit(ci_estudiante, id_gestion) {
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT id, id_beneficio, porcentaje_descuento 
+       FROM registro_estudiante 
+       WHERE ci_estudiante = $1 
+       AND id_gestion = $2 
+       AND inactivo = false 
+       AND porcentaje_descuento > 0
+       LIMIT 1`,
+      [ci_estudiante, id_gestion],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows[0] || null);
+      }
+    );
+  });
+}
+
+function checkExistingBenefitsBatch(carnets, id_gestion) {
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT ci_estudiante, id_beneficio, porcentaje_descuento 
+       FROM registro_estudiante 
+       WHERE ci_estudiante = ANY($1) 
+       AND id_gestion = $2 
+       AND inactivo = false 
+       AND porcentaje_descuento > 0`,
+      [carnets, id_gestion],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows);
+      }
+    );
+  });
+}
+
+function createMultipleWithTransaction(table, dataArray) {
+  return new Promise(async (resolve, reject) => {
+    if (!dataArray || dataArray.length === 0) {
+      return resolve({ exitosos: [], errores: {}, ids: [] });
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const exitosos = [];
+      const errores = {};
+      const ids = [];
+      
+      const cols = Object.keys(dataArray[0]);
+      const colsStr = cols.join(',');
+      
+      for (let i = 0; i < dataArray.length; i++) {
+        try {
+          const record = dataArray[i];
+          const vals = Object.values(record);
+          const placeholders = vals.map((_, index) => `$${index + 1}`).join(',');
+          
+          const query = `INSERT INTO ${table} (${colsStr}) VALUES (${placeholders}) RETURNING id`;
+          const result = await client.query(query, vals);
+          
+          exitosos.push(i);
+          ids.push(result.rows[0]?.id);
+        } catch (error) {
+          console.error(`Error inserting record ${i}:`, error);
+          errores[i] = error.message;
+          
+          // Check for specific error types
+          if (error.code === '23505') {
+            if (error.constraint === 'registro_estudiante_unique') {
+              errores[i] = 'El estudiante ya tiene un beneficio en esta gestión';
+            } else {
+              errores[i] = 'Registro duplicado';
+            }
+          }
+        }
+      }
+      
+      await client.query('COMMIT');
+      resolve({ exitosos, errores, ids });
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Transaction error:', error);
+      reject(error);
+    } finally {
+      client.release();
+    }
   });
 }
 
@@ -227,7 +346,7 @@ function getReporteBeneficiosByGestion(id_gestion) {
         FROM registro_estudiante AS r
         LEFT JOIN beneficio AS b ON r.id_beneficio = b.id
         LEFT JOIN carrera AS c ON r.id_carrera = c.id
-        WHERE r.id_gestion = $1 AND r.visible = true AND r.porcentaje_descuento > 0
+        WHERE r.id_gestion = $1 AND r.visible = true AND r.inactivo = false AND r.porcentaje_descuento > 0
       )
       SELECT tipo, 
         beneficio, 
@@ -264,7 +383,7 @@ function getEvolucionBeneficios() {
         FROM registro_estudiante AS r
         LEFT JOIN beneficio AS b ON r.id_beneficio = b.id
         LEFT JOIN gestion AS g ON r.id_gestion = g.id
-        WHERE r.porcentaje_descuento > 0
+        WHERE r.inactivo = false AND r.porcentaje_descuento > 0
       )
       SELECT gestion, 
         beneficio,
@@ -294,8 +413,13 @@ module.exports = {
   update, 
   remove, 
   createMultiple, 
-  getBySolicitud, 
-  getByApoyoFamiliar, 
+  getBySolicitud,
+  getBySolicitudInactivos, 
+  getByApoyoFamiliar,
+  getByApoyoFamiliarInactivos,
+  checkExistingBenefit,
+  checkExistingBenefitsBatch,
+  createMultipleWithTransaction,
   getSemesterGestiones,
   getReporteBeneficiosByGestion,
   getEvolucionBeneficios
