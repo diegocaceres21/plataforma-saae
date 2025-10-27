@@ -195,13 +195,13 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       this.isLoading = true;
 
       // Verificar APIs disponibles
-      if (!window.academicoAPI?.getAllRegistroEstudiante || !window.academicoAPI?.getAllSolicitud) {
+      if (!window.academicoAPI?.getAllRegistroEstudianteActivos || !window.academicoAPI?.getAllSolicitud) {
         throw new Error('APIs de base de datos no disponibles');
       }
 
       // Cargar TODOS los registros (no solo apoyo familiar) y solicitudes
       const [registros, solicitudes] = await Promise.all([
-        window.academicoAPI.getAllRegistroEstudiante(),
+        window.academicoAPI.getAllRegistroEstudianteActivos(),
         window.academicoAPI.getAllSolicitud()
       ]);
 

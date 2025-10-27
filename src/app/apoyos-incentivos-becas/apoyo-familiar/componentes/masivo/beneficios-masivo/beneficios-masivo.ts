@@ -30,6 +30,8 @@ interface EstudianteBeneficio {
   hasWarning?: boolean;
   warningMessage?: string;
   porcentajeSugerido?: number;
+  // ID del beneficio anterior que debe marcarse como inactivo
+  beneficioAnteriorId?: string;
 }
 
 interface ResultadoGuardado {
@@ -592,6 +594,14 @@ export class BeneficiosMasivo implements OnInit {
           
           estudiante.hasWarning = true;
           estudiante.warningMessage = `Ya tiene "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%)`;
+          // Store the ID of the previous benefit to mark it as inactive later
+          estudiante.beneficioAnteriorId = registroExistente.id;
+          console.log(`[DETECCION] Estudiante ${nombreEstudiante} tiene beneficio anterior ID: ${registroExistente.id}`, {
+            ci: ciEstudiante,
+            beneficioActual: beneficio.nombre,
+            beneficioAnterior: beneficioExistenteNombre,
+            beneficioAnteriorId: registroExistente.id
+          });
         }
       }
 
@@ -860,7 +870,43 @@ export class BeneficiosMasivo implements OnInit {
     }
 
     try {
-      // OPTIMIZATION: Prepare all records for batch insert
+      // STEP 1: Mark previous benefits as inactive for students with warnings
+      const estudiantesConBeneficioAnterior = estudiantesValidos.filter(
+        e => e.beneficioAnteriorId && e.hasWarning
+      );
+
+      if (estudiantesConBeneficioAnterior.length > 0) {
+        this.loadingService['messageSubject'].next(
+          `Actualizando beneficios anteriores... (${estudiantesConBeneficioAnterior.length})`
+        );
+
+        // Update previous benefits in parallel
+        const updatePromises = estudiantesConBeneficioAnterior.map(async (estudiante) => {
+          try {
+            console.log(`[UPDATE] Marcando como inactivo el ID: ${estudiante.beneficioAnteriorId} para ${estudiante.nombre}`);
+            const result = await window.academicoAPI!.updateRegistroEstudiante(
+              estudiante.beneficioAnteriorId!,
+              { inactivo: true }
+            );
+            console.log(`[UPDATE] Éxito para ${estudiante.nombre}:`, result);
+            return result;
+          } catch (error) {
+            console.error(
+              `[UPDATE] Error marcando beneficio anterior como inactivo para ${estudiante.nombre}:`,
+              error
+            );
+            // Continue even if one update fails
+            return null;
+          }
+        });
+
+        const results = await Promise.allSettled(updatePromises);
+        console.log('[UPDATE] Resultados de actualización:', results);
+      }
+
+      // STEP 2: Prepare all records for batch insert
+      this.loadingService['messageSubject'].next('Guardando nuevos beneficios...');
+      
       const registrosParaGuardar = estudiantesValidos.map(estudiante => ({
         id_solicitud: undefined,
         id_estudiante_siaan: estudiante.registro!.id_estudiante_siaan,

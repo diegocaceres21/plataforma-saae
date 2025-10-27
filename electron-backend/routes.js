@@ -16,6 +16,10 @@ function registerRoutes(ipcMain) {
   ipcMain.handle('registro_estudiante:createMultiple', async (event, dataArray) => {
     return await controllers.createMultiple('registro_estudiante', dataArray);
   });
+
+  ipcMain.handle('registro_estudiante:getAllActivos', async () => {
+    return await controllers.getAllActivos('registro_estudiante');
+  });
   
   ipcMain.handle('registro_estudiante:getBySolicitud', async (event, id_solicitud) => {
     return await controllers.getBySolicitud(id_solicitud);

@@ -71,7 +71,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   removeSolicitud: (id) => ipcRenderer.invoke('solicitud:remove', id),
 
   // CRUD for registro_estudiante table
-  getAllRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAll'),
+  getAllRegistroEstudianteActivos: () => ipcRenderer.invoke('registro_estudiante:getAllActivos'),
   getAllVisibleRegistroEstudiante: () => ipcRenderer.invoke('registro_estudiante:getAllVisible'),
   getRegistroEstudianteById: (id) => ipcRenderer.invoke('registro_estudiante:getById', id),
   getRegistroEstudiantesBySolicitud: (id_solicitud) => ipcRenderer.invoke('registro_estudiante:getBySolicitud', id_solicitud),

@@ -43,6 +43,18 @@ function getAll(table) {
   });
 }
 
+function getAllActivos(table) {
+  return new Promise((resolve, reject) => {
+    let query = `SELECT * FROM ${table}`;
+    query += ' WHERE inactivo = false ORDER BY created_at DESC';
+    
+    pool.query(query, [], (err, result) => {
+      if (err) reject(err);
+      else resolve(result.rows);
+    });
+  });
+}
+
 function getAllVisible(table) {
   return new Promise((resolve, reject) => {
     const model = models[Object.keys(models).find(key => models[key].table === table)];
@@ -244,7 +256,7 @@ function checkExistingBenefit(ci_estudiante, id_gestion) {
 function checkExistingBenefitsBatch(carnets, id_gestion) {
   return new Promise((resolve, reject) => {
     pool.query(
-      `SELECT ci_estudiante, id_beneficio, porcentaje_descuento 
+      `SELECT id, ci_estudiante, id_beneficio, porcentaje_descuento 
        FROM registro_estudiante 
        WHERE ci_estudiante = ANY($1) 
        AND id_gestion = $2 
@@ -408,6 +420,7 @@ function getEvolucionBeneficios() {
 module.exports = { 
   getAll, 
   getAllVisible, 
+  getAllActivos,
   getById, 
   create, 
   update, 

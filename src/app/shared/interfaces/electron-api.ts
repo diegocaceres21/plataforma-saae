@@ -58,7 +58,7 @@ declare global {
       removeSolicitud: (id: string) => Promise<any>;
       
       // APIs for registro_estudiante table
-      getAllRegistroEstudiante: () => Promise<any>;
+      getAllRegistroEstudianteActivos: () => Promise<any>;
       getAllVisibleRegistroEstudiante: () => Promise<any>;
       getRegistroEstudianteById: (id: string) => Promise<any>;
       getRegistroEstudiantesBySolicitud: (id_solicitud: string) => Promise<any>;
