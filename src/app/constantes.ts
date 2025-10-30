@@ -1,0 +1,3 @@
+export const CONSTANTES = {
+  DESCUENTO_PRONTO_PAGO: 0.06
+};

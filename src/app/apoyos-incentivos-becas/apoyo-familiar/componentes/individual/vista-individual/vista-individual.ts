@@ -379,77 +379,39 @@ export class VistaIndividual implements OnInit, OnDestroy {
         throw new Error('APIs de base de datos no disponibles');
       }
 
+      // STEP 1: Verificar beneficios existentes y detectar conflictos
+      const conflictos = await this.verificarConflictosBeneficios();
+      
+      if (conflictos.tieneErrores) {
+        this.isSaving = false;
+        this.toastService.error(
+          'Beneficios Duplicados',
+          conflictos.mensajeError || 'Algunos estudiantes ya tienen el mismo beneficio registrado',
+          8000
+        );
+        return;
+      }
+
+      // STEP 2: Si hay advertencias, pedir confirmación al usuario
+      if (conflictos.tieneAdvertencias) {
+        const confirmar = confirm(
+          `⚠️ ADVERTENCIA:\n\n${conflictos.mensajeAdvertencia}\n\n¿Desea continuar? Los beneficios anteriores se marcarán como inactivos.`
+        );
+        
+        if (!confirmar) {
+          this.isSaving = false;
+          return;
+        }
+      }
+
       // Si es flujo de otros beneficios (un solo estudiante), guardarlo directamente
       if (this.isOtrosBeneficios()) {
-        await this.guardarBeneficioIndividual();
+        await this.guardarBeneficioIndividual(conflictos.beneficiosAInactivar);
         return;
       }
 
       // Flujo de apoyo familiar (múltiples estudiantes con solicitud)
-      // Debug: Primero intentar obtener todas las solicitudes para ver la estructura
-      try {
-        const existingSolicitudes = await window.academicoAPI.getAllSolicitud();
-      } catch (debugError) {
-        console.log('⚠️ No se pudieron obtener solicitudes existentes:', debugError);
-      }
-
-      // Obtener el ID de gestión del primer registro o usar valor por defecto
-      const gestionId = this.registrosEstudiantes[0]?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
-
-      // Paso 1: Crear la solicitud
-      const solicitudData = {
-        fecha: new Date().toISOString(),
-        id_gestion: gestionId,
-        estado: 'completado' as const,
-        cantidad_estudiantes: this.registrosEstudiantes.length,
-        comentarios: `Solicitud generada automáticamente para ${this.registrosEstudiantes.length} estudiante(s)`
-      };
-
-      const solicitud = await window.academicoAPI.createSolicitud(solicitudData);
-
-      if (!solicitud || !solicitud.id) {
-        throw new Error('No se pudo crear la solicitud');
-      }
-
-
-      // Paso 2: Preparar los datos de los estudiantes con el ID de solicitud
-      const registrosParaGuardar = this.registrosEstudiantes.map(registro => ({
-        id_solicitud: solicitud.id,
-        id_gestion: gestionId,
-        id_estudiante_siaan: registro.id_estudiante_siaan || '',
-        ci_estudiante: registro.ci_estudiante || '',
-        nombre_estudiante: registro.nombre_estudiante || '',
-        id_carrera: registro.id_carrera, // Campo principal - ID de carrera
-        id_beneficio: registro.id_beneficio, // ID del beneficio
-        total_creditos: registro.total_creditos || 0,
-        valor_credito: registro.valor_credito || 0,
-        credito_tecnologico: registro.credito_tecnologico || 0,
-        porcentaje_descuento: registro.porcentaje_descuento || 0,
-        monto_primer_pago: registro.monto_primer_pago || 0,
-        plan_primer_pago: registro.plan_primer_pago || '',
-        referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
-        total_semestre: registro.total_semestre || 0,
-        registrado: false,
-        comentarios: registro.comentarios || ''
-      }));
-
-
-      // Paso 3: Guardar todos los registros de estudiantes
-      const registrosGuardados = await window.academicoAPI.createMultipleRegistroEstudiante(registrosParaGuardar);
-
-
-      this.isSaving = false;
-      this.toastService.success(
-        'Guardado Exitoso',
-        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente en la base de datos. ID de solicitud: ${solicitud.id}`,
-        5000
-      );
-
-      // Opcional: Marcar todos los registros como guardados
-      this.registrosEstudiantes.forEach(registro => {
-        registro.registrado = false;
-        registro.id_solicitud = solicitud.id;
-      });
+      await this.guardarApoyoFamiliar(conflictos.beneficiosAInactivar);
 
     } catch (error) {
       this.isSaving = false;
@@ -468,13 +430,192 @@ export class VistaIndividual implements OnInit, OnDestroy {
     }
   }
 
+  // Verificar conflictos con beneficios existentes
+  async verificarConflictosBeneficios(): Promise<{
+    tieneErrores: boolean;
+    tieneAdvertencias: boolean;
+    mensajeError?: string;
+    mensajeAdvertencia?: string;
+    beneficiosAInactivar: string[];
+  }> {
+    const beneficiosAInactivar: string[] = [];
+    const errores: string[] = [];
+    const advertencias: string[] = [];
+
+    if (!window.academicoAPI?.checkExistingBenefitsBatch) {
+      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+    }
+
+    try {
+      // Obtener todos los CIs y la gestión
+      const carnets = this.registrosEstudiantes
+        .map(r => r.ci_estudiante)
+        .filter(ci => ci) as string[];
+      
+      const gestionId = this.registrosEstudiantes[0]?.id_gestion || '';
+
+      if (carnets.length === 0 || !gestionId) {
+        return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      }
+
+      // Verificar beneficios existentes en batch
+      const registrosExistentes = await window.academicoAPI.checkExistingBenefitsBatch(
+        carnets,
+        gestionId
+      );
+
+      // Crear mapa para búsqueda rápida
+      const registrosMap = new Map<string, any>();
+      registrosExistentes.forEach((reg: any) => {
+        registrosMap.set(reg.ci_estudiante, reg);
+      });
+
+      // Verificar cada estudiante
+      for (const registro of this.registrosEstudiantes) {
+        const ci = registro.ci_estudiante;
+        const idBeneficioNuevo = registro.id_beneficio;
+        
+        if (!ci || !idBeneficioNuevo) continue;
+
+        const registroExistente = registrosMap.get(ci);
+
+        if (registroExistente) {
+          const beneficioExistenteNombre = this.getBeneficioNombre(registroExistente.id_beneficio);
+          const beneficioNuevoNombre = this.getBeneficioNombre(idBeneficioNuevo);
+
+          if (registroExistente.id_beneficio === idBeneficioNuevo) {
+            // ERROR: Mismo beneficio
+            errores.push(
+              `${registro.nombre_estudiante}: Ya tiene el beneficio "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%) registrado`
+            );
+          } else {
+            // WARNING: Beneficio diferente
+            advertencias.push(
+              `${registro.nombre_estudiante}: Tiene "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%), se reemplazará por "${beneficioNuevoNombre}"`
+            );
+            beneficiosAInactivar.push(registroExistente.id);
+          }
+        }
+      }
+
+      return {
+        tieneErrores: errores.length > 0,
+        tieneAdvertencias: advertencias.length > 0,
+        mensajeError: errores.length > 0 ? errores.join('\n\n') : undefined,
+        mensajeAdvertencia: advertencias.length > 0 ? advertencias.join('\n\n') : undefined,
+        beneficiosAInactivar
+      };
+
+    } catch (error) {
+      console.error('Error verificando conflictos:', error);
+      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+    }
+  }
+
+  // Método para guardar apoyo familiar con solicitud
+  async guardarApoyoFamiliar(beneficiosAInactivar: string[]): Promise<void> {
+    try {
+      // STEP 1: Marcar beneficios anteriores como inactivos
+      if (beneficiosAInactivar.length > 0) {
+        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', beneficiosAInactivar);
+        
+        const updatePromises = beneficiosAInactivar.map(async (id) => {
+          try {
+            await window.academicoAPI!.updateRegistroEstudiante(id, { inactivo: true });
+            console.log(`[INACTIVAR] Éxito para ID: ${id}`);
+          } catch (error) {
+            console.error(`[INACTIVAR] Error para ID ${id}:`, error);
+          }
+        });
+
+        await Promise.allSettled(updatePromises);
+      }
+
+      // STEP 2: Crear la solicitud
+      const gestionId = this.registrosEstudiantes[0]?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
+
+      const solicitudData = {
+        fecha: new Date().toISOString(),
+        id_gestion: gestionId,
+        estado: 'completado' as const,
+        cantidad_estudiantes: this.registrosEstudiantes.length,
+        comentarios: `Solicitud generada automáticamente para ${this.registrosEstudiantes.length} estudiante(s)`
+      };
+
+      const solicitud = await window.academicoAPI!.createSolicitud(solicitudData);
+
+      if (!solicitud || !solicitud.id) {
+        throw new Error('No se pudo crear la solicitud');
+      }
+
+      // STEP 3: Preparar los datos de los estudiantes con el ID de solicitud
+      const registrosParaGuardar = this.registrosEstudiantes.map(registro => ({
+        id_solicitud: solicitud.id,
+        id_gestion: gestionId,
+        id_estudiante_siaan: registro.id_estudiante_siaan || '',
+        ci_estudiante: registro.ci_estudiante || '',
+        nombre_estudiante: registro.nombre_estudiante || '',
+        id_carrera: registro.id_carrera,
+        id_beneficio: registro.id_beneficio,
+        total_creditos: registro.total_creditos || 0,
+        valor_credito: registro.valor_credito || 0,
+        credito_tecnologico: registro.credito_tecnologico || 0,
+        porcentaje_descuento: registro.porcentaje_descuento || 0,
+        monto_primer_pago: registro.monto_primer_pago || 0,
+        plan_primer_pago: registro.plan_primer_pago || '',
+        pago_credito_tecnologico: registro.pago_credito_tecnologico,
+        referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
+        total_semestre: registro.total_semestre || 0,
+        registrado: false,
+        comentarios: registro.comentarios || '',
+        pagos_realizados: registro.pagos_realizados
+      }));
+
+      // STEP 4: Guardar todos los registros de estudiantes
+      await window.academicoAPI!.createMultipleRegistroEstudiante(registrosParaGuardar);
+
+      this.isSaving = false;
+      this.toastService.success(
+        'Guardado Exitoso',
+        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente. ID de solicitud: ${solicitud.id}`,
+        5000
+      );
+
+      // Marcar todos los registros como guardados
+      this.registrosEstudiantes.forEach(registro => {
+        registro.registrado = false;
+        registro.id_solicitud = solicitud.id;
+      });
+
+    } catch (error) {
+      throw error;
+    }
+  }
+
   // Método específico para guardar beneficios individuales (sin solicitud)
-  async guardarBeneficioIndividual(): Promise<void> {
+  async guardarBeneficioIndividual(beneficiosAInactivar: string[] = []): Promise<void> {
     try {
       if (!window.academicoAPI?.createMultipleRegistroEstudiante) {
         throw new Error('API de base de datos no disponible');
       }
 
+      // STEP 1: Marcar beneficios anteriores como inactivos
+      if (beneficiosAInactivar.length > 0) {
+        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', beneficiosAInactivar);
+        
+        const updatePromises = beneficiosAInactivar.map(async (id) => {
+          try {
+            await window.academicoAPI!.updateRegistroEstudiante(id, { inactivo: true });
+            console.log(`[INACTIVAR] Éxito para ID: ${id}`);
+          } catch (error) {
+            console.error(`[INACTIVAR] Error para ID ${id}:`, error);
+          }
+        });
+
+        await Promise.allSettled(updatePromises);
+      }
+
+      // STEP 2: Guardar el nuevo beneficio
       const registro = this.registrosEstudiantes[0];
       const gestionId = registro?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
 
@@ -492,7 +633,9 @@ export class VistaIndividual implements OnInit, OnDestroy {
         porcentaje_descuento: registro.porcentaje_descuento || 0,
         monto_primer_pago: registro.monto_primer_pago || 0,
         plan_primer_pago: registro.plan_primer_pago || '',
+        pago_credito_tecnologico: registro.pago_credito_tecnologico,
         referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
+        pagos_realizados: registro.pagos_realizados,
         total_semestre: registro.total_semestre || 0,
         registrado: false,
         comentarios: registro.comentarios || null
@@ -501,9 +644,14 @@ export class VistaIndividual implements OnInit, OnDestroy {
       await window.academicoAPI.createMultipleRegistroEstudiante([registroParaGuardar]);
 
       this.isSaving = false;
+      
+      const mensajeExtra = beneficiosAInactivar.length > 0 
+        ? ' (beneficio anterior marcado como inactivo)'
+        : '';
+      
       this.toastService.success(
         'Guardado Exitoso',
-        `Se guardó el beneficio individual para ${registro.nombre_estudiante}`,
+        `Se guardó el beneficio individual para ${registro.nombre_estudiante}${mensajeExtra}`,
         5000
       );
 

@@ -1,6 +1,7 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RegistroEstudiante } from '../../../../interfaces/registro-estudiante';
+import { CONSTANTES } from '../../../../../constantes';
 
 @Component({
   selector: 'app-payment-plans-display',
@@ -23,21 +24,20 @@ export class PaymentPlansDisplayComponent {
   }
 
   get saldoOriginal(): number {
-    return this.totalOriginal - (this.registro.monto_primer_pago || 0);
+    return this.totalOriginal - (this.registro.monto_primer_pago || 0) - (this.registro.pagos_realizados || 0)  - (this.registro.pago_credito_tecnologico ? this.registro.credito_tecnologico! : 0);
   }
 
   // Cálculos para el plan con descuento
   get derechosAcademicosConDescuento(): number {
     return this.registro.creditos_descuento! * (this.registro.valor_credito || 0) * (1 - (this.registro.porcentaje_descuento || 0)) + (this.registro.valor_credito || 0) * (this.registro.total_creditos! - this.registro.creditos_descuento!);
-    //return this.derechosAcademicosOriginales * (1 - (this.registro.porcentaje_descuento || 0));
   }
 
   get totalConDescuento(): number {
-    return this.derechosAcademicosConDescuento + (this.registro.credito_tecnologico || 0);
+    return this.derechosAcademicosConDescuento + (this.registro.porcentaje_descuento !== 1 ? this.registro.credito_tecnologico || 0 : 0);
   }
 
   get saldoConDescuento(): number {
-    return this.totalConDescuento - (this.registro.monto_primer_pago || 0);
+    return this.totalConDescuento - (this.registro.monto_primer_pago || 0) - (this.registro.pagos_realizados || 0) - (this.registro.pago_credito_tecnologico ? this.registro.credito_tecnologico! : 0);
   }
 
   // Cálculos de ahorros
@@ -55,5 +55,17 @@ export class PaymentPlansDisplayComponent {
 
   get hasDiscount(): boolean {
     return (this.registro.porcentaje_descuento || 0) > 0;
+  }
+
+  get totalProntoPago(): number {
+    return this.derechosAcademicosOriginales * (1 - CONSTANTES.DESCUENTO_PRONTO_PAGO) + (this.registro.credito_tecnologico || 0);
+  }
+
+  get saldoProntoPago(): number {
+    return this.totalProntoPago - (this.registro.monto_primer_pago || 0) - (this.registro.pagos_realizados || 0) - (this.registro.pago_credito_tecnologico ? this.registro.credito_tecnologico! : 0);
+  }
+
+  get mostrarProntoPago(): boolean {
+    return this.registro.porcentaje_descuento === 0 && !this.registro.carrera?.includes('FILOSOFIA Y LETRAS');
   }
 }

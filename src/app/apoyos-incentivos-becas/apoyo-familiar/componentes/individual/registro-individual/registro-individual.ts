@@ -122,7 +122,7 @@ export class RegistroIndividual implements OnInit {
           const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual);
 
           // Get payment information
-          const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan);
+          const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan);
 
           // Find career info in database
           const carreraInfo = this.carreraService.currentData.find(c =>
@@ -133,6 +133,22 @@ export class RegistroIndividual implements OnInit {
           // Get ID de beneficio "APOYO FAMILIAR"
           const idBeneficio = this.beneficioService.getApoyoFamiliarId();
 
+          // Determinar valores finales de pago
+          let referenciaFinal = referencia;
+          let planAccedidoFinal = planAccedido || 'N/A';
+          let pagoRealizadoFinal = pagoRealizado || 0;
+
+          // Si no hay pago, solicitar entrada manual (el usuario decide si continuar o no)
+          if (sinPago) {
+            const resultManual = await this.promptForManualPaymentData(registro.id_estudiante_siaan);
+            referenciaFinal = resultManual[0] || 'N/A';
+            planAccedidoFinal = resultManual[1] || 'N/A';
+            pagoRealizadoFinal = resultManual[2] || 0;
+            
+            // Si el usuario cancela y resultManual[3] = true (sinPago sigue true)
+            // los valores quedan como N/A, 0, etc.
+          }
+
           // Update the registry with complete information
           this.registrosEstudiantes[i] = {
             ...registro,
@@ -142,9 +158,11 @@ export class RegistroIndividual implements OnInit {
             id_beneficio: idBeneficio, // ID del beneficio "APOYO FAMILIAR"
             total_creditos: totalCreditos || 0,
             creditos_descuento: totalCreditos || 0,
-            plan_primer_pago: planAccedido || 'N/A',
-            monto_primer_pago: pagoRealizado || 0,
-            referencia_primer_pago: referencia || 'N/A',
+            plan_primer_pago: planAccedidoFinal,
+            monto_primer_pago: pagoRealizadoFinal,
+            referencia_primer_pago: referenciaFinal,
+            pagos_realizados: pagosSemestre ? pagosSemestre : undefined,
+            pago_credito_tecnologico: pagoCreditoTecnologico
           };
 
         } catch (error) {
@@ -302,10 +320,13 @@ export class RegistroIndividual implements OnInit {
     return this.semestreActual.map(g => g.gestion).join(', ');
   }
 
-  async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number]> {
+  async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number, boolean, number, boolean]> {
     let referencia = "";
     let planAccedido = "";
     let pagoRealizado = 0;
+    let pagosSemestre = 0;
+    let pagoCreditoTecnologico = false;  
+    let sinPago = false;
 
     try {
       if (!window.academicoAPI?.obtenerPagosRealizados) {
@@ -353,6 +374,15 @@ export class RegistroIndividual implements OnInit {
                     );
                     break;
                   }
+                  else if(!referencia.includes("TECNOLOGICO")){
+                    pagosSemestre += parseFloat(
+                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
+                        .replace(",", "")
+                    );
+                  }
+                  else{
+                    pagoCreditoTecnologico = true;
+                  }
                 }
               }
 
@@ -367,15 +397,15 @@ export class RegistroIndividual implements OnInit {
       console.error('Error in obtenerPlanDePagoRealizado:', error);
     }
 
-    // If no payment data was found automatically, prompt for manual input
+    // If no payment data was found automatically, mark as sin pago
     if (!planAccedido || !referencia || pagoRealizado === 0) {
-      return await this.promptForManualPaymentData(id_estudiante);
+      sinPago = true;
     }
 
-    return [referencia, planAccedido, pagoRealizado];
+    return [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
   }
 
-  private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number]> {
+  private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number, boolean]> {
     return new Promise((resolve) => {
       // Find student name and CI for display
       const student = this.registrosEstudiantes.find(r => r.id_estudiante_siaan === id_estudiante);
@@ -391,14 +421,15 @@ export class RegistroIndividual implements OnInit {
     });
   }
 
-  private manualPaymentResolve: ((value: [string, string, number]) => void) | null = null;
+  private manualPaymentResolve: ((value: [string, string, number, boolean]) => void) | null = null;
 
   onManualPaymentSubmit(data: ManualPaymentData): void {
     if (this.manualPaymentResolve) {
-      const result: [string, string, number] = [
+      const result: [string, string, number, boolean] = [
         data.referencia,
         data.planAccedido,
-        data.pagoRealizado
+        data.pagoRealizado,
+        false // Manual input means sinPago = false
       ];
 
       this.manualPaymentResolve(result);
@@ -412,8 +443,8 @@ export class RegistroIndividual implements OnInit {
 
   onManualPaymentCancel(): void {
     if (this.manualPaymentResolve) {
-      // Return default/empty values if cancelled
-      this.manualPaymentResolve(['', '', 0]);
+      // Return default/empty values if cancelled - mark as sinPago = true
+      this.manualPaymentResolve(['', '', 0, true]);
       this.manualPaymentResolve = null;
     }
 

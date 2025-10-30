@@ -14,7 +14,9 @@ export interface RegistroEstudiante {
     porcentaje_descuento: number;
     monto_primer_pago: number;
     plan_primer_pago: string;
-    referencia_primer_pago: string; // Campo obligatorio en la base de datos
+    pagos_realizados?: number;
+    referencia_primer_pago: string;
+    pago_credito_tecnologico?: boolean; // Campo obligatorio en la base de datos
     total_semestre: number;
     creditos_descuento?: number;
     registrado: boolean;

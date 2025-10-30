@@ -624,13 +624,24 @@ export class BeneficiosMasivo implements OnInit {
       }
 
       // Obtener plan de pago realizado
-      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(
         idEstudiante,
         nombreEstudiante,
         ciEstudiante
       );
 
-      if (sinPago || pagoRealizado === 0) {
+      // Si no hay pago pero el descuento es 100%, usar valores predeterminados
+      let referenciaFinal = referencia;
+      let planAccedidoFinal = planAccedido;
+      let pagoRealizadoFinal = pagoRealizado;
+
+      if ((sinPago || pagoRealizado === 0) && estudiante.porcentaje === 1) {
+        // Estudiante con 100% de descuento y sin pago - asignar valores especiales
+        referenciaFinal = 'No Corresponde';
+        planAccedidoFinal = 'Ninguno';
+        pagoRealizadoFinal = 0;
+      } else if (sinPago || pagoRealizado === 0) {
+        // No hay pago y no es 100% descuento - marcar como error
         estudiante.hasErrors = true;
         estudiante.errorMessage = 'No se encontró factura de pago del semestre actual';
         return;
@@ -664,9 +675,11 @@ export class BeneficiosMasivo implements OnInit {
         valor_credito: valorCredito,
         credito_tecnologico: creditoTecnologico,
         porcentaje_descuento: estudiante.porcentaje,
-        monto_primer_pago: pagoRealizado,
-        plan_primer_pago: planAccedido,
-        referencia_primer_pago: referencia,
+        monto_primer_pago: pagoRealizadoFinal,
+        plan_primer_pago: planAccedidoFinal,
+        pagos_realizados: pagosSemestre,
+        pago_credito_tecnologico: pagoCreditoTecnologico,
+        referencia_primer_pago: referenciaFinal,
         total_semestre: (valorCredito * totalCreditos) + creditoTecnologico,
         registrado: false,
         id_gestion: idGestionActual
@@ -730,15 +743,17 @@ export class BeneficiosMasivo implements OnInit {
     return [totalCreditos, carrera, false]; // false = tiene kardex válido
   }
 
-  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean]> {
+  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean, number, boolean]> {
     let referencia = "";
     let planAccedido = "";
     let pagoRealizado = 0;
+    let pagosSemestre = 0;
+    let pagoCreditoTecnologico = false;  
     let sinPago = false;
 
     if (!window.academicoAPI) {
       // No API available - mark as sin_pago
-      return [referencia, 'No encontrado', pagoRealizado, true];
+      return [referencia, 'No encontrado', pagoRealizado, true, 0, false];
     }
 
     try {
@@ -782,6 +797,15 @@ export class BeneficiosMasivo implements OnInit {
                     );
                     break;
                   }
+                  else if(!referencia.includes("TECNOLOGICO")){
+                    pagosSemestre += parseFloat(
+                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
+                        .replace(",", "")
+                    );
+                  }
+                  else{
+                    pagoCreditoTecnologico = true;
+                  }
                 }
               }
 
@@ -802,7 +826,7 @@ export class BeneficiosMasivo implements OnInit {
     }
 
     // Return values with sin_pago flag
-    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago];
+    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
   }
 
   eliminarEstudiante(estudiante: EstudianteBeneficio): void {
@@ -921,6 +945,8 @@ export class BeneficiosMasivo implements OnInit {
         porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
         monto_primer_pago: estudiante.registro!.monto_primer_pago,
         plan_primer_pago: estudiante.registro!.plan_primer_pago,
+        pagos_realizados: estudiante.registro!.pagos_realizados ? estudiante.registro!.pagos_realizados : undefined,
+        pago_credito_tecnologico: estudiante.registro!.pago_credito_tecnologico,
         referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
         total_semestre: estudiante.registro!.total_semestre,
         registrado: false,
@@ -1016,6 +1042,28 @@ export class BeneficiosMasivo implements OnInit {
     
     // Reiniciar todo el proceso
     this.limpiarArchivo();
+  }
+
+  /*
+  get derechosAcademicosConDescuento(): number {
+    return this.registro.creditos_descuento! * (this.registro.valor_credito || 0) * (1 - (this.registro.porcentaje_descuento || 0)) + (this.registro.valor_credito || 0) * (this.registro.total_creditos! - this.registro.creditos_descuento!);
+  }
+  get totalConDescuento(): number {
+    return this.derechosAcademicosConDescuento + (this.registro.credito_tecnologico || 0);
+  }
+
+  get saldoConDescuento(): number {
+    return this.totalConDescuento - (this.registro.monto_primer_pago || 0) - (this.registro.pagos_realizados || 0) - (this.registro.pago_credito_tecnologico ? this.registro.credito_tecnologico! : 0);
+  }
+  */
+
+   obtenerSaldoConDescuento(registro: RegistroEstudiante): number {
+    const beneficio = this.beneficiosDisponibles.find(b => b.id === registro.id_beneficio);
+    registro.creditos_descuento = beneficio?.limite_creditos ? registro.total_creditos > beneficio?.limite_creditos ? beneficio.limite_creditos : registro.total_creditos : registro.total_creditos;
+    const derechosAcademicosConDescuento = registro.creditos_descuento! * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + (registro.valor_credito || 0) * (registro.total_creditos! - registro.creditos_descuento!);
+    const totalConDescuento = derechosAcademicosConDescuento + (registro.credito_tecnologico || 0);
+    const saldoConDescuento = totalConDescuento - (registro.monto_primer_pago || 0) - (registro.pagos_realizados || 0) - (registro.pago_credito_tecnologico ? registro.credito_tecnologico! : 0);
+    return saldoConDescuento;
   }
 
   toggleDetallesError(index: number): void {
@@ -1237,13 +1285,24 @@ export class BeneficiosMasivo implements OnInit {
       }
 
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(
         idEstudiante,
         nombreEstudiante,
         ciEstudiante
       );
 
-      if (sinPago || pagoRealizado === 0) {
+      // Si no hay pago pero el descuento es 100%, usar valores predeterminados
+      let referenciaFinal = referencia;
+      let planAccedidoFinal = planAccedido;
+      let pagoRealizadoFinal = pagoRealizado;
+
+      if ((sinPago || pagoRealizado === 0) && this.selectedPorcentaje === 100) {
+        // Estudiante con 100% de descuento y sin pago - asignar valores especiales
+        referenciaFinal = 'No Corresponde';
+        planAccedidoFinal = 'Ninguno';
+        pagoRealizadoFinal = 0;
+      } else if (sinPago || pagoRealizado === 0) {
+        // No hay pago y no es 100% descuento - marcar como error
         throw new Error('No se encontró factura de pago del semestre actual');
       }
 
@@ -1293,9 +1352,11 @@ export class BeneficiosMasivo implements OnInit {
         valor_credito: valorCredito,
         credito_tecnologico: creditoTecnologico,
         porcentaje_descuento: porcentajeDecimal, // Already in decimal format
-        monto_primer_pago: pagoRealizado,
-        plan_primer_pago: planAccedido,
-        referencia_primer_pago: referencia,
+        monto_primer_pago: pagoRealizadoFinal,
+        plan_primer_pago: planAccedidoFinal,
+        referencia_primer_pago: referenciaFinal,
+        pagos_realizados: pagosSemestre,
+        pago_credito_tecnologico: pagoCreditoTecnologico,
         total_semestre: (totalCreditos * valorCredito) + creditoTecnologico,
         registrado: false,
         id_gestion: this.semestreActual[0]?.id || ''

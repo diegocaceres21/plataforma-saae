@@ -104,10 +104,16 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   registroEnEdicion: RegistroConSolicitud | null = null;
   editForm = {
     comentarios: '',
-    registrado: false
+    registrado: false,
+    porcentaje_descuento: 0
   };
   isSavingRegistro = false;
   showEditModal = false;
+
+  // Modal de confirmación de eliminación
+  showDeleteModal = false;
+  solicitudAEliminar: SolicitudAgrupada | null = null;
+  isDeletingRegistros = false;
   comentariosExpandido = new Set<string>();
   isExportingListadoExcel = false;
   isGeneratingListadoPDF = false;
@@ -703,6 +709,51 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     return beneficio?.nombre || 'Desconocido';
   }
 
+  // Método para verificar si un beneficio es "Apoyo Familiar"
+  esApoyoFamiliar(idBeneficio?: string): boolean {
+    if (!idBeneficio) return false;
+    const beneficio = this.beneficios.find(b => b.id === idBeneficio);
+    return beneficio?.nombre?.toLowerCase().includes('apoyo familiar') ?? false;
+  }
+
+  // Método para verificar si el porcentaje es editable
+  esPorcentajeEditable(idBeneficio?: string): boolean {
+    if (!idBeneficio) return false;
+    
+    const beneficio = this.beneficios.find(b => b.id === idBeneficio);
+    if (!beneficio) return false;
+    
+    // No es editable si es Apoyo Familiar
+    if (beneficio.nombre?.toLowerCase().includes('apoyo familiar')) {
+      return false;
+    }
+    
+    // No es editable si el beneficio tiene un porcentaje predeterminado
+    if (beneficio.porcentaje !== undefined && beneficio.porcentaje !== null) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Método para obtener el motivo de no edición
+  getMotivoNoEditable(idBeneficio?: string): string {
+    if (!idBeneficio) return 'Beneficio no especificado';
+    
+    const beneficio = this.beneficios.find(b => b.id === idBeneficio);
+    if (!beneficio) return 'Beneficio no encontrado';
+    
+    if (beneficio.nombre?.toLowerCase().includes('apoyo familiar')) {
+      return 'El descuento no puede editarse para beneficios de Apoyo Familiar.';
+    }
+    
+    if (beneficio.porcentaje !== undefined && beneficio.porcentaje !== null) {
+      return `Este beneficio tiene un porcentaje predeterminado de ${(beneficio.porcentaje * 100).toFixed(0)}% que no puede modificarse.`;
+    }
+    
+    return 'El porcentaje no puede editarse para este beneficio.';
+  }
+
   abrirModalEdicion(registro: RegistroConSolicitud): void {
     if (this.isSavingRegistro) {
       return;
@@ -712,7 +763,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.registroEnEdicion = registro;
     this.editForm = {
       comentarios: registro.comentarios ?? '',
-      registrado: !!registro.registrado
+      registrado: !!registro.registrado,
+      porcentaje_descuento: (registro.porcentaje_descuento ?? 0) * 100 // Convertir a porcentaje
     };
     this.showEditModal = true;
   }
@@ -723,7 +775,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.registroEnEdicion = null;
     this.editForm = {
       comentarios: '',
-      registrado: false
+      registrado: false,
+      porcentaje_descuento: 0
     };
     this.isSavingRegistro = false;
   }
@@ -748,20 +801,40 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Validar porcentaje de descuento
+    const porcentajeDescuento = this.editForm.porcentaje_descuento;
+    if (porcentajeDescuento < 0 || porcentajeDescuento > 100) {
+      this.toastService.warning('Porcentaje inválido', 'El porcentaje de descuento debe estar entre 0 y 100.');
+      return;
+    }
+
     this.isSavingRegistro = true;
 
     try {
-      const payload = {
+      const payload: any = {
         comentarios: comentariosFormateados || null,
         registrado: this.editForm.registrado
       };
 
+      // Solo incluir porcentaje_descuento si es editable
+      const esEditable = this.esPorcentajeEditable(registro.id_beneficio);
+      if (esEditable) {
+        payload.porcentaje_descuento = porcentajeDescuento / 100; // Convertir a decimal
+      }
+
       await window.academicoAPI.updateRegistroEstudiante(registro.id, payload);
 
-      this.actualizarRegistroLocal(registro.id, {
+      const cambiosLocales: Partial<RegistroEstudiante> = {
         comentarios: payload.comentarios ?? undefined,
         registrado: payload.registrado
-      });
+      };
+
+      // Actualizar porcentaje localmente si se modificó
+      if (esEditable) {
+        cambiosLocales.porcentaje_descuento = payload.porcentaje_descuento;
+      }
+
+      this.actualizarRegistroLocal(registro.id, cambiosLocales);
 
       this.toastService.success('Registro actualizado', 'Los cambios se guardaron correctamente', 3000);
       this.cerrarModalEdicion();
@@ -808,6 +881,17 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     }
   }
 
+  obtenerTotalConDescuento(registro: RegistroEstudiante): number {
+    const beneficio = this.beneficios.find(b => b.id === registro.id_beneficio);
+    registro.creditos_descuento = beneficio?.limite_creditos ? registro.total_creditos > beneficio?.limite_creditos ? beneficio.limite_creditos : registro.total_creditos : registro.total_creditos;
+    const derechosAcademicosConDescuento = registro.creditos_descuento! * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + (registro.valor_credito || 0) * (registro.total_creditos! - registro.creditos_descuento!);
+    return derechosAcademicosConDescuento + (registro.credito_tecnologico || 0);
+  }
+  obtenerSaldoConDescuento(registro: RegistroEstudiante): number {
+    const totalConDescuento = this.obtenerTotalConDescuento(registro);
+    const saldoConDescuento = totalConDescuento - (registro.monto_primer_pago || 0) - (registro.pagos_realizados || 0) - (registro.pago_credito_tecnologico ? registro.credito_tecnologico! : 0);
+    return saldoConDescuento;
+  }
   // Métodos para vista detallada
   openDetailModal(solicitudAgrupada: SolicitudAgrupada): void {
     for (const registro of solicitudAgrupada.registros) {
@@ -1448,6 +1532,140 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       this.comentariosExpandido.delete(registroId);
     } else {
       this.comentariosExpandido.add(registroId);
+    }
+  }
+
+  // Métodos para eliminación de registros
+  abrirModalEliminacion(solicitudAgrupada: SolicitudAgrupada): void {
+    if (this.isDeletingRegistros) {
+      return;
+    }
+
+    this.solicitudAEliminar = solicitudAgrupada;
+    this.showDeleteModal = true;
+  }
+
+  cerrarModalEliminacion(): void {
+    this.showDeleteModal = false;
+    this.solicitudAEliminar = null;
+    this.isDeletingRegistros = false;
+  }
+
+  async confirmarEliminacion(): Promise<void> {
+    if (!this.solicitudAEliminar) {
+      return;
+    }
+
+    if (!window.academicoAPI?.updateRegistroEstudiante) {
+      this.toastService.error('Funcionalidad no disponible', 'La API de actualización no está accesible en este momento');
+      return;
+    }
+
+    const registrosAEliminar = this.solicitudAEliminar.registros;
+    const cantidadRegistros = registrosAEliminar.length;
+
+    // Validación: si es un grupo, deben eliminarse todos
+    if (cantidadRegistros > 1) {
+      const tieneIdSolicitud = registrosAEliminar.some(r => r.id_solicitud && !r.id_solicitud.startsWith('individual-'));
+      if (tieneIdSolicitud) {
+        // Es un apoyo familiar (grupo)
+        console.log(`🗑️ Eliminando grupo completo: ${cantidadRegistros} estudiante(s)`);
+      }
+    }
+
+    this.isDeletingRegistros = true;
+
+    try {
+      // Marcar todos los registros del grupo como inactivos y no visibles
+      const promesasEliminacion = registrosAEliminar.map(registro => {
+        if (!registro.id) {
+          throw new Error(`Registro sin ID: ${registro.ci_estudiante}`);
+        }
+
+        return window.academicoAPI!.updateRegistroEstudiante(registro.id, {
+          inactivo: true,
+          visible: false
+        });
+      });
+
+      await Promise.all(promesasEliminacion);
+
+      // Eliminar el grupo de las colecciones locales
+      this.eliminarGrupoLocal(this.solicitudAEliminar.solicitud.id);
+
+      // Mensaje de éxito
+      const mensaje = cantidadRegistros > 1 
+        ? `Se eliminó el grupo completo (${cantidadRegistros} estudiantes)`
+        : 'Se eliminó el registro correctamente';
+
+      this.toastService.success('Eliminación exitosa', mensaje, 3000);
+
+      // Cerrar modal
+      this.cerrarModalEliminacion();
+
+      // Recargar datos para reflejar cambios
+      await this.cargarDatos();
+
+    } catch (error) {
+      console.error('❌ Error eliminando registros:', error);
+      this.toastService.error(
+        'Error al eliminar', 
+        'No se pudieron eliminar los registros. Intente nuevamente.'
+      );
+      this.isDeletingRegistros = false;
+    }
+  }
+
+  private eliminarGrupoLocal(solicitudId?: string): void {
+    if (!solicitudId) {
+      return;
+    }
+
+    // Filtrar el grupo de todas las colecciones
+    this.solicitudesAgrupadas = this.solicitudesAgrupadas.filter(g => g.solicitud.id !== solicitudId);
+    this.solicitudesOriginales = this.solicitudesOriginales.filter(g => g.solicitud.id !== solicitudId);
+    this.solicitudesFiltradasTotales = this.solicitudesFiltradasTotales.filter(g => g.solicitud.id !== solicitudId);
+
+    // Recalcular totales
+    this.totalItems = this.solicitudesFiltradasTotales.length;
+
+    // Ajustar página si es necesario
+    if (this.currentPage > this.totalPages && this.totalPages > 0) {
+      this.currentPage = this.totalPages;
+    }
+  }
+
+  esGrupoFamiliar(solicitudAgrupada: SolicitudAgrupada): boolean {
+    return solicitudAgrupada.registros.length > 1;
+  }
+
+  obtenerTituloEliminacion(): string {
+    if (!this.solicitudAEliminar) {
+      return 'Eliminar registro';
+    }
+
+    const cantidadRegistros = this.solicitudAEliminar.registros.length;
+    return cantidadRegistros > 1 
+      ? `Eliminar grupo completo (${cantidadRegistros} estudiantes)`
+      : 'Eliminar registro';
+  }
+
+  obtenerMensajeEliminacion(): string {
+    if (!this.solicitudAEliminar) {
+      return '';
+    }
+
+    const cantidadRegistros = this.solicitudAEliminar.registros.length;
+    
+    if (cantidadRegistros > 1) {
+      const nombres = this.solicitudAEliminar.registros
+        .map(r => r.nombre_estudiante)
+        .join(', ');
+      
+      return `Estás a punto de eliminar el grupo completo de apoyo familiar que incluye a ${cantidadRegistros} estudiantes: ${nombres}. Esta acción marcará todos los registros como inactivos.`;
+    } else {
+      const registro = this.solicitudAEliminar.registros[0];
+      return `Estás a punto de eliminar el registro de ${registro.nombre_estudiante} (CI: ${registro.ci_estudiante}). Esta acción marcará el registro como inactivo.`;
     }
   }
 }

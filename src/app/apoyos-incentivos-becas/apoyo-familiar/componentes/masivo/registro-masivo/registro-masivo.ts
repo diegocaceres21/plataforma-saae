@@ -525,7 +525,7 @@ export class RegistroMasivo implements OnInit {
         // Only calculate career info if we have valid kardex data
         if (!sinKardex) {
           // Get payment information
-          const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
+          const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
 
           // OPTIMIZATION: O(1) lookup from map instead of O(n) find
           const carreraNormalized = carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -550,6 +550,8 @@ export class RegistroMasivo implements OnInit {
               monto_primer_pago: pagoRealizado,
               plan_primer_pago: planAccedido,
               referencia_primer_pago: referencia,
+              pagos_realizados: pagosSemestre,
+              pago_credito_tecnologico: pagoCreditoTecnologico,
               total_semestre: 0,
               registrado: false,
               comentarios: 'Carrera no encontrada en BD. Seleccione manualmente.',
@@ -585,6 +587,8 @@ export class RegistroMasivo implements OnInit {
             monto_primer_pago: pagoRealizado,
             plan_primer_pago: planAccedido,
             referencia_primer_pago: referencia,
+            pagos_realizados: pagosSemestre,
+            pago_credito_tecnologico: pagoCreditoTecnologico,
             total_semestre: totalSemestre,
             registrado: false,
             comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
@@ -680,6 +684,14 @@ export class RegistroMasivo implements OnInit {
     return registros;
   }
 
+  obtenerSaldoConDescuento(registro: RegistroEstudiante): number {
+    registro.creditos_descuento = registro.total_creditos!; // Inicialmente, todos los créditos son con descuento
+    const derechosAcademicosConDescuento = registro.creditos_descuento! * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + (registro.valor_credito || 0) * (registro.total_creditos! - registro.creditos_descuento!);
+    const totalConDescuento = derechosAcademicosConDescuento + (registro.credito_tecnologico || 0);
+    const saldoConDescuento = totalConDescuento - (registro.monto_primer_pago || 0) - (registro.pagos_realizados || 0) - (registro.pago_credito_tecnologico ? registro.credito_tecnologico! : 0);
+    return saldoConDescuento;
+  }
+
   private async obtenerInformacionKardex(kardex: any[]): Promise<[number, string, boolean]> {
     let totalCreditos = 0;
     let carrera = '';
@@ -721,15 +733,17 @@ export class RegistroMasivo implements OnInit {
     return [totalCreditos, carrera, false]; // false = tiene kardex válido
   }
 
-  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean]> {
+  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean, number, boolean]> {
     let referencia = "";
     let planAccedido = "";
     let pagoRealizado = 0;
     let sinPago = false;
+    let pagosSemestre = 0;
+    let pagoCreditoTecnologico = false;
 
     if (!window.academicoAPI) {
       // No API available - mark as sin_pago
-      return [referencia, 'No encontrado', pagoRealizado, true];
+      return [referencia, 'No encontrado', pagoRealizado, true, pagosSemestre, pagoCreditoTecnologico];
     }
 
     try {
@@ -773,6 +787,15 @@ export class RegistroMasivo implements OnInit {
                     );
                     break;
                   }
+                  else if(!referencia.includes("TECNOLOGICO")){
+                    pagosSemestre += parseFloat(
+                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
+                        .replace(",", "")
+                    );
+                  }
+                  else{
+                    pagoCreditoTecnologico = true;
+                  }
                 }
               }
 
@@ -793,7 +816,7 @@ export class RegistroMasivo implements OnInit {
     }
 
     // Return values with sin_pago flag
-    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago];
+    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
   }
 
   private calcularPorcentajesGrupo(registros: RegistroEstudiante[]): void {
@@ -961,7 +984,7 @@ export class RegistroMasivo implements OnInit {
       }
 
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
 
       // Get career info
       const carreras = this.carreraService.currentData;
@@ -979,6 +1002,8 @@ export class RegistroMasivo implements OnInit {
       this.registroToReplace.monto_primer_pago = pagoRealizado;
       this.registroToReplace.plan_primer_pago = planAccedido;
       this.registroToReplace.referencia_primer_pago = referencia;
+      this.registroToReplace.pagos_realizados = pagosSemestre; // reset pagos realizados
+      this.registroToReplace.pago_credito_tecnologico = pagoCreditoTecnologico; // reset pago crédito tecnológico
       this.registroToReplace.sin_kardex = false;
       this.registroToReplace.sin_pago = sinPago;
       this.registroToReplace.comentarios = sinPago ? 'Sin plan de pago encontrado' : '';
@@ -1189,6 +1214,9 @@ export class RegistroMasivo implements OnInit {
         registro.monto_primer_pago = manualData.pagoRealizado;
         registro.sin_pago = false;
         registro.comentarios = '';
+        if (registro.pagos_realizados && registro.pagos_realizados > 0) {
+          registro.pagos_realizados -= manualData.pagoRealizado;
+        }
 
         this.toastService.success(
           'Datos de pago actualizados',
@@ -1254,7 +1282,7 @@ export class RegistroMasivo implements OnInit {
       }
 
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado, sinPago] = await this.obtenerPlanDePagoRealizado(
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(
         idEstudiante,
         nombreEstudiante,
         ciEstudiante
@@ -1283,6 +1311,8 @@ export class RegistroMasivo implements OnInit {
         monto_primer_pago: pagoRealizado,
         plan_primer_pago: planAccedido,
         referencia_primer_pago: referencia,
+        pagos_realizados: pagosSemestre,
+        pago_credito_tecnologico: pagoCreditoTecnologico,
         total_semestre: carreraInfo ? ((carreraInfo.tarifario?.valor_credito || 0) * totalCreditos + (carreraInfo.incluye_tecnologico ? (carreraInfo.tarifario?.valor_credito || 0) : 0)) : 0,
         registrado: false,
         comentarios: sinPago ? 'Sin plan de pago encontrado' : '',
@@ -1618,6 +1648,8 @@ export class RegistroMasivo implements OnInit {
       monto_primer_pago: registro.monto_primer_pago,
       plan_primer_pago: registro.plan_primer_pago,
       referencia_primer_pago: registro.referencia_primer_pago,
+      pagos_realizados: registro.pagos_realizados,
+      pago_credito_tecnologico: registro.pago_credito_tecnologico,
       total_semestre: registro.total_semestre,
       registrado: false,
       comentarios: registro.comentarios || '',

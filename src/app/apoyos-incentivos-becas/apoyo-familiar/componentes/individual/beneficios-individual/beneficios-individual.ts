@@ -151,7 +151,7 @@ export class BeneficiosIndividual implements OnInit {
         const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual);
 
         // Get payment information
-        const [referencia, planAccedido, pagoRealizado] = await this.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan);
+        const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan);
 
         // Find career info in database
         const carreraInfo = this.carreraService.currentData.find(c =>
@@ -163,6 +163,24 @@ export class BeneficiosIndividual implements OnInit {
         const beneficio = this.beneficiosDisponibles.find(b => b.id === this.beneficioSeleccionado);
         const porcentajeDescuento = this.mostrarInputPorcentaje ? this.porcentajePersonalizado / 100 : (beneficio?.porcentaje || 0);
 
+        // Si no hay pago pero el descuento es 100%, usar valores predeterminados
+        let referenciaFinal = referencia;
+        let planAccedidoFinal = planAccedido || 'N/A';
+        let pagoRealizadoFinal = pagoRealizado || 0;
+
+        if ((sinPago || pagoRealizado === 0) && porcentajeDescuento === 1) {
+          // Estudiante con 100% de descuento y sin pago - asignar valores especiales
+          referenciaFinal = 'No Corresponde';
+          planAccedidoFinal = 'Ninguno';
+          pagoRealizadoFinal = 0;
+        } else if (sinPago || pagoRealizado === 0) {
+          // No hay pago y no es 100% descuento - solicitar entrada manual
+          const resultManual = await this.promptForManualPaymentData(this.estudiante.id_estudiante_siaan);
+          referenciaFinal = resultManual[0] || 'N/A';
+          planAccedidoFinal = resultManual[1] || 'N/A';
+          pagoRealizadoFinal = resultManual[2] || 0;
+        }
+
         // Update the registry with complete information
         this.estudiante = {
           ...this.estudiante,
@@ -172,15 +190,17 @@ export class BeneficiosIndividual implements OnInit {
           id_beneficio: this.beneficioSeleccionado,
           porcentaje_descuento: porcentajeDescuento,
           total_creditos: totalCreditos || 0,
-          plan_primer_pago: planAccedido || 'N/A',
-          monto_primer_pago: pagoRealizado || 0,
-          referencia_primer_pago: referencia || 'N/A',
+          plan_primer_pago: planAccedidoFinal,
+          monto_primer_pago: pagoRealizadoFinal,
+          referencia_primer_pago: referenciaFinal,
+          pago_credito_tecnologico: pago_credito_tecnologico,
+          pagos_realizados: pagosSemestre ? pagosSemestre : undefined
         };
 
         // Calculate financial details
         if (carreraInfo) {
           this.estudiante.valor_credito = carreraInfo.tarifario?.valor_credito || 0;
-          this.estudiante.credito_tecnologico = porcentajeDescuento !== 1 && carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
+          this.estudiante.credito_tecnologico = carreraInfo.incluye_tecnologico ? carreraInfo.tarifario?.valor_credito || 0 : 0;
           this.estudiante.creditos_descuento = beneficio?.limite_creditos ? totalCreditos > beneficio?.limite_creditos ? beneficio.limite_creditos : totalCreditos : totalCreditos;
           this.estudiante.total_semestre = this.estudiante.valor_credito * (this.estudiante.total_creditos || 0) + this.estudiante.credito_tecnologico;
         }
@@ -281,10 +301,13 @@ export class BeneficiosIndividual implements OnInit {
     return this.semestreActual.map(g => g.gestion).join(', ');
   }
 
-  async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number]> {
+  async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number, boolean, number, boolean]> {
     let referencia = "";
     let planAccedido = "";
     let pagoRealizado = 0;
+    let pagosSemestre = 0;
+    let sinPago = false;
+    let pagoCreditoTecnologico = false;
 
     try {
       if (!window.academicoAPI?.obtenerPagosRealizados) {
@@ -331,6 +354,15 @@ export class BeneficiosIndividual implements OnInit {
                     );
                     break;
                   }
+                  else if(!referencia.includes("TECNOLOGICO")){
+                    pagosSemestre += parseFloat(
+                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
+                        .replace(",", "")
+                    );
+                  }
+                  else{
+                    pagoCreditoTecnologico = true;
+                  }
                 }
               }
 
@@ -346,27 +378,28 @@ export class BeneficiosIndividual implements OnInit {
     }
 
     if (!planAccedido || !referencia || pagoRealizado === 0) {
-      return await this.promptForManualPaymentData(id_estudiante);
+      sinPago = true;
     }
 
-    return [referencia, planAccedido, pagoRealizado];
+    return [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
   }
 
-  private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number]> {
+  private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number, boolean]> {
     return new Promise((resolve) => {
       this.showManualPaymentModal = true;
       this.manualPaymentResolve = resolve;
     });
   }
 
-  private manualPaymentResolve: ((value: [string, string, number]) => void) | null = null;
+  private manualPaymentResolve: ((value: [string, string, number, boolean]) => void) | null = null;
 
   onManualPaymentSubmit(data: ManualPaymentData): void {
     if (this.manualPaymentResolve) {
-      const result: [string, string, number] = [
+      const result: [string, string, number, boolean] = [
         data.referencia,
         data.planAccedido,
-        data.pagoRealizado
+        data.pagoRealizado,
+        false // Manual input means sinPago = false
       ];
 
       this.manualPaymentResolve(result);
@@ -378,7 +411,7 @@ export class BeneficiosIndividual implements OnInit {
 
   onManualPaymentCancel(): void {
     if (this.manualPaymentResolve) {
-      this.manualPaymentResolve(['', '', 0]);
+      this.manualPaymentResolve(['', '', 0, true]); // sinPago = true on cancel
       this.manualPaymentResolve = null;
     }
 

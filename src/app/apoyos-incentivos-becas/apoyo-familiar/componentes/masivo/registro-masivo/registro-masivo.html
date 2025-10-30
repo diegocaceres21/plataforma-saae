@@ -319,14 +319,15 @@
                             @if (tieneEmpates(grupo)) {
                               <th class="px-2 py-2 text-center font-semibold text-slate-700 w-16">Orden</th>
                             }
-                            <th class="px-4 py-2 text-left font-semibold text-slate-700">Criterios de Búsqueda</th>
+                            <!--<th class="px-4 py-2 text-left font-semibold text-slate-700">Criterios de Búsqueda</th>-->
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">CI</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Nombre</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Carrera</th>
                             <th class="px-4 py-2 text-right font-semibold text-slate-700">U.V.E.</th>
                             <th class="px-4 py-2 text-right font-semibold text-slate-700">Descuento</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Plan Pago</th>
-                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Monto Pago</th>
+                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Pagos realizados</th>
+                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Saldo Semestre</th>
                             <th class="px-4 py-2 text-center font-semibold text-slate-700 w-20">Acciones</th>
                           </tr>
                         </thead>
@@ -372,7 +373,7 @@
                               }
                               
                               <!-- Search Criteria Column -->
-                              <td class="px-4 py-3">
+                              <!--<td class="px-4 py-3">
                                 <div class="space-y-1">
                                   @if (registro.criterio_carnet || registro.criterio_nombre) {
                                     <div class="text-xs">
@@ -406,7 +407,7 @@
                                     <span class="text-xs text-slate-400">Sin criterios</span>
                                   }
                                 </div>
-                              </td>
+                              </td>-->
                               
                               <td class="px-4 py-3">
                                 <div class="flex items-center gap-2">
@@ -469,7 +470,11 @@
                               </td>
                               <td class="px-4 py-3 text-xs">{{ registro.plan_primer_pago }}</td>
                               <td class="px-4 py-3 text-right font-medium">
-                                {{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}
+                                {{  (registro.monto_primer_pago || 0) +  ((registro.pagos_realizados || 0) + (registro.pago_credito_tecnologico ? registro.credito_tecnologico! : 0)) | currency:'Bs ':'symbol':'1.2-2' }}
+                              </td>
+
+                              <td class="px-4 py-3 text-right font-medium">
+                                {{ obtenerSaldoConDescuento(registro) | currency:'Bs ':'symbol':'1.2-2' }}
                               </td>
                               <td class="px-4 py-3 text-center">
                                 <button
@@ -1123,7 +1128,7 @@
             <select [(ngModel)]="carreraSeleccionadaId" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
               <option [ngValue]="null">Seleccione una carrera...</option>
               @for (c of carrerasDisponibles; track c.id) {
-                <option [ngValue]="c.id">{{ c.carrera }} — {{ c.tarifario?.valor_credito || 0 | currency:'BOB ':'symbol':'1.2-2' }}</option>
+                <option [ngValue]="c.id">{{ c.carrera }} — {{ c.tarifario?.valor_credito || 0 | currency:'Bs ':'symbol':'1.2-2' }}</option>
               }
             </select>
           </div>

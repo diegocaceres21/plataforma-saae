@@ -284,10 +284,13 @@
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Carnet</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Carrera</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Beneficio</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Total UVE</th>
-                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Plan</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Descuento</th>
                 <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Estado</th>
+
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Total UVE</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Plan</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Pagos Realizados</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Saldo Semestre</th>
                 <th class="px-4 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
@@ -305,20 +308,6 @@
                     }
                   </td>
                   <td class="px-4 py-3 text-sm text-slate-900">{{ estudiante.beneficio }}</td>
-                  <td class="px-4 py-3 text-sm text-slate-900">
-                    @if (!estudiante.hasErrors && estudiante.registro) {
-                      {{ estudiante.registro.total_creditos }}
-                    } @else {
-                      -
-                    }
-                  </td>
-                  <td class="px-4 py-3 text-sm text-slate-900">
-                    @if (!estudiante.hasErrors && estudiante.registro) {
-                      {{ estudiante.registro.plan_primer_pago }}
-                    } @else {
-                      -
-                    }
-                  </td>
                   <td class="px-4 py-3 text-sm">
                     @if (!estudiante.hasErrors && estudiante.registro) {
                       <div class="flex items-center gap-2">
@@ -368,6 +357,39 @@
                       </div>
                     }
                   </td>
+                  <td class="px-4 py-3 text-sm text-slate-900">
+                    @if (!estudiante.hasErrors && estudiante.registro) {
+                      {{ estudiante.registro.total_creditos }}
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-900">
+                    @if (!estudiante.hasErrors && estudiante.registro) {
+                      {{ estudiante.registro.plan_primer_pago }}
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-900">
+                    @if (!estudiante.hasErrors && estudiante.registro) {
+                      {{ (estudiante.registro.monto_primer_pago || 0) +  ((estudiante.registro.pagos_realizados || 0) + (estudiante.registro.pago_credito_tecnologico? estudiante.registro.credito_tecnologico! : 0))  | currency:'Bs. ':'symbol':'1.2-2' }}
+                    } @else {
+                      -
+                    }
+                  </td>
+                  <!--
+                  
+                  -->
+                  <td class="px-4 py-3 text-sm text-slate-900">
+                    @if (!estudiante.hasErrors && estudiante.registro) {
+                      {{ obtenerSaldoConDescuento(estudiante.registro) | currency:'Bs. ':'symbol':'1.2-2' }}
+                    } @else {
+                      -
+                    }
+                  </td>
+
+
                   <td class="px-4 py-3 text-center">
                     <button
                       (click)="confirmarEliminarEstudiante(estudiante)"

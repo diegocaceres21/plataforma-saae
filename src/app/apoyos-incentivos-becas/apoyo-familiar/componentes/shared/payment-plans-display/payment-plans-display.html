@@ -35,7 +35,7 @@
     <!-- Plan Original -->
     @if (showBothPlans) {
       <div class="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300" 
-           [ngClass]="!hasDiscount ? 'max-w-md' : ''">
+           [ngClass]="!hasDiscount ? 'w-lg' : ''">
         <div class="flex items-center justify-center mb-6">
           <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-3">
             <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -63,11 +63,29 @@
             </span>
           </div>
 
-          <div class="flex justify-between items-center py-2 px-4">
-            <span class="font-[Roboto] text-sm font-medium text-gray-600">(Derecho de inscripción):</span>
-            <span class="font-[Inter] text-base font-semibold text-red-600">
-              ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
-            </span>
+          <div class="space-y-1.5 py-2 px-4">
+            <div class="flex justify-between items-center">
+              <span class="font-[Roboto] text-sm font-medium text-gray-700">(Derecho de inscripción):</span>
+              <span class="font-[Inter] text-base font-semibold text-red-600">
+                ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
+              </span>
+            </div>
+            <div class="flex flex-col">
+              <span class="font-[Roboto] text-sm font-black text-gray-600">Pagos realizados:</span>
+              <div class="flex justify-between items-center py-0.5 pl-1">
+                <span class="font-[Roboto] text-sm font-medium text-gray-600">(Derechos Académicos):</span>
+                <span class="font-[Inter] text-base font-semibold text-red-600">
+                  ({{ (registro.pagos_realizados || 0) | currency:'Bs. ':'symbol':'1.2-2' }})
+                </span>
+              </div>
+
+              <div class="flex justify-between items-center py-0.5 pl-1">
+                <span class="font-[Roboto] text-sm font-medium text-gray-600">(Crédito Tecnológico):</span>
+                <span class="font-[Inter] text-base font-semibold text-red-600">
+                  ({{ (registro.pago_credito_tecnologico ? registro.credito_tecnologico : 0) | currency:'Bs. ':'symbol':'1.2-2' }})
+                </span>
+              </div>
+            </div>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
@@ -76,6 +94,17 @@
               {{ saldoOriginal | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
+
+          @if(mostrarProntoPago){
+            <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
+              <span class="font-[Roboto] text-base font-bold text-black">Saldo con Pronto Pago:</span>
+              <span class="font-[Inter] text-base font-bold text-black">
+                {{ saldoProntoPago | currency:'Bs. ':'symbol':'1.2-2' }}
+              </span>
+            </div>
+          }
+          
+
         </div>
       </div>
     }
@@ -106,7 +135,7 @@
           
           <div class="flex justify-between items-center pb-3 px-4 border-b border-green-100">
             <span class="font-[Roboto] text-sm font-medium text-gray-700">Crédito Tecnológico:</span>
-            <span class="font-[Inter] text-base font-bold text-black">{{ registro.credito_tecnologico | currency:'Bs. ':'symbol':'1.2-2' }}</span>
+            <span class="font-[Inter] text-base font-bold text-black">{{ (registro.porcentaje_descuento !== 1 ? registro.credito_tecnologico || 0 : 0) | currency:'Bs. ':'symbol':'1.2-2' }}</span>
           </div>
 
           <div class="flex justify-between items-center py-4 border-2 border-gray-200 bg-gray-50 rounded-lg px-4 mt-4">
@@ -115,13 +144,33 @@
               {{ totalConDescuento | currency:'Bs. ':'symbol':'1.2-2' }}
             </span>
           </div>
+          <div class="space-y-1.5 py-2 px-4">
+            <div class="flex justify-between items-center">
+              <span class="font-[Roboto] text-sm font-medium text-gray-700">(Derecho de inscripción):</span>
+              <span class="font-[Inter] text-base font-semibold text-red-600">
+                ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
+              </span>
+            </div>
+            <div class="flex flex-col">
+              <span class="font-[Roboto] text-sm font-black text-gray-600">Pagos realizados:</span>
+              <div class="flex justify-between items-center py-0.5 pl-1">
+                <span class="font-[Roboto] text-sm font-medium text-gray-600">(Derechos Académicos):</span>
+                <span class="font-[Inter] text-base font-semibold text-red-600">
+                  ({{ (registro.pagos_realizados || 0) | currency:'Bs. ':'symbol':'1.2-2' }})
+                </span>
+              </div>
 
-          <div class="flex justify-between items-center py-2 px-4">
-            <span class="font-[Roboto] text-sm font-medium text-gray-700">(Derecho de inscripción):</span>
-            <span class="font-[Inter] text-base font-semibold text-red-600">
-              ({{ registro.monto_primer_pago | currency:'Bs. ':'symbol':'1.2-2' }})
-            </span>
+              <div class="flex justify-between items-center py-0.5 pl-1">
+                <span class="font-[Roboto] text-sm font-medium text-gray-600">(Crédito Tecnológico):</span>
+                <span class="font-[Inter] text-base font-semibold text-red-600">
+                  ({{ (registro.pago_credito_tecnologico ? registro.credito_tecnologico : 0) | currency:'Bs. ':'symbol':'1.2-2' }})
+                </span>
+              </div>
+            </div>
           </div>
+          
+          
+
 
           <div class="flex justify-between items-center py-4 border-2 border-blue-200 bg-blue-50 rounded-lg px-4">
             <span class="font-[Roboto] text-base font-bold text-black">Saldo Semestre:</span>
