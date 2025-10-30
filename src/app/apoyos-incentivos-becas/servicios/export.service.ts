@@ -55,7 +55,7 @@ export class ExportService {
     ];
   }
 
-  // Exportación a PDF
+  // Exportación a PDF (vista individual)
   exportToPDF(registros: Partial<RegistroEstudiante>[], documentTitle: string = 'REPORTE DE APOYO FAMILIAR'): Promise<boolean> {
     return new Promise((resolve) => {
       if (registros.length === 0) {
@@ -85,6 +85,88 @@ export class ExportService {
           'Error en Generación de PDF',
           'Ocurrió un error al generar el archivo PDF. Por favor, intente nuevamente.'
         );
+        resolve(false);
+      }
+    });
+  }
+
+  // Exportación a PDF (listado general con formato de tabla)
+  exportListToPDF(
+    registros: Partial<RegistroEstudiante>[], 
+    getNombreGestion: (id: string) => string,
+    formatearFecha: (fecha: string) => string
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (registros.length === 0) {
+        this.toastService.warning(
+          'Sin Datos',
+          'No hay registros disponibles para exportar'
+        );
+        resolve(false);
+        return;
+      }
+
+      try {
+        // Simular tiempo de procesamiento
+        setTimeout(() => {
+          this.generateListPDFDocument(registros, getNombreGestion, formatearFecha);
+
+          this.toastService.success(
+            'PDF Generado Exitosamente',
+            'El listado general ha sido exportado correctamente',
+            3000
+          );
+          resolve(true);
+        }, 2000);
+
+      } catch (error) {
+        this.toastService.error(
+          'Error en Generación de PDF',
+          'Ocurrió un error al generar el archivo PDF. Por favor, intente nuevamente.'
+        );
+        console.error('Error exportando PDF:', error);
+        resolve(false);
+      }
+    });
+  }
+
+  // Exportación a PDF (detalle de solicitud individual)
+  exportDetailToPDF(
+    registros: Partial<RegistroEstudiante>[],
+    solicitudId: string,
+    gestionNombre: string,
+    getNombreGestion: (id: string) => string,
+    formatearFecha: (fecha: string) => string
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (registros.length === 0) {
+        this.toastService.warning(
+          'Sin Datos',
+          'No hay datos seleccionados para exportar'
+        );
+        resolve(false);
+        return;
+      }
+
+      try {
+        // Simular tiempo de procesamiento
+        setTimeout(() => {
+          this.generateDetailPDFDocument(registros, solicitudId, gestionNombre, getNombreGestion);
+
+          this.toastService.success(
+            'PDF Generado',
+            'Detalle de solicitud exportado correctamente',
+            3000
+          );
+          resolve(true);
+        }, 2000);
+
+      } catch (error) {
+        this.toastService.error(
+          'Error en Generación de PDF',
+          'Ocurrió un error al generar el archivo PDF. Por favor, intente nuevamente.'
+        );
+        console.error('Error exportando PDF de detalle:', error);
         resolve(false);
       }
     });
@@ -158,6 +240,285 @@ export class ExportService {
     const nombreArchivo = `reporte_apoyo_familiar_${fechaFormateada}_${horaFormateada}.pdf`;
 
     doc.save(nombreArchivo);
+  }
+
+  private generateListPDFDocument(
+    registros: Partial<RegistroEstudiante>[], 
+    getNombreGestion: (id: string) => string,
+    formatearFecha: (fecha: string) => string
+  ): void {
+    const doc = new jsPDF('l', 'mm', 'a4'); // Orientación horizontal
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 15;
+
+    // Encabezado principal
+    this.addListPDFHeader(doc, pageWidth, margin);
+
+    let currentY = 45;
+
+    // Tabla de registros
+    const tableData = this.prepareListTableData(registros, getNombreGestion, formatearFecha);
+    
+    // Configuración de columnas para la tabla
+    const headers = ['#', 'Gestión', 'CI', 'Estudiante', 'Carrera', 'Beneficio', 'UVE', 'Desc.', 'Plan', 'Estado'];
+    const colWidths = [8, 20, 22, 45, 50, 35, 12, 12, 25, 18];
+    const rowHeight = 7;
+
+    // Encabezado de tabla
+    doc.setFillColor(30, 58, 138);
+    doc.setDrawColor(30, 58, 138);
+    
+    let headerX = margin;
+    doc.rect(headerX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+
+    headers.forEach((header, index) => {
+      doc.text(header, headerX + colWidths[index] / 2, currentY + 5, { align: 'center' });
+      headerX += colWidths[index];
+    });
+
+    currentY += rowHeight;
+
+    // Filas de datos
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    tableData.forEach((row, rowIndex) => {
+      // Verificar si necesitamos nueva página
+      if (currentY > pageHeight - 30) {
+        doc.addPage();
+        this.addListPDFHeader(doc, pageWidth, margin);
+        currentY = 45;
+
+        // Re-dibujar encabezado de tabla
+        headerX = margin;
+        doc.setFillColor(30, 58, 138);
+        doc.rect(headerX, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+        
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+
+        headers.forEach((header, index) => {
+          doc.text(header, headerX + colWidths[index] / 2, currentY + 5, { align: 'center' });
+          headerX += colWidths[index];
+        });
+
+        currentY += rowHeight;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(0, 0, 0);
+      }
+
+      // Alternar colores de fila
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+      }
+
+      // Bordes
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight);
+
+      // Contenido de celdas
+      let cellX = margin;
+      doc.setFontSize(7);
+
+      row.forEach((cellValue, cellIndex) => {
+        const textAlign = cellIndex === 0 || cellIndex === 6 || cellIndex === 7 ? 'center' : 'left';
+        const xPosition = textAlign === 'center' 
+          ? cellX + colWidths[cellIndex] / 2 
+          : cellX + 2;
+
+        // Truncar texto largo
+        let displayText = cellValue.toString();
+        const maxChars = cellIndex === 3 ? 28 : cellIndex === 4 ? 30 : cellIndex === 5 ? 22 : 100;
+        if (displayText.length > maxChars) {
+          displayText = displayText.substring(0, maxChars - 3) + '...';
+        }
+
+        doc.text(displayText, xPosition, currentY + 4.5, { align: textAlign });
+        cellX += colWidths[cellIndex];
+      });
+
+      currentY += rowHeight;
+    });
+
+    // Resumen al final
+    this.addListPDFFooter(doc, pageHeight, margin, registros.length);
+
+    // Generar nombre de archivo
+    const fecha = new Date();
+    const fechaFormateada = this.formatDate(fecha);
+    const horaFormateada = fecha.toTimeString().split(' ')[0].replace(/:/g, '-');
+    const nombreArchivo = `listado_general_registros_${fechaFormateada}_${horaFormateada}.pdf`;
+
+    doc.save(nombreArchivo);
+  }
+
+  private addListPDFHeader(doc: jsPDF, pageWidth: number, margin: number): void {
+    const img = new Image();
+    img.src = "logo-ucb-cba.png";
+    
+    // Logo
+    const logoWidth = 35;
+    const logoHeight = 22;
+    const logoX = 12;
+    const logoY = 3;
+    
+    try {
+      doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    } catch {
+      // continuar aunque falle el logo
+    }
+
+    const textCenterX = pageWidth / 2 + logoWidth / 4;
+
+    // Título
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('REPORTE GENERAL - APOYOS, BECAS E INCENTIVOS', textCenterX, 14, { align: 'center' });
+
+    // Subtítulo
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Servicio Académico Administrativo Estudiantil', textCenterX, 20, { align: 'center' });
+
+    // Fecha de generación
+    doc.setFontSize(9);
+    doc.text(
+      `Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`,
+      pageWidth - margin, 
+      20, 
+      { align: 'right' }
+    );
+
+    // Línea separadora
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(100, 100, 100);
+    doc.line(margin, 28, pageWidth - margin, 28);
+  }
+
+  private prepareListTableData(
+    registros: Partial<RegistroEstudiante>[], 
+    getNombreGestion: (id: string) => string,
+    formatearFecha: (fecha: string) => string
+  ): string[][] {
+    return registros.map((registro, index) => [
+      (index + 1).toString(),
+      getNombreGestion(registro.id_gestion || ''),
+      registro.ci_estudiante || 'N/A',
+      registro.nombre_estudiante || 'N/A',
+      registro.carrera || 'N/A',
+      this.getBeneficioNombre(registro.id_beneficio),
+      (registro.total_creditos || 0).toString(),
+      `${((registro.porcentaje_descuento || 0) * 100).toFixed(0)}%`,
+      registro.plan_primer_pago || 'N/A',
+      registro.registrado ? 'Reg.' : 'Pend.'
+    ]);
+  }
+
+  private addListPDFFooter(doc: jsPDF, pageHeight: number, margin: number, totalRegistros: number): void {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    
+    doc.text(
+      `Total de registros: ${totalRegistros} | Generado por SAAE - Sistema de Apoyo Académico Estudiantil`,
+      doc.internal.pageSize.width / 2,
+      pageHeight - 10,
+      { align: 'center' }
+    );
+  }
+
+  private generateDetailPDFDocument(
+    registros: Partial<RegistroEstudiante>[],
+    solicitudId: string,
+    gestionNombre: string,
+    getNombreGestion: (id: string) => string
+  ): void {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.height;
+    const margin = 15;
+
+    // Encabezado
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('DETALLE DE SOLICITUD - APOYO FAMILIAR', pageWidth / 2, 20, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    const fecha = new Date().toLocaleDateString('es-ES');
+    doc.text(`ID Solicitud: ${solicitudId.slice(-12)}`, margin, 35);
+    doc.text(`Fecha de generación: ${fecha}`, pageWidth - margin, 35, { align: 'right' });
+    doc.text(`Gestión: ${gestionNombre}`, margin, 42);
+    doc.text(`Total estudiantes: ${registros.length}`, pageWidth - margin, 42, { align: 'right' });
+
+    // Línea separadora
+    doc.setLineWidth(0.5);
+    doc.line(margin, 48, pageWidth - margin, 48);
+
+    let currentY = 60;
+
+    // Procesar cada estudiante
+    registros.forEach((registro, index) => {
+      if (currentY > 180) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      currentY = this.addDetailStudentSectionInPDF(doc, registro, currentY, pageWidth, margin, index + 1);
+      currentY += 10;
+    });
+
+    // Generar y descargar
+    const solicitudIdShort = solicitudId.slice(-8);
+    const fechaFormateada = this.formatDate(new Date());
+    const nombreArchivo = `detalle_solicitud_${solicitudIdShort}_${fechaFormateada}.pdf`;
+
+    doc.save(nombreArchivo);
+  }
+
+  private addDetailStudentSectionInPDF(
+    doc: jsPDF,
+    registro: Partial<RegistroEstudiante>,
+    startY: number,
+    pageWidth: number,
+    margin: number,
+    numeroEstudiante: number
+  ): number {
+    let currentY = startY;
+
+    // Información del estudiante
+    doc.setFillColor(240, 248, 255);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 24, 'F');
+    doc.setDrawColor(59, 130, 246);
+    doc.rect(margin, currentY, pageWidth - 2 * margin, 24);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 138);
+    doc.text(`ESTUDIANTE ${numeroEstudiante}`, margin + 5, currentY + 8);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    const col1X = margin + 5;
+    const col2X = pageWidth / 2;
+
+    doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 14);
+    doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 14);
+    doc.text(`U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 18);
+    doc.text(`Carrera: ${registro.carrera || 'N/A'}`, col2X, currentY + 18);
+    doc.text(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col1X, currentY + 22);
+
+    return currentY + 29;
   }
 
   private addPDFHeader(doc: jsPDF, pageWidth: number, margin: number, title: string): void {
@@ -299,6 +660,24 @@ export class ExportService {
     doc.setTextColor(0, 0, 0);
 
     tableData.forEach((row, rowIndex) => {
+      // Línea separadora más gruesa antes de "Derecho de Inscripción" (índice 3)
+      if (rowIndex === 3) {
+        doc.setDrawColor(30, 58, 138); // Azul oscuro
+        doc.setLineWidth(1);
+        doc.line(startX, currentY, startX + tableWidth, currentY);
+        doc.setLineWidth(0.2); // Restaurar grosor normal
+        currentY += 2; // Pequeño espacio adicional
+      }
+
+      // Línea separadora más gruesa antes de "Saldo Semestre" (índice 6)
+      if (rowIndex === 6) {
+        doc.setDrawColor(30, 58, 138); // Azul oscuro
+        doc.setLineWidth(1);
+        doc.line(startX, currentY, startX + tableWidth, currentY);
+        doc.setLineWidth(0.2); // Restaurar grosor normal
+        currentY += 2; // Pequeño espacio adicional
+      }
+
       // Alternar colores de fila
       if (rowIndex % 2 === 0) {
         doc.setFillColor(248, 250, 252); // Gris muy claro
@@ -316,10 +695,18 @@ export class ExportService {
         const xPosition = textAlign === 'left' ? cellX + 2 : cellX + colWidths[cellIndex] - 2;
 
         doc.setFontSize(8);
-        if (cellIndex === 3 && parseFloat(cellValue.toString()) > 0) {
-          doc.setTextColor(5, 150, 105); // Verde para diferencias positivas
+        
+        // Aplicar estilos según la columna
+        if (cellIndex === 2) {
+          // Columna "Plan con Descuento" en negrillas
+          doc.setTextColor(0, 0, 0);
+          doc.setFont('helvetica', 'bold');
+        } else if (cellIndex === 3 && parseFloat(cellValue.toString()) > 0) {
+          // Columna "Diferencia" en verde y negrillas si es positiva
+          doc.setTextColor(5, 150, 105);
           doc.setFont('helvetica', 'bold');
         } else {
+          // Resto de columnas en normal
           doc.setTextColor(0, 0, 0);
           doc.setFont('helvetica', 'normal');
         }
@@ -343,12 +730,28 @@ export class ExportService {
   }
 
   private prepareStudentTableData(registro: Partial<RegistroEstudiante>): string[][] {
+    // Cálculos originales
     const derechosAcademicosOriginales = (registro.valor_credito || 0) * (registro.total_creditos || 0);
-    const derechosAcademicosConDescuento = derechosAcademicosOriginales * (1 - (registro.porcentaje_descuento || 0));
     const creditoTecnologico = registro.credito_tecnologico || 0;
     const totalOriginal = registro.total_semestre || 0;
-    const totalConDescuento = derechosAcademicosConDescuento + creditoTecnologico;
     const montoPrimerPago = registro.monto_primer_pago || 0;
+    const pagosRealizados = registro.pagos_realizados || 0;
+    const pagoCredito = (registro.pago_credito_tecnologico ? creditoTecnologico : 0);
+
+    // Cálculos con descuento (usando la misma lógica que payment-plans-display)
+    const creditosConDescuento = registro.creditos_descuento || registro.total_creditos || 0;
+    const creditosSinDescuento = (registro.total_creditos || 0) - creditosConDescuento;
+    const derechosAcademicosConDescuento = 
+      creditosConDescuento * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) +
+      creditosSinDescuento * (registro.valor_credito || 0);
+    
+    // El crédito tecnológico no se aplica cuando el descuento es 100%
+    const creditoTecnologicoConDescuento = (registro.porcentaje_descuento !== 1) ? creditoTecnologico : 0;
+    const totalConDescuento = derechosAcademicosConDescuento + creditoTecnologicoConDescuento;
+
+    // Saldos considerando pagos realizados y crédito tecnológico pagado
+    const saldoOriginal = totalOriginal - montoPrimerPago - pagosRealizados - pagoCredito;
+    const saldoConDescuento = totalConDescuento - montoPrimerPago - pagosRealizados - pagoCredito;
 
     return [
       [
@@ -360,8 +763,8 @@ export class ExportService {
       [
         'Crédito Tecnológico',
         this.formatCurrency(creditoTecnologico),
-        this.formatCurrency(creditoTecnologico),
-        this.formatCurrency(0)
+        this.formatCurrency(creditoTecnologicoConDescuento),
+        this.formatCurrency(creditoTecnologico - creditoTecnologicoConDescuento)
       ],
       [
         'Total Semestre',
@@ -376,10 +779,22 @@ export class ExportService {
         this.formatCurrency(0)
       ],
       [
+        'Pagos Realizados (D.A.)',
+        `(${this.formatCurrency(pagosRealizados)})`,
+        `(${this.formatCurrency(pagosRealizados)})`,
+        this.formatCurrency(0)
+      ],
+      [
+        'Pago Crédito Tecnológico',
+        `(${this.formatCurrency(pagoCredito)})`,
+        `(${this.formatCurrency(pagoCredito)})`,
+        this.formatCurrency(0)
+      ],
+      [
         'Saldo Semestre',
-        this.formatCurrency(totalOriginal - montoPrimerPago),
-        this.formatCurrency(totalConDescuento - montoPrimerPago),
-        this.formatCurrency((totalOriginal - montoPrimerPago) - (totalConDescuento - montoPrimerPago))
+        this.formatCurrency(saldoOriginal),
+        this.formatCurrency(saldoConDescuento),
+        this.formatCurrency(saldoOriginal - saldoConDescuento)
       ]
     ];
   }

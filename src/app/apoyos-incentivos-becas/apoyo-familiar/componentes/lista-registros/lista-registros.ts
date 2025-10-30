@@ -17,10 +17,9 @@ import { ExportConfigModalComponent } from '../shared/export-config-modal/export
 import { CarreraService } from '../../../servicios/carrera.service';
 import { GestionService } from '../../../servicios/gestion.service';
 import { BeneficioService } from '../../../servicios/beneficio.service';
+import { ExportService } from '../../../servicios/export.service';
 import { Subject, takeUntil, debounceTime, distinctUntilChanged } from 'rxjs';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import '../../../../shared/interfaces/electron-api';
 import { ExportConfig, ExportColumn } from '../../../../shared/interfaces/export-config';
 // Logo institucional centralizado reutilizado para encabezados de reportes PDF
@@ -70,6 +69,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   carreraService = inject(CarreraService);
   gestionService = inject(GestionService);
   beneficioService = inject(BeneficioService);
+  exportService = inject(ExportService);
   // Estados de loading
   isLoading = false;
   isLoadingFiltros = false;
@@ -1002,7 +1002,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     }
   }
 
-  exportarDetallePDF(): void {
+  async exportarDetallePDF(): Promise<void> {
     if (!this.selectedSolicitud) {
       this.toastService.warning('Sin Datos', 'No hay datos seleccionados para exportar');
       return;
@@ -1011,96 +1011,26 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.isGeneratingPDFDetail = true;
 
     try {
-      setTimeout(() => {
-        this.generateDetailPDFDocument();
-        this.isGeneratingPDFDetail = false;
-        this.toastService.success(
-          'PDF Generado',
-          'Archivo PDF descargado exitosamente',
-          3000
-        );
-      }, 2000);
-    } catch (error) {
-      this.isGeneratingPDFDetail = false;
-      this.toastService.error(
-        'Error en PDF',
-        'Error al generar el archivo PDF'
+      const solicitudInfo = this.selectedSolicitud.solicitud;
+      const gestionNombre = this.getNombreGestion(solicitudInfo.id_gestion);
+      
+      const success = await this.exportService.exportDetailToPDF(
+        this.selectedSolicitud.registros,
+        solicitudInfo.id || '',
+        gestionNombre,
+        (id) => this.getNombreGestion(id),
+        (fecha) => this.formatearFecha(fecha)
       );
-    }
-  }
-
-  private generateDetailPDFDocument(): void {
-    const doc = new jsPDF('l', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.width;
-    const margin = 15;
-
-    // Encabezado
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('DETALLE DE SOLICITUD - APOYO FAMILIAR', pageWidth / 2, 20, { align: 'center' });
-
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    const solicitudInfo = this.selectedSolicitud!.solicitud;
-    const fecha = new Date().toLocaleDateString('es-ES');
-    doc.text(`ID Solicitud: ${solicitudInfo.id?.slice(-12) || 'N/A'}`, margin, 35);
-    doc.text(`Fecha de generación: ${fecha}`, pageWidth - margin, 35, { align: 'right' });
-    doc.text(`Gestión: ${this.getNombreGestion(solicitudInfo.id_gestion)}`, margin, 42);
-    doc.text(`Total estudiantes: ${this.selectedSolicitud!.registros.length}`, pageWidth - margin, 42, { align: 'right' });
-
-    // Línea separadora
-    doc.setLineWidth(0.5);
-    doc.line(margin, 48, pageWidth - margin, 48);
-
-    let currentY = 60;
-
-    // Procesar cada estudiante
-    this.selectedSolicitud!.registros.forEach((registro, index) => {
-      if (currentY > 180) { // Nueva página si es necesario
-        doc.addPage();
-        currentY = 20;
+      
+      if (!success) {
+        this.toastService.error('Error en PDF', 'Error al generar el archivo PDF');
       }
-
-      currentY = this.addDetailStudentSection(doc, registro, currentY, pageWidth, margin, index + 1);
-      currentY += 10;
-    });
-
-    // Generar y descargar
-    const solicitudId = solicitudInfo.id?.slice(-8) || 'solicitud';
-    const fechaFormateada = this.formatDateForFile(new Date());
-    const nombreArchivo = `detalle_solicitud_${solicitudId}_${fechaFormateada}.pdf`;
-
-    doc.save(nombreArchivo);
-  }
-
-  private addDetailStudentSection(doc: jsPDF, registro: RegistroConSolicitud, startY: number, pageWidth: number, margin: number, numeroEstudiante: number): number {
-    let currentY = startY;
-
-    // Información del estudiante
-    doc.setFillColor(240, 248, 255);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 24, 'F');
-    doc.setDrawColor(59, 130, 246);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 24);
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(30, 58, 138);
-    doc.text(`ESTUDIANTE ${numeroEstudiante}`, margin + 5, currentY + 8);
-
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
-
-    const col1X = margin + 5;
-    const col2X = pageWidth / 2;
-
-    doc.text(`CI: ${registro.ci_estudiante}`, col1X, currentY + 14);
-    doc.text(`Nombre: ${registro.nombre_estudiante}`, col2X, currentY + 14);
-    doc.text(`U.V.E.: ${registro.total_creditos}`, col1X, currentY + 18);
-    doc.text(`Carrera: ${registro.carrera}`, col2X, currentY + 18);
-    doc.text(`Tipo de Beneficio: ${this.getNombreBeneficio(registro.id_beneficio).toUpperCase()}`, col1X, currentY + 22);
-
-    return currentY + 29;
+    } catch (error) {
+      console.error('❌ Error exportando PDF de detalle:', error);
+      this.toastService.error('Error en PDF', 'Error al generar el archivo PDF');
+    } finally {
+      this.isGeneratingPDFDetail = false;
+    }
   }
 
   private formatDateForFile(date: Date): string {
@@ -1354,7 +1284,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     };
   }
 
-  exportarListadoPDF(): void {
+  async exportarListadoPDF(): Promise<void> {
     if (this.isGeneratingListadoPDF) {
       return;
     }
@@ -1367,74 +1297,24 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.isGeneratingListadoPDF = true;
 
     try {
-      const doc = new jsPDF('l', 'mm', 'a4');
-      const pageWidth = doc.internal.pageSize.width;
-      const generatedAt = new Date();
-      const tableMarginTop = 36;
-
-      const detalleFilas = this.obtenerDetallesParaExportacion();
-      const tableColumnas = [
-        { header: 'Gestión', dataKey: 'Gestion' },
-        { header: 'CI', dataKey: 'CI' },
-        { header: 'Estudiante', dataKey: 'NombreEstudiante' },
-        { header: 'Carrera', dataKey: 'Carrera' },
-        { header: 'Tipo Beneficio', dataKey: 'TipoBeneficio' },
-        { header: 'Total U.V.E.', dataKey: 'TotalUVE' },
-        { header: 'Plan de pago', dataKey: 'PlanPago' },
-        { header: '% Desc.', dataKey: 'PorcentajeDescuento' }
-      ];
-
-      autoTable(doc, {
-        head: [tableColumnas.map(col => col.header)],
-        body: detalleFilas.map(fila => tableColumnas.map(col => fila[col.dataKey as keyof typeof fila])),
-        margin: { top: tableMarginTop, left: 14, right: 14, bottom: 14 },
-        styles: { fontSize: 8, cellPadding: 2.5, lineColor: [226, 232, 240], lineWidth: 0.2 },
-        headStyles: { fillColor: [51, 65, 85], textColor: 255, fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          0: { cellWidth: 24, halign: 'left' },    // Gestión
-          1: { cellWidth: 22, halign: 'center' },  // CI
-          2: { cellWidth: 50, halign: 'left' },    // Estudiante
-          3: { cellWidth: 58, halign: 'left' },    // Carrera
-          4: { cellWidth: 36, halign: 'left' },    // Tipo Beneficio
-          5: { cellWidth: 22, halign: 'center' },  // Total U.V.E.
-          6: { cellWidth: 32, halign: 'left' },    // Plan de pago
-          7: { cellWidth: 20, halign: 'center' }   // % Desc.
-        },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        didDrawPage: () => {
-          this.dibujarEncabezadoPDF(doc, pageWidth, generatedAt);
-        }
-      });
-
-      const nombreArchivo = `reporte_lista_registros_${this.formatDateForFile(new Date())}.pdf`;
-      doc.save(nombreArchivo);
-      this.toastService.success('PDF generado', 'Reporte global exportado correctamente.', 3000);
+      const registros = this.obtenerTodasLasFilasFiltradas();
+      const success = await this.exportService.exportListToPDF(
+        registros, 
+        (id) => this.getNombreGestion(id),
+        (fecha) => this.formatearFecha(fecha)
+      );
+      
+      if (success) {
+        this.toastService.success('PDF generado', 'Reporte global exportado correctamente.', 3000);
+      } else {
+        this.toastService.error('Error de exportación', 'No se pudo generar el archivo PDF.');
+      }
     } catch (error) {
       console.error('❌ Error exportando PDF listado:', error);
       this.toastService.error('Error de exportación', 'No se pudo generar el archivo PDF.');
     } finally {
       this.isGeneratingListadoPDF = false;
     }
-  }
-
-  private obtenerDetallesParaExportacion() {
-    const filas = this.obtenerTodasLasFilasFiltradas();
-    return filas.map(registro => ({
-      Gestion: this.getNombreGestion(registro.id_gestion),
-      FechaSolicitud: registro.solicitudInfo ? this.formatearFecha(registro.solicitudInfo.fecha) : '',
-      IdSolicitud: registro.id_solicitud ? registro.id_solicitud.slice(-8) : '',
-      CI: registro.ci_estudiante,
-      NombreEstudiante: registro.nombre_estudiante,
-      Carrera: registro.carrera,
-      TipoBeneficio: this.getNombreBeneficio(registro.id_beneficio).toUpperCase(),
-      PlanPago: registro.plan_primer_pago || 'No definido',
-      PorcentajeDescuento: `${((registro.porcentaje_descuento || 0) * 100).toFixed(1)}%`,
-      ValorUVE: registro.valor_credito,
-      TotalUVE: registro.total_creditos,
-      MontoPrimerPago: registro.monto_primer_pago,
-      Registrado: registro.registrado ? 'Sí' : 'No',
-      Comentarios: registro.comentarios || ''
-    }));
   }
 
   private obtenerResumenDatos(): Array<{ Etiqueta: string; Detalle: string }> {
@@ -1447,42 +1327,6 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       { Etiqueta: 'Total de estudiantes', Detalle: totalEstudiantes.toString() },
       { Etiqueta: 'Estudiantes registrados', Detalle: totalRegistrados.toString() }
     ];
-  }
-
-  private dibujarEncabezadoPDF(doc: jsPDF, pageWidth: number, generatedAt: Date): void {
-    const headerHeight = 24;
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, pageWidth, headerHeight, 'F');
-
-    const img = new Image();
-    img.src = "logo-ucb-cba.png";
-    // Logo
-    const logoWidth = 35; // mm
-    const logoHeight = 22; // mm (proporción aproximada)
-    const logoX = 12; // un poco a la derecha del borde
-    const logoY = 3; // centrado verticalmente dentro del rectángulo
-    try {
-      doc.addImage(img, 'PNG', logoX, logoY, logoWidth, logoHeight);
-    } catch {
-      // continuar aunque falle el logo
-    }
-
-    // Posicionar textos desplazados a la derecha del logo
-    const textStartX = logoX + logoWidth + 8; // margen después del logo
-    const centerOffset = (textStartX + (pageWidth - 16)) / 2; // equilibrio visual
-
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('REPORTE GENERAL - APOYOS, BECAS E INCENTIVOS', centerOffset, 14, { align: 'center' });
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Servicio Académico Administrativo Estudiantil', centerOffset, 20, { align: 'center' });
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generado: ${generatedAt.toLocaleString('es-BO')}`, pageWidth - 16, 22, { align: 'right' });
   }
 
   private ordenarRegistrosPorDescuento<T extends RegistroConSolicitud>(registros: T[]): T[] {
