@@ -38,6 +38,16 @@ export class VistaIndividual implements OnInit, OnDestroy {
   draggedIndex: number | null = null;
   dragOverIndex: number | null = null;
 
+  // Estado de verificación de beneficios existentes
+  conflictosDetectados: {
+    tieneErrores: boolean;
+    tieneAdvertencias: boolean;
+    mensajeError?: string;
+    mensajeAdvertencia?: string;
+    beneficiosAInactivar: string[];
+  } | null = null;
+  isCheckingConflicts: boolean = false;
+
   ngOnInit() {
     // Cargar beneficios para tener acceso a los nombres
     this.beneficioService.loadBeneficioData();
@@ -45,11 +55,16 @@ export class VistaIndividual implements OnInit, OnDestroy {
     // Suscribirse a los datos del servicio
     this.dataService.registrosEstudiantes$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(registros => {
+      .subscribe(async registros => {
         this.registrosEstudiantes = registros;
         // Detectar empates automáticamente cuando se cargan los datos - SOLO PARA APOYO FAMILIAR
         if (registros.length > 0 && this.flowType === 'apoyo-familiar') {
           this.detectAndHandleTies();
+        }
+        
+        // Verificar conflictos de beneficios cuando se cargan los datos
+        if (registros.length > 0) {
+          await this.verificarConflictosEnCarga();
         }
       });
 
@@ -71,6 +86,35 @@ export class VistaIndividual implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  // Verificar conflictos cuando se carga la vista previa
+  async verificarConflictosEnCarga(): Promise<void> {
+    this.isCheckingConflicts = true;
+    try {
+      const conflictos = await this.verificarConflictosBeneficios();
+      this.conflictosDetectados = conflictos;
+      
+      // Mostrar toast informativo si hay advertencias o errores
+      if (conflictos.tieneErrores) {
+        this.toastService.warning(
+          'Beneficios Duplicados Detectados',
+          'Algunos estudiantes ya tienen el mismo beneficio registrado. No se podrá guardar hasta resolver estos conflictos.',
+          6000
+        );
+      } else if (conflictos.tieneAdvertencias) {
+        this.toastService.info(
+          'Beneficios Existentes Detectados',
+          'Algunos estudiantes tienen beneficios diferentes que serán reemplazados al guardar.',
+          6000
+        );
+      }
+    } catch (error) {
+      console.error('Error verificando conflictos en carga:', error);
+      this.conflictosDetectados = null;
+    } finally {
+      this.isCheckingConflicts = false;
+    }
   }
 
   // Método para regresar a la vista de registro
@@ -379,8 +423,13 @@ export class VistaIndividual implements OnInit, OnDestroy {
         throw new Error('APIs de base de datos no disponibles');
       }
 
-      // STEP 1: Verificar beneficios existentes y detectar conflictos
-      const conflictos = await this.verificarConflictosBeneficios();
+      // STEP 1: Usar conflictos ya detectados o verificar de nuevo si no hay
+      let conflictos = this.conflictosDetectados;
+      
+      if (!conflictos) {
+        conflictos = await this.verificarConflictosBeneficios();
+        this.conflictosDetectados = conflictos;
+      }
       
       if (conflictos.tieneErrores) {
         this.isSaving = false;

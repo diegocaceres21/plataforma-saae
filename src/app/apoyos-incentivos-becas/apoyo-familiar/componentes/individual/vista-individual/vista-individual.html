@@ -103,6 +103,77 @@
       }
     </div>
 
+    <!-- Conflict Detection Section -->
+    @if (isCheckingConflicts) {
+      <div class="mb-6 bg-gray-50 border border-gray-200 rounded-xl p-4">
+        <div class="flex items-center justify-center space-x-3">
+          <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+          <span class="text-gray-600 font-medium">Verificando beneficios existentes...</span>
+        </div>
+      </div>
+    }
+
+    @if (!isCheckingConflicts && conflictosDetectados) {
+      <!-- Errores: Beneficios duplicados (mismo beneficio ya registrado) -->
+      @if (conflictosDetectados.tieneErrores) {
+        <div class="mb-6 bg-red-50 border-l-4 border-red-500 rounded-lg p-4 shadow-sm">
+          <div class="flex items-start">
+            <svg class="w-6 h-6 text-red-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+            </svg>
+            <div class="flex-1">
+              <h3 class="font-bold text-red-800 text-lg mb-2">⚠️ Beneficios Duplicados Detectados</h3>
+              <p class="text-red-700 text-sm mb-3 whitespace-pre-line">{{ conflictosDetectados.mensajeError }}</p>
+              <div class="bg-red-100 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                <strong>Acción requerida:</strong> No se podrá guardar hasta que se resuelvan estos conflictos. 
+                Los estudiantes listados ya tienen el mismo beneficio registrado en este período académico.
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Advertencias: Beneficios diferentes (se reemplazarán) -->
+      @if (conflictosDetectados.tieneAdvertencias && !conflictosDetectados.tieneErrores) {
+        <div class="mb-6 bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 shadow-sm">
+          <div class="flex items-start">
+            <svg class="w-6 h-6 text-amber-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="flex-1">
+              <h3 class="font-bold text-amber-800 text-lg mb-2">ℹ️ Beneficios Existentes Encontrados</h3>
+              <p class="text-amber-700 text-sm mb-3 whitespace-pre-line">{{ conflictosDetectados.mensajeAdvertencia }}</p>
+              <div class="bg-amber-100 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+                <strong>Información:</strong> Al guardar, los beneficios anteriores se marcarán como inactivos 
+                y serán reemplazados por los nuevos beneficios asignados.
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Estado sin conflictos -->
+      @if (!conflictosDetectados.tieneErrores && !conflictosDetectados.tieneAdvertencias) {
+        <div class="mb-6 bg-green-50 border-l-4 border-green-500 rounded-lg p-4 shadow-sm">
+          <div class="flex items-start">
+            <svg class="w-6 h-6 text-green-500 mr-3 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div class="flex-1">
+              <h3 class="font-bold text-green-800 text-lg mb-1">✓ Sin Conflictos Detectados</h3>
+              <p class="text-green-700 text-sm">
+                @if (isApoyoFamiliar()) {
+                  Los estudiantes no tienen beneficios previos registrados en este período. Puede proceder con el guardado.
+                } @else {
+                  El estudiante no tiene beneficios previos registrados en este período. Puede proceder con el guardado.
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
     <!-- Accordion Container -->
     <div class="space-y-4">
       @for (registro of registrosEstudiantes; track $index) {

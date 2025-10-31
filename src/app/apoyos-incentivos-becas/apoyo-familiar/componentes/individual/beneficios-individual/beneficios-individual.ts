@@ -177,6 +177,7 @@ export class BeneficiosIndividual implements OnInit {
           pagoRealizadoFinal = 0;
         } else if (sinPago || pagoRealizado === 0) {
           // No hay pago y no es 100% descuento - solicitar entrada manual
+          this.loadingService.hide();
           const resultManual = await this.promptForManualPaymentData(this.estudiante.id_estudiante_siaan);
           referenciaFinal = resultManual[0] || 'N/A';
           planAccedidoFinal = resultManual[1] || 'N/A';
