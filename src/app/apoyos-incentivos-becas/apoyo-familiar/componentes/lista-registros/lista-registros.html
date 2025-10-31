@@ -1,4 +1,4 @@
-<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 font-sans">
+<div class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 font-sans" (click)="showBulkActionsMenu && closeBulkActionsMenu()">
   <!-- Botón flotante de tutorial -->
   <!--<button
     (click)="mostrarTutorial()"
@@ -103,7 +103,6 @@
           </app-multi-select-dropdown>
         </div>
 
-        <!-- Filtro por descuento (rango) -->
         <div id='filtro-descuento' class="flex flex-col">
           <label class="text-sm font-medium text-slate-700 mb-1">Descuento:</label>
           <div class="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-md bg-white text-sm">
@@ -129,6 +128,37 @@
             <span class="text-slate-600">%</span>
           </div>
         </div>
+
+        <!-- Filtro por estado de pago -->
+        <div id='filtro-estado-pago' class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Estado de pago:</label>
+          <app-multi-select-dropdown
+            [options]="estadoPagoOptions"
+            [ngModel]="filtroEstadoPago"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar estado"
+            width="w-56"
+            dropdownId="estado-pago-dropdown"
+            (ngModelChange)="onEstadoPagoSelectionChange($event)">
+          </app-multi-select-dropdown>
+        </div>
+
+        <!-- Filtro por estado de registro -->
+        <div id='filtro-estado-registro' class="flex flex-col">
+          <label class="text-sm font-medium text-slate-700 mb-1">Estado de registro:</label>
+          <app-multi-select-dropdown
+            [options]="estadoRegistroOptions"
+            [ngModel]="filtroEstadoRegistro"
+            [disabled]="isLoadingFiltros"
+            placeholder="Seleccionar estado"
+            width="w-44"
+            dropdownId="estado-registro-dropdown"
+            (ngModelChange)="onEstadoRegistroSelectionChange($event)">
+          </app-multi-select-dropdown>
+        </div>
+
+        <!-- Filtro por descuento (rango) -->
+        
 
         <!-- Búsqueda por nombre o carnet -->
         <div id="filtro-estudiante" class="flex flex-col grow min-w-[240px]">
@@ -196,6 +226,60 @@
         </span>
       </div>
       <div id="exportar" class="flex items-center gap-2">
+        <!-- Menú de acciones masivas -->
+        <div class="relative" (click)="$event.stopPropagation()">
+          <button
+            type="button"
+            class="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
+            (click)="toggleBulkActionsMenu()"
+            [disabled]="!hayDatosFiltrados() || isPerformingBulkAction">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+            </svg>
+            Acciones Masivas
+            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+
+          <!-- Dropdown menu -->
+          @if (showBulkActionsMenu) {
+            <div class="absolute right-0 z-50 mt-2 w-64 rounded-lg border border-slate-200 bg-white shadow-xl">
+              <div class="p-2">
+                <div class="px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wide border-b border-slate-200 mb-2">
+                  Actualizar estado de registro
+                </div>
+                
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-left text-slate-700 hover:bg-green-50 hover:text-green-700 rounded-md transition-colors"
+                  (click)="abrirModalAccionMasiva('registrado')">
+                  <svg class="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <div>
+                    <div class="font-medium">Marcar como Registrados</div>
+                    <div class="text-xs text-slate-500">Actualizar todos los filtrados</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-left text-slate-700 hover:bg-amber-50 hover:text-amber-700 rounded-md transition-colors"
+                  (click)="abrirModalAccionMasiva('pendiente')">
+                  <svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <div>
+                    <div class="font-medium">Marcar como Pendientes</div>
+                    <div class="text-xs text-slate-500">Actualizar todos los filtrados</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+
         <button
           type="button"
           class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -913,4 +997,118 @@
     </div>
   </div>
 }
+
+<!-- Modal de confirmación de acción masiva -->
+@if (showBulkConfirmModal && bulkActionType) {
+  <div class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 px-4 py-8">
+    <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-4 border-b px-6 py-4"
+           [ngClass]="bulkActionType === 'registrado' ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'">
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 rounded-full p-2"
+               [ngClass]="bulkActionType === 'registrado' ? 'bg-green-100' : 'bg-amber-100'">
+            @if (bulkActionType === 'registrado') {
+              <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            } @else {
+              <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            }
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold"
+                [ngClass]="bulkActionType === 'registrado' ? 'text-green-900' : 'text-amber-900'">
+              {{ getTituloAccionMasiva() }}
+            </h3>
+            <p class="text-sm mt-1"
+               [ngClass]="bulkActionType === 'registrado' ? 'text-green-700' : 'text-amber-700'">
+              Actualización masiva de registros
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="rounded-full border border-slate-200 bg-white p-2 text-slate-600 transition hover:bg-slate-100"
+          (click)="cerrarModalAccionMasiva()"
+          [disabled]="isPerformingBulkAction">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Contenido -->
+      <div class="px-6 py-6 space-y-4">
+        <!-- Mensaje de confirmación -->
+        <div class="rounded-xl border px-4 py-3"
+             [ngClass]="bulkActionType === 'registrado' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'">
+          <p class="text-sm leading-relaxed"
+             [ngClass]="bulkActionType === 'registrado' ? 'text-green-900' : 'text-amber-900'">
+            {{ getMensajeAccionMasiva() }}
+          </p>
+        </div>
+
+        <!-- Contador de registros -->
+        <div class="flex items-center justify-center gap-3 py-4 bg-slate-50 rounded-xl border border-slate-200">
+          <svg class="h-8 w-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+          </svg>
+          <div class="text-center">
+            <div class="text-3xl font-bold text-slate-800">{{ getCantidadRegistrosAfectados() }}</div>
+            <div class="text-sm text-slate-600">registro(s) serán actualizados</div>
+          </div>
+        </div>
+
+        <!-- Advertencia -->
+        <div class="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3">
+          <div class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <p class="text-sm text-blue-900">
+              <strong>Nota:</strong> Esta acción actualizará todos los registros que coincidan con los filtros actuales. La operación se realizará en la base de datos y no se puede deshacer.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+          (click)="cerrarModalAccionMasiva()"
+          [disabled]="isPerformingBulkAction">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60"
+          [ngClass]="bulkActionType === 'registrado' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'"
+          (click)="confirmarAccionMasiva()"
+          [disabled]="isPerformingBulkAction">
+          @if (isPerformingBulkAction) {
+            <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Actualizando...
+          } @else {
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Confirmar actualización
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
 

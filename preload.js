@@ -82,6 +82,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   checkExistingBenefitsBatch: (carnets, id_gestion) => ipcRenderer.invoke('registro_estudiante:checkExistingBenefitsBatch', carnets, id_gestion),
   createRegistroEstudiante: (data) => ipcRenderer.invoke('registro_estudiante:create', data),
   updateRegistroEstudiante: (id, data) => ipcRenderer.invoke('registro_estudiante:update', id, data),
+  updateRegistroEstudianteBulk: (ids, data) => ipcRenderer.invoke('registro_estudiante:updateBulk', ids, data),
   removeRegistroEstudiante: (id) => ipcRenderer.invoke('registro_estudiante:remove', id),
   createMultipleRegistroEstudiante: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultiple', dataArray),
   createMultipleWithTransaction: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultipleWithTransaction', dataArray),

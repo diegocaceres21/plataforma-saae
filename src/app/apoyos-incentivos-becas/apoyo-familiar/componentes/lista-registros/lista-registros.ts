@@ -86,6 +86,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   filtroDescuentoMax: number = 100;
   filtroPlan: string[] = [];
   filtroBeneficio: string[] = [];
+  filtroEstadoPago: string[] = [];
+  filtroEstadoRegistro: string[] = [];
 
   // Configuración de filtrado
   mostrarSoloEstudiantesFiltrados = true; // false = mostrar toda la solicitud, true = solo estudiantes filtrados
@@ -125,6 +127,14 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   carreraOptions: MultiSelectOption[] = [];
   planOptions: MultiSelectOption[] = [];
   beneficioOptions: MultiSelectOption[] = [];
+  estadoPagoOptions: MultiSelectOption[] = [];
+  estadoRegistroOptions: MultiSelectOption[] = [];
+
+  // Acciones masivas
+  showBulkActionsMenu = false;
+  isPerformingBulkAction = false;
+  showBulkConfirmModal = false;
+  bulkActionType: 'registrado' | 'pendiente' | null = null;
 
   // Paginación
   currentPage = 1;
@@ -285,6 +295,19 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         label: beneficio.nombre
       }));
 
+      this.estadoPagoOptions = [
+        { value: 'con_deuda', label: 'Estudiantes con Deuda' },
+        { value: 'sin_deuda', label: 'Estudiantes sin Deuda' },
+        { value: 'saldo_a_favor', label: 'Estudiantes con Saldo a Favor' },
+        { value: 'sin_pago_cuota', label: 'Estudiantes sin Pago de Cuota' },
+        { value: 'con_pago_cuota', label: 'Estudiantes con Pago de Cuota' }
+      ];
+
+      this.estadoRegistroOptions = [
+        { value: 'registrado', label: 'Registrado' },
+        { value: 'pendiente', label: 'Pendiente' }
+      ];
+
     } catch (error) {
       console.error('❌ Error cargando datos de filtros:', error);
     } finally {
@@ -428,6 +451,31 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     }
 
+    // Filtro por estado de pago (multi-select)
+    if (this.filtroEstadoPago.length > 0) {
+      solicitudesFiltradas = solicitudesFiltradas.filter(item =>
+        item.registros.some((registro: RegistroConSolicitud) =>
+          this.filtroEstadoPago.some(estado => this.cumpleEstadoPago(registro, estado))
+        )
+      );
+    }
+
+    // Filtro por estado de registro (multi-select)
+    if (this.filtroEstadoRegistro.length > 0) {
+      solicitudesFiltradas = solicitudesFiltradas.filter(item =>
+        item.registros.some((registro: RegistroConSolicitud) =>
+          this.filtroEstadoRegistro.some(estado => {
+            if (estado === 'registrado') {
+              return registro.registrado === true;
+            } else if (estado === 'pendiente') {
+              return registro.registrado === false;
+            }
+            return false;
+          })
+        )
+      );
+    }
+
     // Filtro por búsqueda (nombre o carnet)
     if (this.filtroBusqueda.trim()) {
       const busqueda = this.filtroBusqueda.toLowerCase().trim();
@@ -481,6 +529,27 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         registrosFiltrados = registrosFiltrados.filter(registro => this.coincidePlanFiltro(registro.plan_primer_pago));
       }
 
+      // Filtro por estado de pago
+      if (this.filtroEstadoPago.length > 0) {
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
+          this.filtroEstadoPago.some(estado => this.cumpleEstadoPago(registro, estado))
+        );
+      }
+
+      // Filtro por estado de registro
+      if (this.filtroEstadoRegistro.length > 0) {
+        registrosFiltrados = registrosFiltrados.filter((registro: RegistroConSolicitud) =>
+          this.filtroEstadoRegistro.some(estado => {
+            if (estado === 'registrado') {
+              return registro.registrado === true;
+            } else if (estado === 'pendiente') {
+              return registro.registrado === false;
+            }
+            return false;
+          })
+        );
+      }
+
       // Filtro por búsqueda
       if (this.filtroBusqueda.trim()) {
         const busqueda = this.filtroBusqueda.toLowerCase().trim();
@@ -515,6 +584,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.filtroDescuentoMax = 100;
     this.filtroPlan = [];
     this.filtroBeneficio = [];
+    this.filtroEstadoPago = [];
+    this.filtroEstadoRegistro = [];
     this.currentPage = 1;
     this.aplicarFiltros();
   }
@@ -699,6 +770,16 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
   onBeneficioSelectionChange(selectedValues: string[]): void {
     this.filtroBeneficio = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  onEstadoPagoSelectionChange(selectedValues: string[]): void {
+    this.filtroEstadoPago = selectedValues;
+    this.aplicarFiltros();
+  }
+
+  onEstadoRegistroSelectionChange(selectedValues: string[]): void {
+    this.filtroEstadoRegistro = selectedValues;
     this.aplicarFiltros();
   }
 
@@ -1053,6 +1134,27 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     return this.filtroPlan.some(valor => this.normalizarPlan(valor) === normalizado);
   }
 
+  private cumpleEstadoPago(registro: RegistroConSolicitud, estado: string): boolean {
+    const saldo = this.obtenerSaldoConDescuento(registro);
+    const pagosRealizados = registro.pagos_realizados || 0;
+    const pagoCreditoTecnologico = registro.pago_credito_tecnologico || false;
+
+    switch (estado) {
+      case 'con_deuda':
+        return saldo > 0;
+      case 'sin_deuda':
+        return saldo === 0;
+      case 'saldo_a_favor':
+        return saldo < 0;
+      case 'sin_pago_cuota':
+        return pagosRealizados === 0 && !pagoCreditoTecnologico;
+      case 'con_pago_cuota':
+        return pagosRealizados > 0 || pagoCreditoTecnologico;
+      default:
+        return true;
+    }
+  }
+
   // --- Exportación global ---
 
   private obtenerTodasLasFilasFiltradas(): RegistroConSolicitud[] {
@@ -1337,6 +1439,147 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     } else {
       const registro = this.solicitudAEliminar.registros[0];
       return `Estás a punto de eliminar el registro de ${registro.nombre_estudiante} (CI: ${registro.ci_estudiante}). Esta acción marcará el registro como inactivo.`;
+    }
+  }
+
+  // Métodos para acciones masivas
+  toggleBulkActionsMenu(): void {
+    this.showBulkActionsMenu = !this.showBulkActionsMenu;
+  }
+
+  closeBulkActionsMenu(): void {
+    this.showBulkActionsMenu = false;
+  }
+
+  abrirModalAccionMasiva(tipo: 'registrado' | 'pendiente'): void {
+    if (this.isPerformingBulkAction) {
+      return;
+    }
+
+    if (!this.hayDatosFiltrados()) {
+      this.toastService.warning('Sin datos', 'No hay registros filtrados para actualizar.');
+      return;
+    }
+
+    this.bulkActionType = tipo;
+    this.showBulkConfirmModal = true;
+    this.closeBulkActionsMenu();
+  }
+
+  cerrarModalAccionMasiva(): void {
+    this.showBulkConfirmModal = false;
+    this.bulkActionType = null;
+  }
+
+  getTituloAccionMasiva(): string {
+    if (this.bulkActionType === 'registrado') {
+      return 'Marcar todos como Registrados';
+    } else if (this.bulkActionType === 'pendiente') {
+      return 'Marcar todos como Pendientes';
+    }
+    return 'Acción Masiva';
+  }
+
+  getMensajeAccionMasiva(): string {
+    const totalRegistros = this.obtenerTodasLasFilasFiltradas().length;
+    const accion = this.bulkActionType === 'registrado' ? 'registrados' : 'pendientes';
+    
+    return `Estás a punto de actualizar ${totalRegistros} registro(s) filtrado(s) como "${accion}". Esta acción actualizará todos los registros que cumplan con los filtros actuales.`;
+  }
+
+  getCantidadRegistrosAfectados(): number {
+    return this.obtenerTodasLasFilasFiltradas().length;
+  }
+
+  async confirmarAccionMasiva(): Promise<void> {
+    if (!this.bulkActionType) {
+      return;
+    }
+
+    // Verificar disponibilidad de API masiva (preferida) o individual (fallback)
+    if (!window.academicoAPI?.updateRegistroEstudianteBulk && !window.academicoAPI?.updateRegistroEstudiante) {
+      this.toastService.error('Funcionalidad no disponible', 'La API de actualización no está accesible en este momento');
+      return;
+    }
+
+    const registrosFiltrados = this.obtenerTodasLasFilasFiltradas();
+    const nuevoEstado = this.bulkActionType === 'registrado';
+    const ids = registrosFiltrados.map(r => r.id).filter(Boolean) as string[];
+    
+    if (ids.length === 0) {
+      this.toastService.warning('Sin registros válidos', 'No hay registros con ID válido para actualizar.');
+      return;
+    }
+
+    this.isPerformingBulkAction = true;
+
+    try {
+      // OPCIÓN 1: Usar endpoint masivo (RECOMENDADO - más eficiente)
+      if (window.academicoAPI.updateRegistroEstudianteBulk) {
+        const resultado = await window.academicoAPI.updateRegistroEstudianteBulk(ids, {
+          registrado: nuevoEstado
+        });
+
+        if (!resultado.success) {
+          throw new Error('La actualización masiva no se completó correctamente');
+        }
+
+        console.log(`✅ Actualización masiva: ${resultado.affectedRows} registros actualizados`);
+
+        // Actualizar localmente todos los registros
+        registrosFiltrados.forEach(registro => {
+          if (registro.id) {
+            this.actualizarRegistroLocal(registro.id, { registrado: nuevoEstado });
+          }
+        });
+
+        const mensajeExito = nuevoEstado 
+          ? `${resultado.affectedRows} registro(s) marcado(s) como Registrados`
+          : `${resultado.affectedRows} registro(s) marcado(s) como Pendientes`;
+
+        this.toastService.success('Actualización masiva exitosa', mensajeExito, 4000);
+      } 
+      // OPCIÓN 2: Fallback a múltiples llamadas individuales (menos eficiente)
+      else {
+        console.warn('⚠️ Usando actualización individual (múltiples llamadas). Considera implementar updateBulk en el backend.');
+        
+        const promesasActualizacion = registrosFiltrados.map(registro => {
+          if (!registro.id) {
+            throw new Error(`Registro sin ID: ${registro.ci_estudiante}`);
+          }
+
+          return window.academicoAPI!.updateRegistroEstudiante(registro.id, {
+            registrado: nuevoEstado
+          });
+        });
+
+        await Promise.all(promesasActualizacion);
+
+        // Actualizar localmente todos los registros
+        registrosFiltrados.forEach(registro => {
+          if (registro.id) {
+            this.actualizarRegistroLocal(registro.id, { registrado: nuevoEstado });
+          }
+        });
+
+        const mensajeExito = nuevoEstado 
+          ? `${registrosFiltrados.length} registro(s) marcado(s) como Registrados`
+          : `${registrosFiltrados.length} registro(s) marcado(s) como Pendientes`;
+
+        this.toastService.success('Actualización masiva exitosa', mensajeExito, 4000);
+      }
+
+      // Cerrar modal
+      this.cerrarModalAccionMasiva();
+
+    } catch (error) {
+      console.error('❌ Error en actualización masiva:', error);
+      this.toastService.error(
+        'Error en actualización masiva', 
+        'No se pudieron actualizar todos los registros. Intente nuevamente.'
+      );
+    } finally {
+      this.isPerformingBulkAction = false;
     }
   }
 }

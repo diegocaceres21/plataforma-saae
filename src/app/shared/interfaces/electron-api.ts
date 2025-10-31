@@ -69,6 +69,7 @@ declare global {
       checkExistingBenefitsBatch: (carnets: string[], id_gestion: string) => Promise<any[]>;
       createRegistroEstudiante: (data: any) => Promise<any>;
       updateRegistroEstudiante: (id: string, data: any) => Promise<any>;
+      updateRegistroEstudianteBulk: (ids: string[], data: any) => Promise<{ success: boolean; affectedRows: number; timestamp: string }>;
       removeRegistroEstudiante: (id: string) => Promise<any>;
       createMultipleRegistroEstudiante: (data: any[]) => Promise<any>;
       createMultipleWithTransaction: (data: any[]) => Promise<{ exitosos: number[]; errores: Record<number, string>; ids: number[] }>;

@@ -142,6 +142,64 @@ function update(table, id, data) {
   });
 }
 
+function updateBulk(table, ids, data) {
+  return new Promise(async (resolve, reject) => {
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return reject(new Error('Se requiere un array de IDs no vacío'));
+    }
+
+    if (!data || Object.keys(data).length === 0) {
+      return reject(new Error('Se requieren campos a actualizar'));
+    }
+
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      const timestamp = new Date().toISOString();
+      
+      // Agregar timestamp de actualización si la tabla tiene esa columna
+      const updatesWithTimestamp = {
+        ...data,
+        updated_at: timestamp
+      };
+
+      // Construir query con placeholders
+      const cols = Object.keys(updatesWithTimestamp);
+      const vals = Object.values(updatesWithTimestamp);
+      const setStr = cols.map((col, index) => `${col} = $${index + 1}`).join(', ');
+      
+      // Crear placeholders para los IDs: $n, $n+1, $n+2, etc.
+      const idPlaceholders = ids.map((_, index) => `$${vals.length + index + 1}`).join(', ');
+      
+      const query = `UPDATE ${table} SET ${setStr} WHERE id IN (${idPlaceholders})`;
+      
+      // Valores: primero los updates, luego los IDs
+      const allValues = [...vals, ...ids];
+      
+      const result = await client.query(query, allValues);
+      
+      await client.query('COMMIT');
+      
+      console.log(`✅ Actualización masiva: ${result.rowCount} registros actualizados en ${table}`);
+      
+      resolve({
+        success: true,
+        affectedRows: result.rowCount,
+        timestamp
+      });
+      
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error(`❌ Error en actualización masiva de ${table}:`, error);
+      reject(error);
+    } finally {
+      client.release();
+    }
+  });
+}
+
 function remove(table, id) {
   return new Promise((resolve, reject) => {
     pool.query(`DELETE FROM ${table} WHERE id = $1`, [id], (err, result) => {
@@ -423,7 +481,8 @@ module.exports = {
   getAllActivos,
   getById, 
   create, 
-  update, 
+  update,
+  updateBulk,
   remove, 
   createMultiple, 
   getBySolicitud,

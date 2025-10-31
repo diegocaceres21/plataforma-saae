@@ -298,8 +298,26 @@ export class ExportService {
     doc.setTextColor(0, 0, 0);
 
     tableData.forEach((row, rowIndex) => {
+      // Calcular altura necesaria para esta fila (considerando text wrapping)
+      const lineHeights: number[] = [];
+      doc.setFontSize(7);
+      
+      row.forEach((cellValue, cellIndex) => {
+        const textAlign = cellIndex === 0 || cellIndex === 6 || cellIndex === 7 ? 'center' : 
+                         cellIndex === 9 || cellIndex === 10 ? 'right' : 'left';
+        const displayText = cellValue.toString();
+        const maxWidth = colWidths[cellIndex] - 4; // 2mm padding en cada lado
+        
+        // Calcular cuántas líneas necesita este texto
+        const lines = doc.splitTextToSize(displayText, maxWidth);
+        lineHeights.push(lines.length);
+      });
+
+      const maxLines = Math.max(...lineHeights);
+      const dynamicRowHeight = Math.max(rowHeight, maxLines * 3.5 + 1); // 3.5mm por línea + 1mm de margen
+
       // Verificar si necesitamos nueva página
-      if (currentY > pageHeight - 30) {
+      if (currentY + dynamicRowHeight > pageHeight - 30) {
         doc.addPage();
         this.addListPDFHeader(doc, pageWidth, margin);
         currentY = 45;
@@ -326,32 +344,26 @@ export class ExportService {
       // Alternar colores de fila
       if (rowIndex % 2 === 0) {
         doc.setFillColor(248, 250, 252);
-        doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight, 'F');
+        doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), dynamicRowHeight, 'F');
       }
 
       // Bordes
       doc.setDrawColor(200, 200, 200);
-      doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), rowHeight);
+      doc.rect(margin, currentY, colWidths.reduce((a, b) => a + b, 0), dynamicRowHeight);
 
-      // Contenido de celdas
+      // Contenido de celdas con text wrapping
       let cellX = margin;
       doc.setFontSize(7);
 
       row.forEach((cellValue, cellIndex) => {
         const textAlign = cellIndex === 0 || cellIndex === 6 || cellIndex === 7 ? 'center' : 
                          cellIndex === 9 || cellIndex === 10 ? 'right' : 'left';
-        const xPosition = textAlign === 'center' 
-          ? cellX + colWidths[cellIndex] / 2 
-          : textAlign === 'right'
-          ? cellX + colWidths[cellIndex] - 2
-          : cellX + 2;
-
-        // Truncar texto largo
-        let displayText = cellValue.toString();
-        const maxChars = cellIndex === 3 ? 25 : cellIndex === 4 ? 28 : cellIndex === 5 ? 20 : 100;
-        if (displayText.length > maxChars) {
-          displayText = displayText.substring(0, maxChars - 3) + '...';
-        }
+        
+        const displayText = cellValue.toString();
+        const maxWidth = colWidths[cellIndex] - 4; // 2mm padding en cada lado
+        
+        // Dividir el texto en líneas si es necesario
+        const lines = doc.splitTextToSize(displayText, maxWidth);
 
         // Aplicar negrillas si es la columna de Saldo (índice 10) y el valor es negativo (contiene paréntesis)
         if (cellIndex === 10 && displayText.includes('(')) {
@@ -360,11 +372,26 @@ export class ExportService {
           doc.setFont('helvetica', 'normal');
         }
 
-        doc.text(displayText, xPosition, currentY + 4.5, { align: textAlign });
+        // Renderizar cada línea
+        lines.forEach((line: string, lineIndex: number) => {
+          let xPosition: number;
+          
+          if (textAlign === 'center') {
+            xPosition = cellX + colWidths[cellIndex] / 2;
+          } else if (textAlign === 'right') {
+            xPosition = cellX + colWidths[cellIndex] - 2;
+          } else {
+            xPosition = cellX + 2;
+          }
+
+          const yPosition = currentY + 3.5 + (lineIndex * 3.5);
+          doc.text(line, xPosition, yPosition, { align: textAlign });
+        });
+
         cellX += colWidths[cellIndex];
       });
 
-      currentY += rowHeight;
+      currentY += dynamicRowHeight;
     });
 
     // Resumen al final
@@ -539,9 +566,34 @@ export class ExportService {
 
     // Información del estudiante
     doc.setFillColor(240, 248, 255);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 24, 'F');
     doc.setDrawColor(59, 130, 246);
-    doc.rect(margin, currentY, pageWidth - 2 * margin, 24);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 138);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    const col1X = margin + 5;
+    const col2X = pageWidth / 2;
+    const col1Width = (pageWidth / 2) - 10;
+    const col2Width = (pageWidth / 2) - margin - 5;
+
+    // Calcular altura necesaria con text wrapping
+    const nombreLines = doc.splitTextToSize(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2Width);
+    const carreraLines = doc.splitTextToSize(`Carrera: ${registro.carrera || 'N/A'}`, col2Width);
+    const beneficioLines = doc.splitTextToSize(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col1Width);
+    
+    const maxLinesCol1 = Math.max(2, beneficioLines.length); // CI, U.V.E. + Beneficio
+    const maxLinesCol2 = Math.max(nombreLines.length, carreraLines.length);
+    const totalLines = Math.max(maxLinesCol1, maxLinesCol2);
+    const detailBoxHeight = 8 + (totalLines * 4.5); // 8mm para título + 4.5mm por línea
+
+    // Dibujar recuadro con altura dinámica
+    doc.rect(margin, currentY, pageWidth - 2 * margin, detailBoxHeight, 'F');
+    doc.rect(margin, currentY, pageWidth - 2 * margin, detailBoxHeight);
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
@@ -552,16 +604,30 @@ export class ExportService {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
 
-    const col1X = margin + 5;
-    const col2X = pageWidth / 2;
+    let col1Y = currentY + 14;
+    let col2Y = currentY + 14;
 
-    doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 14);
-    doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 14);
-    doc.text(`U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 18);
-    doc.text(`Carrera: ${registro.carrera || 'N/A'}`, col2X, currentY + 18);
-    doc.text(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col1X, currentY + 22);
+    // Columna 1
+    doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, col1Y);
+    col1Y += 4.5;
+    doc.text(`U.V.E.: ${registro.total_creditos || 0}`, col1X, col1Y);
+    col1Y += 4.5;
+    
+    beneficioLines.forEach((line: string, index: number) => {
+      doc.text(line, col1X, col1Y + (index * 4.5));
+    });
 
-    return currentY + 29;
+    // Columna 2
+    nombreLines.forEach((line: string, index: number) => {
+      doc.text(line, col2X, col2Y + (index * 4.5));
+    });
+    col2Y += nombreLines.length * 4.5;
+
+    carreraLines.forEach((line: string, index: number) => {
+      doc.text(line, col2X, col2Y + (index * 4.5));
+    });
+
+    return currentY + detailBoxHeight + 5;
   }
 
   private addPDFHeader(doc: jsPDF, pageWidth: number, margin: number, title: string): void {
@@ -606,18 +672,13 @@ export class ExportService {
 
     // Información básica del estudiante en un recuadro
     doc.setFillColor(240, 248, 255); // Azul muy claro
-    // Aumentamos la altura del recuadro para incluir una tercera línea (descuento y beneficio)
-    const studentBoxHeight = 30;
-    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
     doc.setDrawColor(59, 130, 246); // Azul
-    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight);
 
     // Título del estudiante
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 58, 138); // Azul oscuro
-    doc.text(`ESTUDIANTE ${numeroEstudiante}`, margin + 5, currentY + 8);
-
+    
     // Información básica en dos columnas
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
@@ -625,17 +686,57 @@ export class ExportService {
 
     const col1X = margin + 5;
     const col2X = pageWidth / 2 + 10;
+    const col1Width = (pageWidth / 2) - 15;
+    const col2Width = (pageWidth / 2) - 15;
 
-    // Columna 1
-    doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, currentY + 15);
-    doc.text(`Total U.V.E.: ${registro.total_creditos || 0}`, col1X, currentY + 20);
+    // Calcular altura necesaria para el recuadro con text wrapping
+    const nombreLines = doc.splitTextToSize(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2Width);
+    const carreraLines = doc.splitTextToSize(`Carrera: ${registro.carrera || 'N/A'}`, col2Width);
+    const beneficioLines = doc.splitTextToSize(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col2Width);
+    
+    const maxLinesCol1 = 3; // CI, Total U.V.E., Descuento (siempre 1 línea cada uno)
+    const maxLinesCol2 = Math.max(nombreLines.length, carreraLines.length, beneficioLines.length);
+    const totalLines = Math.max(maxLinesCol1, maxLinesCol2);
+    const studentBoxHeight = 8 + (totalLines * 5); // 8mm para título + 5mm por línea
+
+    // Dibujar recuadro con altura dinámica
+    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
+    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight);
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 58, 138);
+    doc.text(`ESTUDIANTE ${numeroEstudiante}`, margin + 5, currentY + 8);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0, 0, 0);
+
+    let col1Y = currentY + 15;
+    let col2Y = currentY + 15;
+
+    // Columna 1 (siempre en una línea)
+    doc.text(`CI: ${registro.ci_estudiante || 'N/A'}`, col1X, col1Y);
+    col1Y += 5;
+    doc.text(`Total U.V.E.: ${registro.total_creditos || 0}`, col1X, col1Y);
+    col1Y += 5;
     const descuentoPct = (((registro.porcentaje_descuento || 0) * 100).toFixed(1)) + '%';
-    doc.text(`Descuento: ${descuentoPct}`, col1X, currentY + 25);
+    doc.text(`Descuento: ${descuentoPct}`, col1X, col1Y);
 
-    // Columna 2
-    doc.text(`Nombre: ${registro.nombre_estudiante || 'N/A'}`, col2X, currentY + 15);
-    doc.text(`Carrera: ${registro.carrera || 'N/A'}`, col2X, currentY + 20);
-    doc.text(`Tipo de Beneficio: ${this.getBeneficioNombre(registro.id_beneficio).toUpperCase()}`, col2X, currentY + 25);
+    // Columna 2 (con wrapping)
+    nombreLines.forEach((line: string, index: number) => {
+      doc.text(line, col2X, col2Y + (index * 5));
+    });
+    col2Y += nombreLines.length * 5;
+
+    carreraLines.forEach((line: string, index: number) => {
+      doc.text(line, col2X, col2Y + (index * 5));
+    });
+    col2Y += carreraLines.length * 5;
+
+    beneficioLines.forEach((line: string, index: number) => {
+      doc.text(line, col2X, col2Y + (index * 5));
+    });
 
     // Dejamos un pequeño margen debajo del recuadro
     currentY += studentBoxHeight + 5;
