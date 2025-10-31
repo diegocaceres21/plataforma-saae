@@ -118,7 +118,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   isExportingListadoExcel = false;
   isGeneratingListadoPDF = false;
   showListadoExportModal = false;
-  exportConfigListado: ExportConfig = this.crearConfigExportacionPorDefecto();
+  exportConfigListado: ExportConfig = { columns: [], includeCalculatedFields: true, fileName: 'lista_registros' };
 
   // Dropdown options
   gestionOptions: MultiSelectOption[] = [];
@@ -1077,7 +1077,14 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.exportConfigListado = this.crearConfigExportacionPorDefecto();
+    this.exportConfigListado = this.exportService.getDefaultColumns().reduce((config, col) => {
+      if (!config.columns) {
+        config.columns = [];
+      }
+      config.columns.push({ ...col });
+      return config;
+    }, { fileName: 'lista_registros', includeCalculatedFields: true, columns: [] } as ExportConfig);
+    
     this.showListadoExportModal = true;
   }
 
@@ -1085,203 +1092,23 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.showListadoExportModal = false;
   }
 
-  confirmarExportListado(config: ExportConfig): void {
+  async confirmarExportListado(config: ExportConfig): Promise<void> {
     this.showListadoExportModal = false;
-    this.generarExcelListado(config);
-  }
-
-  private generarExcelListado(config: ExportConfig): void {
-    const columnasActivas = this.obtenerColumnasActivas(config);
-
-    if (columnasActivas.length === 0) {
-      this.toastService.warning('Sin columnas', 'Selecciona al menos una columna para exportar.');
-      return;
-    }
-
     this.isExportingListadoExcel = true;
 
     try {
-      const libro = XLSX.utils.book_new();
-
-      const resumenDatos = this.obtenerResumenDatos();
-      const resumenSheet = XLSX.utils.json_to_sheet(resumenDatos, { header: ['Etiqueta', 'Detalle'] });
-      resumenSheet['!cols'] = [{ wch: 28 }, { wch: 80 }];
-      XLSX.utils.book_append_sheet(libro, resumenSheet, 'Resumen');
-
-      const filasDetalle = this.obtenerTodasLasFilasFiltradas();
-      const detalles = filasDetalle.map(registro => this.mapearRegistroADetalle(registro, columnasActivas));
-
-      const detalleSheet = XLSX.utils.json_to_sheet(detalles);
-      detalleSheet['!cols'] = columnasActivas.map(col => ({ wch: this.obtenerAnchoColumna(col.key) }));
-      XLSX.utils.book_append_sheet(libro, detalleSheet, 'Detalle estudiantes');
-
-      const baseNombre = config.fileName?.trim() || 'reporte_lista_registros';
-      const nombreNormalizado = this.sanitizarNombreArchivo(baseNombre) || 'reporte_lista_registros';
-      const nombreArchivo = `${nombreNormalizado}_${this.formatDateForFile(new Date())}.xlsx`;
-      XLSX.writeFile(libro, nombreArchivo);
-
-      this.toastService.success('Exportación completada', `Reporte Excel generado (${detalles.length} filas)`);
+      const registrosFiltrados = this.obtenerTodasLasFilasFiltradas();
+      const success = await this.exportService.exportToExcel(registrosFiltrados, config);
+      
+      if (!success) {
+        this.toastService.warning('Exportación cancelada', 'No se pudo completar la exportación.');
+      }
     } catch (error) {
-      console.error('❌ Error exportando Excel listado:', error);
+      console.error('❌ Error exportando Excel:', error);
       this.toastService.error('Error de exportación', 'No se pudo generar el archivo Excel.');
     } finally {
       this.isExportingListadoExcel = false;
     }
-  }
-
-  private obtenerColumnasActivas(config: ExportConfig): ExportColumn[] {
-    return config.columns
-      .filter(col => col.enabled && (!col.isCalculated || config.includeCalculatedFields))
-      .map(col => ({ ...col }));
-  }
-
-  private mapearRegistroADetalle(registro: RegistroConSolicitud, columnas: ExportColumn[]): Record<string, unknown> {
-    const fila: Record<string, unknown> = {};
-    columnas.forEach(columna => {
-      fila[columna.label] = this.obtenerValorColumna(registro, columna.key);
-    });
-    return fila;
-  }
-
-  private obtenerValorColumna(registro: RegistroConSolicitud, key: string): string | number {
-    const porcentaje = registro.porcentaje_descuento || 0;
-    const valorCredito = registro.valor_credito || 0;
-    const totalCreditos = registro.total_creditos || 0;
-    const creditoTecnologico = registro.credito_tecnologico || 0;
-    const montoPrimerPago = registro.monto_primer_pago || 0;
-    const totalSemestre = registro.total_semestre || 0;
-
-    switch (key) {
-      case 'gestion':
-        return this.getNombreGestion(registro.id_gestion);
-      case 'fecha_solicitud':
-        return registro.solicitudInfo ? this.formatearFecha(registro.solicitudInfo.fecha) : '';
-      case 'id_solicitud':
-        return registro.id_solicitud ? registro.id_solicitud.slice(-8) : '';
-      case 'ci_estudiante':
-        return registro.ci_estudiante || '';
-      case 'nombre_estudiante':
-        return registro.nombre_estudiante || '';
-      case 'carrera':
-        return registro.carrera || '';
-      case 'tipo_beneficio':
-        return this.getNombreBeneficio(registro.id_beneficio).toUpperCase();
-      case 'total_creditos':
-        return totalCreditos;
-      case 'valor_credito':
-        return valorCredito;
-      case 'credito_tecnologico':
-        return creditoTecnologico;
-      case 'porcentaje_descuento':
-        return `${(porcentaje * 100).toFixed(1)}%`;
-      case 'monto_primer_pago':
-        return montoPrimerPago;
-      case 'plan_primer_pago':
-        return registro.plan_primer_pago || '';
-      case 'referencia_primer_pago':
-        return registro.referencia_primer_pago || '';
-      case 'total_semestre':
-        return totalSemestre;
-      case 'registrado':
-        return registro.registrado ? 'Sí' : 'No';
-      case 'comentarios':
-        return registro.comentarios || '';
-      case 'derechos_academicos_originales':
-        return valorCredito * totalCreditos;
-      case 'derechos_academicos_descuento':
-        return (valorCredito * totalCreditos) * (1 - porcentaje);
-      case 'ahorro_descuento':
-        return (valorCredito * totalCreditos) * porcentaje;
-      case 'saldo_semestre_original':
-        return totalSemestre - montoPrimerPago;
-      case 'saldo_semestre_descuento':
-        if (porcentaje > 0) {
-          const derechosConDescuento = (valorCredito * totalCreditos) * (1 - porcentaje);
-          return derechosConDescuento + creditoTecnologico - montoPrimerPago;
-        }
-        return totalSemestre - montoPrimerPago;
-      default:
-        const valorGenerico = (registro as unknown as Record<string, unknown>)[key];
-        if (typeof valorGenerico === 'number') {
-          return valorGenerico;
-        }
-        if (valorGenerico === null || valorGenerico === undefined) {
-          return '';
-        }
-        return String(valorGenerico);
-    }
-  }
-
-  private obtenerAnchoColumna(key: string): number {
-    const widths: Record<string, number> = {
-      gestion: 16,
-      fecha_solicitud: 18,
-      id_solicitud: 14,
-      ci_estudiante: 18,
-      nombre_estudiante: 35,
-      carrera: 30,
-      tipo_beneficio: 25,
-      total_creditos: 15,
-      valor_credito: 18,
-      credito_tecnologico: 20,
-      porcentaje_descuento: 18,
-      monto_primer_pago: 20,
-      plan_primer_pago: 25,
-      referencia_primer_pago: 34,
-      total_semestre: 20,
-      registrado: 12,
-      comentarios: 40,
-      derechos_academicos_originales: 26,
-      derechos_academicos_descuento: 28,
-      ahorro_descuento: 22,
-      saldo_semestre_original: 24,
-      saldo_semestre_descuento: 26
-    };
-
-    return widths[key] ?? 20;
-  }
-
-  private sanitizarNombreArchivo(nombre: string): string {
-    return nombre
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z0-9-_]+/g, '_')
-      .replace(/_{2,}/g, '_')
-      .replace(/^_|_$/g, '')
-      .toLowerCase();
-  }
-
-  private crearConfigExportacionPorDefecto(): ExportConfig {
-    const columnas: ExportColumn[] = [
-      { key: 'gestion', label: 'Gestión', enabled: true },
-      { key: 'fecha_solicitud', label: 'Fecha de Solicitud', enabled: true },
-      { key: 'id_solicitud', label: 'ID Solicitud', enabled: true },
-      { key: 'ci_estudiante', label: 'Carnet de Identidad', enabled: true },
-      { key: 'nombre_estudiante', label: 'Nombre Completo', enabled: true },
-      { key: 'carrera', label: 'Carrera', enabled: true },
-      { key: 'tipo_beneficio', label: 'Tipo de Beneficio', enabled: true },
-      { key: 'plan_primer_pago', label: 'Plan de Pago', enabled: true },
-      { key: 'monto_primer_pago', label: 'Monto Primer Pago', enabled: true },
-      { key: 'porcentaje_descuento', label: 'Porcentaje Descuento', enabled: true },
-      { key: 'total_creditos', label: 'Total U.V.E.', enabled: true },
-      { key: 'valor_credito', label: 'Valor por U.V.E.', enabled: true },
-      { key: 'credito_tecnologico', label: 'Crédito Tecnológico', enabled: true },
-      { key: 'total_semestre', label: 'Total Semestre', enabled: true },
-      { key: 'referencia_primer_pago', label: 'Referencia Primer Pago', enabled: true },
-      { key: 'registrado', label: 'Registrado', enabled: true },
-      { key: 'comentarios', label: 'Comentarios', enabled: true },
-      { key: 'derechos_academicos_originales', label: 'Derechos Académicos Originales', enabled: true, isCalculated: true },
-      { key: 'derechos_academicos_descuento', label: 'Derechos Académicos con Descuento', enabled: true, isCalculated: true },
-      { key: 'ahorro_descuento', label: 'Ahorro por Descuento', enabled: true, isCalculated: true },
-      { key: 'saldo_semestre_original', label: 'Saldo Semestre Original', enabled: true, isCalculated: true },
-      { key: 'saldo_semestre_descuento', label: 'Saldo Semestre con Descuento', enabled: true, isCalculated: true }
-    ];
-
-    return {
-      columns: columnas.map(col => ({ ...col })),
-      includeCalculatedFields: true,
-      fileName: 'reporte_lista_registros'
-    };
   }
 
   async exportarListadoPDF(): Promise<void> {

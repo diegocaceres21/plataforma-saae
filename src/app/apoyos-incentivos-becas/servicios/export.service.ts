@@ -24,6 +24,13 @@ export class ExportService {
     return `Bs. ${value.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
+  // Helper para formatear saldo (negativos entre paréntesis)
+  private formatBalance(value: number): string {
+    const absoluteValue = Math.abs(value);
+    const formattedValue = `Bs. ${absoluteValue.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return value < 0 ? `(${formattedValue})` : formattedValue;
+  }
+
   // Obtener nombre del beneficio
   private getBeneficioNombre(id?: string): string {
     if (!id) return 'N/A';
@@ -39,18 +46,21 @@ export class ExportService {
       { key: 'carrera', label: 'Carrera', enabled: true },
       { key: 'total_creditos', label: 'Total U.V.E.', enabled: true },
       { key: 'valor_credito', label: 'Valor por U.V.E.', enabled: true },
-      { key: 'credito_tecnologico', label: 'Crédito Tecnológico', enabled: true },
       { key: 'porcentaje_descuento', label: 'Porcentaje Descuento', enabled: true },
-      { key: 'monto_primer_pago', label: 'Monto Primer Pago', enabled: true },
       { key: 'plan_primer_pago', label: 'Plan de Pago', enabled: true },
       { key: 'referencia_primer_pago', label: 'Referencia de Pago', enabled: true },
-      { key: 'total_semestre', label: 'Total Semestre', enabled: true },
       { key: 'registrado', label: 'Registrado', enabled: false },
       { key: 'comentarios', label: 'Comentarios', enabled: false },
       { key: 'derechos_academicos_originales', label: 'Derechos Académicos Originales', enabled: false, isCalculated: true },
       { key: 'derechos_academicos_descuento', label: 'Derechos Académicos con Descuento', enabled: false, isCalculated: true },
+      { key: 'credito_tecnologico', label: 'Crédito Tecnológico', enabled: false, isCalculated: true },
+      { key: 'total_semestre', label: 'Total Semestre', enabled: false, isCalculated: true },
+      { key: 'total_semestre_descuento', label: 'Total Semestre con Descuento', enabled: false, isCalculated: true },
       { key: 'ahorro_descuento', label: 'Ahorro por Descuento', enabled: false, isCalculated: true },
-      { key: 'saldo_semestre_original', label: 'Saldo Semestre Original', enabled: false, isCalculated: true },
+      { key: 'monto_primer_pago', label: 'Monto Primer Pago', enabled: false, isCalculated: true },
+      { key: 'pagos_realizados', label: 'Pagos Realizados', enabled: false, isCalculated: true },
+      { key: 'pago_credito_tecnologico', label: 'Pago Crédito Tecnológico', enabled: false, isCalculated: true },
+      { key: 'saldo_semestre_original', label: 'Saldo Semestre sin Descuento', enabled: false, isCalculated: true },
       { key: 'saldo_semestre_descuento', label: 'Saldo Semestre con Descuento', enabled: false, isCalculated: true }
     ];
   }
@@ -261,8 +271,8 @@ export class ExportService {
     const tableData = this.prepareListTableData(registros, getNombreGestion, formatearFecha);
     
     // Configuración de columnas para la tabla
-    const headers = ['#', 'Gestión', 'CI', 'Estudiante', 'Carrera', 'Beneficio', 'UVE', 'Desc.', 'Plan', 'Estado'];
-    const colWidths = [8, 20, 22, 45, 50, 35, 12, 12, 25, 18];
+    const headers = ['#', 'Gestión', 'CI', 'Estudiante', 'Carrera', 'Beneficio', 'UVE', 'Desc.', 'Plan', 'Pagos', 'Saldo'];
+    const colWidths = [8, 20, 22, 40, 45, 32, 12, 12, 25, 20, 20];
     const rowHeight = 7;
 
     // Encabezado de tabla
@@ -328,16 +338,26 @@ export class ExportService {
       doc.setFontSize(7);
 
       row.forEach((cellValue, cellIndex) => {
-        const textAlign = cellIndex === 0 || cellIndex === 6 || cellIndex === 7 ? 'center' : 'left';
+        const textAlign = cellIndex === 0 || cellIndex === 6 || cellIndex === 7 ? 'center' : 
+                         cellIndex === 9 || cellIndex === 10 ? 'right' : 'left';
         const xPosition = textAlign === 'center' 
           ? cellX + colWidths[cellIndex] / 2 
+          : textAlign === 'right'
+          ? cellX + colWidths[cellIndex] - 2
           : cellX + 2;
 
         // Truncar texto largo
         let displayText = cellValue.toString();
-        const maxChars = cellIndex === 3 ? 28 : cellIndex === 4 ? 30 : cellIndex === 5 ? 22 : 100;
+        const maxChars = cellIndex === 3 ? 25 : cellIndex === 4 ? 28 : cellIndex === 5 ? 20 : 100;
         if (displayText.length > maxChars) {
           displayText = displayText.substring(0, maxChars - 3) + '...';
+        }
+
+        // Aplicar negrillas si es la columna de Saldo (índice 10) y el valor es negativo (contiene paréntesis)
+        if (cellIndex === 10 && displayText.includes('(')) {
+          doc.setFont('helvetica', 'bold');
+        } else {
+          doc.setFont('helvetica', 'normal');
         }
 
         doc.text(displayText, xPosition, currentY + 4.5, { align: textAlign });
@@ -408,18 +428,41 @@ export class ExportService {
     getNombreGestion: (id: string) => string,
     formatearFecha: (fecha: string) => string
   ): string[][] {
-    return registros.map((registro, index) => [
-      (index + 1).toString(),
-      getNombreGestion(registro.id_gestion || ''),
-      registro.ci_estudiante || 'N/A',
-      registro.nombre_estudiante || 'N/A',
-      registro.carrera || 'N/A',
-      this.getBeneficioNombre(registro.id_beneficio),
-      (registro.total_creditos || 0).toString(),
-      `${((registro.porcentaje_descuento || 0) * 100).toFixed(0)}%`,
-      registro.plan_primer_pago || 'N/A',
-      registro.registrado ? 'Reg.' : 'Pend.'
-    ]);
+    return registros.map((registro, index) => {
+      // Calcular derechos académicos con descuento (misma lógica que payment-plans-display)
+      const creditosConDescuento = registro.creditos_descuento || registro.total_creditos || 0;
+      const creditosSinDescuento = (registro.total_creditos || 0) - creditosConDescuento;
+      const derechosAcademicosConDescuento = 
+        creditosConDescuento * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) +
+        creditosSinDescuento * (registro.valor_credito || 0);
+      
+      // El crédito tecnológico no se aplica cuando el descuento es 100%
+      const creditoTecnologicoConDescuento = (registro.porcentaje_descuento !== 1) ? (registro.credito_tecnologico || 0) : 0;
+      const totalConDescuento = derechosAcademicosConDescuento + creditoTecnologicoConDescuento;
+
+      // Calcular pagos realizados (D.A. + C.T.)
+      const pagosRealizados = registro.pagos_realizados || 0;
+      const pagoCreditoTecnologico = registro.pago_credito_tecnologico ? (registro.credito_tecnologico || 0) : 0;
+      const totalPagos = pagosRealizados + pagoCreditoTecnologico;
+
+      // Calcular saldo semestre con descuento
+      const montoPrimerPago = registro.monto_primer_pago || 0;
+      const saldoConDescuento = totalConDescuento - montoPrimerPago - totalPagos;
+
+      return [
+        (index + 1).toString(),
+        getNombreGestion(registro.id_gestion || ''),
+        registro.ci_estudiante || 'N/A',
+        registro.nombre_estudiante || 'N/A',
+        registro.carrera || 'N/A',
+        this.getBeneficioNombre(registro.id_beneficio),
+        (registro.total_creditos || 0).toString(),
+        `${((registro.porcentaje_descuento || 0) * 100).toFixed(0)}%`,
+        registro.plan_primer_pago || 'N/A',
+        this.formatCurrency(totalPagos),
+        this.formatBalance(saldoConDescuento)
+      ];
+    });
   }
 
   private addListPDFFooter(doc: jsPDF, pageHeight: number, margin: number, totalRegistros: number): void {
@@ -551,7 +594,7 @@ export class ExportService {
     // Fecha de generación a la derecha
     doc.setFontSize(10);
     doc.text(`Generado el: ${new Date().toLocaleDateString('es-ES')} a las ${new Date().toLocaleTimeString('es-ES')}`,
-      pageWidth - margin, 18, { align: 'right' });
+      pageWidth - margin, 8, { align: 'right' });
 
     // Línea separadora (debajo del bloque del logo y textos)
     doc.setLineWidth(0.5);
@@ -823,14 +866,8 @@ export class ExportService {
           case 'valor_credito':
             fila[column.label] = registro.valor_credito || 0;
             break;
-          case 'credito_tecnologico':
-            fila[column.label] = registro.credito_tecnologico || 0;
-            break;
           case 'porcentaje_descuento':
             fila[column.label] = registro.porcentaje_descuento ? (registro.porcentaje_descuento * 100).toFixed(1) + '%' : '0%';
-            break;
-          case 'monto_primer_pago':
-            fila[column.label] = registro.monto_primer_pago || 0;
             break;
           case 'plan_primer_pago':
             fila[column.label] = registro.plan_primer_pago || '';
@@ -838,33 +875,70 @@ export class ExportService {
           case 'referencia_primer_pago':
             fila[column.label] = registro.referencia_primer_pago || '';
             break;
-          case 'total_semestre':
-            fila[column.label] = registro.total_semestre || 0;
-            break;
           case 'registrado':
             fila[column.label] = registro.registrado ? 'Sí' : 'No';
             break;
           case 'comentarios':
             fila[column.label] = registro.comentarios || '';
             break;
-          // Campos calculados
+          // Campos calculados (misma lógica que payment-plans-display)
           case 'derechos_academicos_originales':
             fila[column.label] = (registro.valor_credito || 0) * (registro.total_creditos || 0);
             break;
           case 'derechos_academicos_descuento':
-            fila[column.label] = ((registro.valor_credito || 0) * (registro.total_creditos || 0)) * (1 - (registro.porcentaje_descuento || 0));
+            const creditosConDescuento = registro.creditos_descuento || registro.total_creditos || 0;
+            const creditosSinDescuento = (registro.total_creditos || 0) - creditosConDescuento;
+            fila[column.label] = creditosConDescuento * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + 
+                                 creditosSinDescuento * (registro.valor_credito || 0);
+            break;
+          case 'credito_tecnologico':
+            // El crédito tecnológico no se aplica cuando el descuento es 100%
+            fila[column.label] = (registro.porcentaje_descuento !== 1) ? (registro.credito_tecnologico || 0) : 0;
+            break;
+          case 'total_semestre':
+            fila[column.label] = registro.total_semestre || 0;
+            break;
+          case 'total_semestre_descuento':
+            const creditosConDesc2 = registro.creditos_descuento || registro.total_creditos || 0;
+            const creditosSinDesc2 = (registro.total_creditos || 0) - creditosConDesc2;
+            const derechosAcadConDesc2 = creditosConDesc2 * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + 
+                                         creditosSinDesc2 * (registro.valor_credito || 0);
+            const creditoTecnologicoConDesc = (registro.porcentaje_descuento !== 1) ? (registro.credito_tecnologico || 0) : 0;
+            fila[column.label] = derechosAcadConDesc2 + creditoTecnologicoConDesc;
             break;
           case 'ahorro_descuento':
-            fila[column.label] = ((registro.valor_credito || 0) * (registro.total_creditos || 0)) * (registro.porcentaje_descuento || 0);
+            const derechosOriginales = (registro.valor_credito || 0) * (registro.total_creditos || 0);
+            const creditosDesc = registro.creditos_descuento || registro.total_creditos || 0;
+            const creditosSinDesc = (registro.total_creditos || 0) - creditosDesc;
+            const derechosConDesc = creditosDesc * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + 
+                                    creditosSinDesc * (registro.valor_credito || 0);
+            fila[column.label] = derechosOriginales - derechosConDesc;
+            break;
+          case 'monto_primer_pago':
+            fila[column.label] = registro.monto_primer_pago || 0;
+            break;
+          case 'pagos_realizados':
+            fila[column.label] = registro.pagos_realizados || 0;
+            break;
+          case 'pago_credito_tecnologico':
+            fila[column.label] = registro.pago_credito_tecnologico ? (registro.credito_tecnologico || 0) : 0;
             break;
           case 'saldo_semestre_original':
-            fila[column.label] = (registro.total_semestre || 0) - (registro.monto_primer_pago || 0);
+            const totalOriginal = registro.total_semestre || 0;
+            const pagosRealizadosOrig = registro.pagos_realizados || 0;
+            const pagoCreditoOrig = registro.pago_credito_tecnologico ? (registro.credito_tecnologico || 0) : 0;
+            fila[column.label] = totalOriginal - (registro.monto_primer_pago || 0) - pagosRealizadosOrig - pagoCreditoOrig;
             break;
           case 'saldo_semestre_descuento':
-            const saldoConDescuento = registro.porcentaje_descuento ?
-              (((registro.valor_credito || 0) * (registro.total_creditos || 0)) * (1 - registro.porcentaje_descuento) + (registro.credito_tecnologico || 0) - (registro.monto_primer_pago || 0)) :
-              ((registro.total_semestre || 0) - (registro.monto_primer_pago || 0));
-            fila[column.label] = saldoConDescuento;
+            const credConDesc = registro.creditos_descuento || registro.total_creditos || 0;
+            const credSinDesc = (registro.total_creditos || 0) - credConDesc;
+            const derAcadConDesc = credConDesc * (registro.valor_credito || 0) * (1 - (registro.porcentaje_descuento || 0)) + 
+                                   credSinDesc * (registro.valor_credito || 0);
+            const credTecnologico = (registro.porcentaje_descuento !== 1) ? (registro.credito_tecnologico || 0) : 0;
+            const totalConDesc = derAcadConDesc + credTecnologico;
+            const pagosRealizadosDesc = registro.pagos_realizados || 0;
+            const pagoCreditoDesc = registro.pago_credito_tecnologico ? (registro.credito_tecnologico || 0) : 0;
+            fila[column.label] = totalConDesc - (registro.monto_primer_pago || 0) - pagosRealizadosDesc - pagoCreditoDesc;
             break;
         }
       });
@@ -916,19 +990,22 @@ export class ExportService {
       'carrera': 30,
       'total_creditos': 15,
       'valor_credito': 18,
-      'credito_tecnologico': 20,
       'porcentaje_descuento': 20,
-      'monto_primer_pago': 20,
       'plan_primer_pago': 25,
       'referencia_primer_pago': 40,
-      'total_semestre': 18,
       'registrado': 12,
       'comentarios': 30,
-      'derechos_academicos_originales': 28,
-      'derechos_academicos_descuento': 30,
+      'derechos_academicos_originales': 30,
+      'derechos_academicos_descuento': 32,
+      'credito_tecnologico': 20,
+      'total_semestre': 20,
+      'total_semestre_descuento': 28,
       'ahorro_descuento': 20,
-      'saldo_semestre_original': 25,
-      'saldo_semestre_descuento': 28
+      'monto_primer_pago': 20,
+      'pagos_realizados': 20,
+      'pago_credito_tecnologico': 25,
+      'saldo_semestre_original': 28,
+      'saldo_semestre_descuento': 30
     };
     return widths[key] || 20;
   }
