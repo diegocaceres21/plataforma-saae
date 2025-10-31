@@ -9,6 +9,7 @@ import { ApoyoFamiliarService } from '../../../../servicios/apoyo-familiar.servi
 import { CarreraService } from '../../../../servicios/carrera.service';
 import { BeneficioService } from '../../../../servicios/beneficio.service';
 import { GestionService } from '../../../../servicios/gestion.service';
+import { AcademicoUtilsService } from '../../../../servicios/academico-utils.service';
 import { Gestion } from '../../../../interfaces/gestion';
 import { RegistroEstudiante } from '../../../../interfaces/registro-estudiante';
 import { StudentAutocompleteComponent } from '../../../../../shared/componentes/student-autocomplete/student-autocomplete';
@@ -52,6 +53,7 @@ export class RegistroMasivo implements OnInit {
   private carreraService = inject(CarreraService);
   private beneficioService = inject(BeneficioService);
   private gestionService = inject(GestionService);
+  private academicoUtils = inject(AcademicoUtilsService);
 
   // Step navigation
   currentStep = 1;
@@ -516,7 +518,7 @@ export class RegistroMasivo implements OnInit {
 
         // Get kardex information
         const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-        const [totalCreditos, carrera, sinKardex] = await this.obtenerInformacionKardex(kardex);
+        const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
 
         let valorCredito = 0;
         let creditoTecnologico = 0;
@@ -525,7 +527,7 @@ export class RegistroMasivo implements OnInit {
         // Only calculate career info if we have valid kardex data
         if (!sinKardex) {
           // Get payment information
-          const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
+          const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(idEstudiante, this.semestreActual);
 
           // OPTIMIZATION: O(1) lookup from map instead of O(n) find
           const carreraNormalized = carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -692,132 +694,7 @@ export class RegistroMasivo implements OnInit {
     return saldoConDescuento;
   }
 
-  private async obtenerInformacionKardex(kardex: any[]): Promise<[number, string, boolean]> {
-    let totalCreditos = 0;
-    let carrera = '';
-    let semestresEncontrados = 0;
-
-    const nombresGestiones = this.semestreActual.map(g => g.gestion);
-
-    for (let i = kardex.length - 1; i >= 0; i--) {
-      const semestre = kardex[i];
-      const encabezadoSemestre = semestre.encabezado[0];
-
-      const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
-
-      if (gestionEncontrada) {
-        const creditosSemestre = parseInt(
-          semestre.tabla.datos[semestre.tabla.datos.length - 1][6].contenidoCelda[0].contenido,
-          10
-        );
-
-        totalCreditos += creditosSemestre;
-
-        if (!carrera) {
-          carrera = semestre.encabezado[semestre.encabezado.length - 1]
-            .split(': ')
-            .pop()
-            ?.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') || '';
-        }
-
-        semestresEncontrados++;
-      }
-    }
-
-    // If no semesters found, return default values with flag
-    if (semestresEncontrados === 0) {
-      return [0, 'Sin información', true]; // true = sin_kardex
-    }
-
-    return [totalCreditos, carrera, false]; // false = tiene kardex válido
-  }
-
-  private async obtenerPlanDePagoRealizado(id_estudiante: string, studentName: string, studentCI: string): Promise<[string, string, number, boolean, number, boolean]> {
-    let referencia = "";
-    let planAccedido = "";
-    let pagoRealizado = 0;
-    let sinPago = false;
-    let pagosSemestre = 0;
-    let pagoCreditoTecnologico = false;
-
-    if (!window.academicoAPI) {
-      // No API available - mark as sin_pago
-      return [referencia, 'No encontrado', pagoRealizado, true, pagosSemestre, pagoCreditoTecnologico];
-    }
-
-    try {
-      const pagos = await window.academicoAPI.obtenerPagosRealizados(id_estudiante);
-
-      for (const pago of pagos) {
-        if (pago[4]?.contenidoCelda?.[0]?.contenido === "FACTURA REGULAR") {
-          const parametros = pago[pago.length - 1]?.contenidoCelda?.[0]?.parametros;
-          if (parametros && parametros.length >= 3) {
-            const numeroMaestro = parametros[0]?.valorParametro;
-            const idRegional = parametros[1]?.valorParametro;
-            const orden = parametros[2]?.valorParametro;
-
-            if (numeroMaestro && idRegional && orden) {
-              const detalleFactura = await window.academicoAPI.obtenerDetalleFactura(
-                numeroMaestro,
-                idRegional,
-                orden
-              );
-
-              for (const factura of detalleFactura) {
-                referencia = factura[1]?.contenidoCelda?.[0]?.contenido || "";
-
-                const gestionEncontrada = this.semestreActual.some(gestion =>
-                  referencia.includes(gestion.gestion)
-                );
-
-                if (gestionEncontrada) {
-                  if (referencia.includes("ESTANDAR") || referencia.includes("ESTÁNDAR")) {
-                    planAccedido = "PLAN ESTANDAR";
-                    pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                    break;
-                  } else if (referencia.includes("PLUS")) {
-                    planAccedido = "PLAN PLUS";
-                    pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                    break;
-                  }
-                  else if(!referencia.includes("TECNOLOGICO")){
-                    pagosSemestre += parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                  }
-                  else{
-                    pagoCreditoTecnologico = true;
-                  }
-                }
-              }
-
-              if (planAccedido) {
-                break;
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error obteniendo plan de pago:', error);
-    }
-
-    // If no payment found, mark as sin_pago
-    if (!planAccedido) {
-      sinPago = true;
-    }
-
-    // Return values with sin_pago flag
-    return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
-  }
+  
 
   private calcularPorcentajesGrupo(registros: RegistroEstudiante[]): void {
     // Sort by total credits descending
@@ -976,7 +853,7 @@ export class RegistroMasivo implements OnInit {
 
       // Get kardex information
       const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-      const [totalCreditos, carrera, sinKardex] = await this.obtenerInformacionKardex(kardex);
+      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
 
       if (sinKardex) {
         // Student without kardex - show error
@@ -984,7 +861,7 @@ export class RegistroMasivo implements OnInit {
       }
 
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(idEstudiante, nombreEstudiante, ciEstudiante);
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(idEstudiante, this.semestreActual);
 
       // Get career info
       const carreras = this.carreraService.currentData;
@@ -1275,17 +1152,16 @@ export class RegistroMasivo implements OnInit {
 
       // Get kardex information
       const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-      const [totalCreditos, carrera, sinKardex] = await this.obtenerInformacionKardex(kardex);
+      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
 
       if (sinKardex) {
         throw new Error(`El estudiante ${nombreEstudiante} no tiene registro en las gestiones activas`);
       }
 
       // Get payment information
-      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.obtenerPlanDePagoRealizado(
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(
         idEstudiante,
-        nombreEstudiante,
-        ciEstudiante
+        this.semestreActual
       );
 
       // Get career info

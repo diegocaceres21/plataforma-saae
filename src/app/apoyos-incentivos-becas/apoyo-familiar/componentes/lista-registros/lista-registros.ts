@@ -24,6 +24,7 @@ import '../../../../shared/interfaces/electron-api';
 import { ExportConfig, ExportColumn } from '../../../../shared/interfaces/export-config';
 // Logo institucional centralizado reutilizado para encabezados de reportes PDF
 import { DriverService } from '../../../../shared/servicios/driver';
+import { AcademicoUtilsService } from '../../../servicios/academico-utils.service';
 
 interface RegistroConSolicitud extends RegistroEstudiante {
   solicitudInfo?: Solicitud;
@@ -53,6 +54,7 @@ interface SolicitudAgrupada {
 export class ListaRegistrosComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private readonly COMMENT_PREVIEW_LIMIT = 100;
+  private academicoUtils = inject(AcademicoUtilsService);
 
   // Datos principales
   registrosEstudiantes: RegistroEstudiante[] = [];
@@ -134,7 +136,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
   showBulkActionsMenu = false;
   isPerformingBulkAction = false;
   showBulkConfirmModal = false;
-  bulkActionType: 'registrado' | 'pendiente' | null = null;
+  bulkActionType: 'registrado' | 'pendiente' | 'actualizar_datos' | null = null;
 
   // Paginación
   currentPage = 1;
@@ -1451,7 +1453,7 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
     this.showBulkActionsMenu = false;
   }
 
-  abrirModalAccionMasiva(tipo: 'registrado' | 'pendiente'): void {
+  abrirModalAccionMasiva(tipo: 'registrado' | 'pendiente' | 'actualizar_datos'): void {
     if (this.isPerformingBulkAction) {
       return;
     }
@@ -1476,15 +1478,24 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       return 'Marcar todos como Registrados';
     } else if (this.bulkActionType === 'pendiente') {
       return 'Marcar todos como Pendientes';
+    } else if (this.bulkActionType === 'actualizar_datos') {
+      return 'Actualizar U.V.E. y Pagos Realizados';
     }
     return 'Acción Masiva';
   }
 
   getMensajeAccionMasiva(): string {
     const totalRegistros = this.obtenerTodasLasFilasFiltradas().length;
-    const accion = this.bulkActionType === 'registrado' ? 'registrados' : 'pendientes';
     
-    return `Estás a punto de actualizar ${totalRegistros} registro(s) filtrado(s) como "${accion}". Esta acción actualizará todos los registros que cumplan con los filtros actuales.`;
+    if (this.bulkActionType === 'registrado') {
+      return `Estás a punto de actualizar ${totalRegistros} registro(s) filtrado(s) como "registrados". Esta acción actualizará todos los registros que cumplan con los filtros actuales.`;
+    } else if (this.bulkActionType === 'pendiente') {
+      return `Estás a punto de actualizar ${totalRegistros} registro(s) filtrado(s) como "pendientes". Esta acción actualizará todos los registros que cumplan con los filtros actuales.`;
+    } else if (this.bulkActionType === 'actualizar_datos') {
+      return `Estás a punto de actualizar los créditos académicos y de pagos de ${totalRegistros} registro(s) filtrado(s). Esta acción consultará la API externa para obtener el total de U.V.E. actuales y los pagos realizados por cada estudiante.`;
+    }
+    
+    return '';
   }
 
   getCantidadRegistrosAfectados(): number {
@@ -1493,6 +1504,12 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
 
   async confirmarAccionMasiva(): Promise<void> {
     if (!this.bulkActionType) {
+      return;
+    }
+
+    // Manejar actualización de datos académicos
+    if (this.bulkActionType === 'actualizar_datos') {
+      await this.actualizarDatosAcademicos();
       return;
     }
 
@@ -1580,6 +1597,196 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       );
     } finally {
       this.isPerformingBulkAction = false;
+    }
+  }
+
+  /**
+   * Actualiza los datos académicos (U.V.E. y pagos realizados) de todos los registros filtrados.
+   * Consulta la API externa para obtener información actualizada de cada estudiante.
+   */
+  async actualizarDatosAcademicos(): Promise<void> {
+    const registrosFiltrados = this.obtenerTodasLasFilasFiltradas();
+    
+    if (registrosFiltrados.length === 0) {
+      this.toastService.warning('Sin registros', 'No hay registros para actualizar.');
+      return;
+    }
+
+    this.isPerformingBulkAction = true;
+
+    try {
+      // Pre-cargar mapas para optimización O(1)
+      const beneficiosMap = new Map<string, Beneficio>();
+      this.beneficioService.currentData.forEach((b: Beneficio) => {
+        beneficiosMap.set(b.nombre.toLowerCase(), b);
+      });
+
+      const carrerasMap = new Map<string, any>();
+      this.carreraService.currentData.forEach((c: any) => {
+        const carreraNormalized = c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        carrerasMap.set(carreraNormalized, c);
+      });
+
+      // Contadores para reporte
+      let actualizados = 0;
+      let errores = 0;
+      const registrosActualizados: Array<{ id: string; datos: Partial<RegistroEstudiante> }> = [];
+
+      // Procesar en lotes para mejor rendimiento
+      const BATCH_SIZE = 5;
+
+      for (let i = 0; i < registrosFiltrados.length; i += BATCH_SIZE) {
+        const batch = registrosFiltrados.slice(i, i + BATCH_SIZE);  
+        const progreso = Math.min(i + BATCH_SIZE, registrosFiltrados.length);
+
+        // Mostrar progreso en consola
+        console.log(`📊 Procesando estudiantes... (${progreso}/${registrosFiltrados.length})`);
+
+        // Procesar lote en paralelo
+        const results = await Promise.allSettled(
+          batch.map(estudiante => 
+            this.procesarEstudianteOptimizado(
+              estudiante,
+              beneficiosMap,
+              carrerasMap
+            )
+          )
+        );
+
+        // Contar resultados
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            actualizados++;
+            registrosActualizados.push(result.value);
+          } else {
+            errores++;
+            console.error(`❌ Error procesando ${batch[index].nombre_estudiante}:`, 
+              result.status === 'rejected' ? result.reason : 'Sin datos');
+          }
+        });
+      }
+
+      // Actualizar en base de datos usando bulk update
+      if (registrosActualizados.length > 0) {
+        console.log(`💾 Actualizando ${registrosActualizados.length} registros en base de datos...`);
+
+        if (window.academicoAPI?.updateRegistroEstudianteBulk) {
+          // Usar bulk update (más eficiente)
+          for (const { id, datos } of registrosActualizados) {
+            await window.academicoAPI.updateRegistroEstudiante(id, datos);
+            
+            // Actualizar localmente
+            this.actualizarRegistroLocal(id, datos);
+          }
+        } else {
+          // Fallback: actualización individual
+          for (const { id, datos } of registrosActualizados) {
+            await window.academicoAPI!.updateRegistroEstudiante(id, datos);
+            
+            // Actualizar localmente
+            this.actualizarRegistroLocal(id, datos);
+          }
+        }
+      }
+
+      // Mostrar resultado
+      if (actualizados > 0) {
+        this.toastService.success(
+          'Actualización completada',
+          `${actualizados} registro(s) actualizado(s) correctamente.${errores > 0 ? ` ${errores} error(es).` : ''}`,
+          4000
+        );
+      } else {
+        this.toastService.warning(
+          'Sin actualizaciones',
+          'No se pudieron actualizar los registros. Verifique la conexión con la API externa.',
+          4000
+        );
+      }
+
+      this.cerrarModalAccionMasiva();
+
+    } catch (error) {
+      console.error('❌ Error en actualización masiva:', error);
+      this.toastService.error(
+        'Error en actualización',
+        'No se pudieron actualizar los datos académicos. Intente nuevamente.'
+      );
+    } finally {
+      this.isPerformingBulkAction = false;
+    }
+  }
+
+  /**
+   * Procesa un estudiante individual y retorna los datos actualizados
+   * Optimizado con Maps para O(1) lookups
+   */
+  private async procesarEstudianteOptimizado(
+    estudiante: RegistroEstudiante,
+    beneficiosMap: Map<string, Beneficio>,
+    carrerasMap: Map<string, any>
+  ): Promise<{ id: string; datos: Partial<RegistroEstudiante> } | null> {
+    if (!window.academicoAPI || !estudiante.id_estudiante_siaan || !estudiante.id) {
+      return null;
+    }
+
+    try {
+      const idEstudiante = estudiante.id_estudiante_siaan;
+
+      // Obtener kardex
+      const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
+
+      // Obtener gestiones del estudiante (semestral + anual)
+      const gestionEstudiante = this.gestionService.currentData.find(g => g.id === estudiante.id_gestion);
+      if (!gestionEstudiante) {
+        throw new Error('No se encontró la gestión del estudiante');
+      }
+
+      const gestionAnual = this.gestionService.currentData.find(
+        g => g.anio === gestionEstudiante.anio && g.tipo === 'Anual'
+      );
+      const gestionesActuales: Gestion[] = [gestionEstudiante, gestionAnual].filter(Boolean) as Gestion[];
+
+      // Obtener información del kardex
+      const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, gestionesActuales);
+
+      // Obtener plan de pago realizado
+      const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = 
+        await this.academicoUtils.obtenerPlanDePagoRealizado(idEstudiante, gestionesActuales);
+
+      // OPTIMIZATION: O(1) lookup from map
+      const carreraNormalized = carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const carreraInfo = carrerasMap.get(carreraNormalized);
+
+      if (!carreraInfo) {
+        throw new Error(`No se encontró información de la carrera: ${carrera}`);
+      }
+
+      // Calcular valores
+      const valorCredito = carreraInfo.tarifario?.valor_credito || 0;
+      const creditoTecnologico = carreraInfo.incluye_tecnologico ? valorCredito : 0;
+      const totalSemestre = (valorCredito * totalCreditos) + creditoTecnologico;
+
+      // Preparar datos actualizados
+      const datosActualizados: Partial<RegistroEstudiante> = {
+        total_creditos: totalCreditos,
+        valor_credito: valorCredito,
+        credito_tecnologico: creditoTecnologico,
+        pagos_realizados: pagosSemestre,
+        pago_credito_tecnologico: pagoCreditoTecnologico,
+        total_semestre: totalSemestre
+      };
+
+      console.log(`✅ ${estudiante.nombre_estudiante}: ${totalCreditos} UVE, Pagos: ${pagosSemestre} Bs.`);
+
+      return {
+        id: estudiante.id,
+        datos: datosActualizados
+      };
+
+    } catch (error) {
+      console.error(`❌ Error procesando ${estudiante.nombre_estudiante}:`, error);
+      return null;
     }
   }
 }

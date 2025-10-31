@@ -275,6 +275,27 @@
                     <div class="text-xs text-slate-500">Actualizar todos los filtrados</div>
                   </div>
                 </button>
+
+                <!-- Separador -->
+                <div class="border-t border-slate-200 my-1"></div>
+                
+                <!-- Nueva categoría -->
+                <div class="px-3 py-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Actualizar datos académicos
+                </div>
+
+                <button
+                  type="button"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-left text-slate-700 hover:bg-blue-50 hover:text-blue-700 rounded-md transition-colors"
+                  (click)="abrirModalAccionMasiva('actualizar_datos')">
+                  <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                  </svg>
+                  <div>
+                    <div class="font-medium">Actualizar U.V.E. y Pagos</div>
+                    <div class="text-xs text-slate-500">Consultar API externa</div>
+                  </div>
+                </button>
               </div>
             </div>
           }
@@ -1004,27 +1025,47 @@
     <div class="w-full max-w-lg rounded-2xl bg-white shadow-xl border border-slate-200 overflow-hidden">
       <!-- Header -->
       <div class="flex items-start justify-between gap-4 border-b px-6 py-4"
-           [ngClass]="bulkActionType === 'registrado' ? 'border-green-200 bg-green-50' : 'border-amber-200 bg-amber-50'">
+           [ngClass]="{
+             'border-green-200 bg-green-50': bulkActionType === 'registrado',
+             'border-amber-200 bg-amber-50': bulkActionType === 'pendiente',
+             'border-blue-200 bg-blue-50': bulkActionType === 'actualizar_datos'
+           }">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 rounded-full p-2"
-               [ngClass]="bulkActionType === 'registrado' ? 'bg-green-100' : 'bg-amber-100'">
+               [ngClass]="{
+                 'bg-green-100': bulkActionType === 'registrado',
+                 'bg-amber-100': bulkActionType === 'pendiente',
+                 'bg-blue-100': bulkActionType === 'actualizar_datos'
+               }">
             @if (bulkActionType === 'registrado') {
               <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
               </svg>
-            } @else {
+            } @else if (bulkActionType === 'pendiente') {
               <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            } @else if (bulkActionType === 'actualizar_datos') {
+              <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
               </svg>
             }
           </div>
           <div>
             <h3 class="text-lg font-semibold"
-                [ngClass]="bulkActionType === 'registrado' ? 'text-green-900' : 'text-amber-900'">
+                [ngClass]="{
+                  'text-green-900': bulkActionType === 'registrado',
+                  'text-amber-900': bulkActionType === 'pendiente',
+                  'text-blue-900': bulkActionType === 'actualizar_datos'
+                }">
               {{ getTituloAccionMasiva() }}
             </h3>
             <p class="text-sm mt-1"
-               [ngClass]="bulkActionType === 'registrado' ? 'text-green-700' : 'text-amber-700'">
+               [ngClass]="{
+                 'text-green-700': bulkActionType === 'registrado',
+                 'text-amber-700': bulkActionType === 'pendiente',
+                 'text-blue-700': bulkActionType === 'actualizar_datos'
+               }">
               Actualización masiva de registros
             </p>
           </div>
@@ -1044,9 +1085,17 @@
       <div class="px-6 py-6 space-y-4">
         <!-- Mensaje de confirmación -->
         <div class="rounded-xl border px-4 py-3"
-             [ngClass]="bulkActionType === 'registrado' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'">
+             [ngClass]="{
+               'bg-green-50 border-green-200': bulkActionType === 'registrado',
+               'bg-amber-50 border-amber-200': bulkActionType === 'pendiente',
+               'bg-blue-50 border-blue-200': bulkActionType === 'actualizar_datos'
+             }">
           <p class="text-sm leading-relaxed"
-             [ngClass]="bulkActionType === 'registrado' ? 'text-green-900' : 'text-amber-900'">
+             [ngClass]="{
+               'text-green-900': bulkActionType === 'registrado',
+               'text-amber-900': bulkActionType === 'pendiente',
+               'text-blue-900': bulkActionType === 'actualizar_datos'
+             }">
             {{ getMensajeAccionMasiva() }}
           </p>
         </div>
@@ -1090,7 +1139,11 @@
         <button
           type="button"
           class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60"
-          [ngClass]="bulkActionType === 'registrado' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-600 hover:bg-amber-700'"
+          [ngClass]="{
+            'bg-green-600 hover:bg-green-700': bulkActionType === 'registrado',
+            'bg-amber-600 hover:bg-amber-700': bulkActionType === 'pendiente',
+            'bg-blue-600 hover:bg-blue-700': bulkActionType === 'actualizar_datos'
+          }"
           (click)="confirmarAccionMasiva()"
           [disabled]="isPerformingBulkAction">
           @if (isPerformingBulkAction) {

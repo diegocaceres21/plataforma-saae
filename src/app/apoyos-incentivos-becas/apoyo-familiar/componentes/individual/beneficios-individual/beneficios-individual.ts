@@ -16,6 +16,7 @@ import { ToastService } from '../../../../../shared/servicios/toast';
 import { ToastContainerComponent } from '../../../../../shared/componentes/toast-container/toast-container';
 import { GestionService } from '../../../../servicios/gestion.service';
 import { RegistroIndividualDataService } from '../../../../servicios/registro-individual-data';
+import { AcademicoUtilsService } from '../../../../servicios/academico-utils.service';
 
 @Component({
   selector: 'app-beneficios-individual',
@@ -51,6 +52,7 @@ export class BeneficiosIndividual implements OnInit {
   private toastService = inject(ToastService);
   private dataService = inject(RegistroIndividualDataService);
   private router = inject(Router);
+  private academicoUtils = inject(AcademicoUtilsService);
 
   async ngOnInit() {
     // Cargar gestiones activas y beneficios al inicializar el componente
@@ -148,10 +150,10 @@ export class BeneficiosIndividual implements OnInit {
       try {
         // Get kardex information
         const kardex = await window.academicoAPI.obtenerKardexEstudiante(this.estudiante.id_estudiante_siaan);
-        const [totalCreditos, carrera] = await this.obtenerInformacionKardex(kardex, this.semestreActual);
+        const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
 
         // Get payment information
-        const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan);
+        const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan, this.semestreActual);
 
         // Find career info in database
         const carreraInfo = this.carreraService.currentData.find(c =>
@@ -256,132 +258,8 @@ export class BeneficiosIndividual implements OnInit {
     this.mostrarInputPorcentaje = false;
   }
 
-  async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string]> {
-    let totalCreditos: number = 0;
-    let carrera: string = '';
-    let semestresEncontrados = 0;
-
-    const nombresGestiones = gestiones_activas.map(g => g.gestion);
-
-    for (let i = kardex.length - 1; i >= 0; i--) {
-      const semestre = kardex[i];
-      const encabezadoSemestre = semestre.encabezado[0];
-
-      const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
-
-      if (gestionEncontrada) {
-        const creditosSemestre = parseInt(
-          semestre.tabla.datos[semestre.tabla.datos.length - 1][6].contenidoCelda[0].contenido,
-          10
-        );
-
-        totalCreditos += creditosSemestre;
-
-        if (!carrera) {
-          carrera = semestre.encabezado[semestre.encabezado.length - 1]
-            .split(': ')
-            .pop()
-            ?.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') || '';
-        }
-
-        semestresEncontrados++;
-      }
-    }
-
-    if (semestresEncontrados === 0) {
-      const gestionsStr = nombresGestiones.join(', ');
-      throw new Error(`No se encontró información para las gestiones "${gestionsStr}" en el kardex del estudiante.`);
-    }
-
-    return [totalCreditos, carrera];
-  }
-
   getGestionesNames(): string {
     return this.semestreActual.map(g => g.gestion).join(', ');
-  }
-
-  async obtenerPlanDePagoRealizado(id_estudiante: string): Promise<[string, string, number, boolean, number, boolean]> {
-    let referencia = "";
-    let planAccedido = "";
-    let pagoRealizado = 0;
-    let pagosSemestre = 0;
-    let sinPago = false;
-    let pagoCreditoTecnologico = false;
-
-    try {
-      if (!window.academicoAPI?.obtenerPagosRealizados) {
-        throw new Error('obtenerPagosRealizados API not available');
-      }
-
-      const pagos = await window.academicoAPI.obtenerPagosRealizados(id_estudiante);
-
-      for (const pago of pagos) {
-        if (pago[4]?.contenidoCelda?.[0]?.contenido === "FACTURA REGULAR") {
-          const parametros = pago[pago.length - 1]?.contenidoCelda?.[0]?.parametros;
-          if (parametros && parametros.length >= 3) {
-            const numeroMaestro = parametros[0]?.valorParametro;
-            const idRegional = parametros[1]?.valorParametro;
-            const orden = parametros[2]?.valorParametro;
-
-            if (numeroMaestro && idRegional && orden && window.academicoAPI?.obtenerDetalleFactura) {
-              const detalleFactura = await window.academicoAPI.obtenerDetalleFactura(
-                numeroMaestro,
-                idRegional,
-                orden
-              );
-
-              for (const factura of detalleFactura) {
-                referencia = factura[1]?.contenidoCelda?.[0]?.contenido || "";
-
-                const gestionEncontrada = this.semestreActual.some(gestion =>
-                  referencia.includes(gestion.gestion)
-                );
-
-                if (gestionEncontrada) {
-                  if (referencia.includes("ESTANDAR") || referencia.includes("ESTÁNDAR")) {
-                    planAccedido = "PLAN ESTANDAR";
-                    pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                    break;
-                  } else if (referencia.includes("PLUS")) {
-                    planAccedido = "PLAN PLUS";
-                    pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                    break;
-                  }
-                  else if(!referencia.includes("TECNOLOGICO")){
-                    pagosSemestre += parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
-                    );
-                  }
-                  else{
-                    pagoCreditoTecnologico = true;
-                  }
-                }
-              }
-
-              if (planAccedido) {
-                break;
-              }
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in obtenerPlanDePagoRealizado:', error);
-    }
-
-    if (!planAccedido || !referencia || pagoRealizado === 0) {
-      sinPago = true;
-    }
-
-    return [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
   }
 
   private promptForManualPaymentData(id_estudiante: string): Promise<[string, string, number, boolean]> {
