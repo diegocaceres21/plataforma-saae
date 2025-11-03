@@ -113,6 +113,16 @@ export class RegistroMasivo implements OnInit {
   registroParaSeleccionarCarrera: RegistroEstudiante | null = null;
   carreraSeleccionadaId: string | null = null;
 
+  // Estado de verificación de beneficios existentes
+  conflictosDetectados: {
+    tieneErrores: boolean;
+    tieneAdvertencias: boolean;
+    mensajeError?: string;
+    mensajeAdvertencia?: string;
+    beneficiosAInactivar: string[];
+  } | null = null;
+  isCheckingConflicts: boolean = false;
+
   async ngOnInit() {
     await this.gestionService.loadGestionData();
     this.semestreActual = this.gestionService.getActiveGestiones();
@@ -405,6 +415,9 @@ export class RegistroMasivo implements OnInit {
         // Check for duplicate CIs
         this.verificarCIDuplicados();
 
+        // Verificar conflictos de beneficios existentes
+        await this.verificarConflictosEnCarga();
+
         const hasDuplicates = this.obtenerCIDuplicados().length > 0;
 
         if (hasDuplicates) {
@@ -436,6 +449,231 @@ export class RegistroMasivo implements OnInit {
         'No se pudieron calcular los descuentos'
       );
     }
+  }
+
+  // Verificar conflictos cuando se carga la vista previa
+  async verificarConflictosEnCarga(): Promise<void> {
+    this.isCheckingConflicts = true;
+    try {
+      const conflictos = await this.verificarConflictosBeneficios();
+      this.conflictosDetectados = conflictos;
+      
+      // Mostrar toast informativo simplificado
+      if (conflictos.tieneErrores) {
+        const countErrores = conflictos.mensajeError?.split('\n\n').length || 0;
+        this.toastService.warning(
+          'Beneficios Duplicados Detectados',
+          `${countErrores} estudiante(s) con beneficios duplicados. Revisa la columna "Estado" en la tabla.`,
+          6000
+        );
+      } else if (conflictos.tieneAdvertencias) {
+        const countAdvertencias = conflictos.mensajeAdvertencia?.split('\n\n').length || 0;
+        this.toastService.info(
+          'Beneficios Existentes Detectados',
+          `${countAdvertencias} estudiante(s) con beneficios que serán reemplazados. Revisa la columna "Estado" en la tabla.`,
+          6000
+        );
+      }
+    } catch (error) {
+      console.error('Error verificando conflictos en carga:', error);
+      this.conflictosDetectados = null;
+    } finally {
+      this.isCheckingConflicts = false;
+    }
+  }
+
+  // Verificar conflictos con beneficios existentes
+  async verificarConflictosBeneficios(): Promise<{
+    tieneErrores: boolean;
+    tieneAdvertencias: boolean;
+    mensajeError?: string;
+    mensajeAdvertencia?: string;
+    beneficiosAInactivar: string[];
+  }> {
+    const beneficiosAInactivar: string[] = [];
+    const errores: string[] = [];
+    const advertencias: string[] = [];
+
+    if (!window.academicoAPI?.checkExistingBenefitsBatch) {
+      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+    }
+
+    try {
+      // Obtener ID del beneficio "APOYO FAMILIAR"
+      const beneficioApoyoFamiliar = this.beneficioService.currentData.find(
+        (b: any) => b.nombre.toLowerCase().includes('apoyo familiar')
+      );
+
+      if (!beneficioApoyoFamiliar) {
+        console.warn('No se encontró el beneficio "APOYO FAMILIAR"');
+        return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      }
+
+      // Obtener todos los estudiantes con descuento > 0%
+      const carnets: string[] = [];
+      
+      this.processedGroups.forEach(grupo => {
+        if (!grupo.hasErrors && grupo.registros) {
+          grupo.registros.forEach(registro => {
+            if ((registro.porcentaje_descuento || 0) > 0) {
+              carnets.push(registro.ci_estudiante);
+            }
+          });
+        }
+      });
+
+      if (carnets.length === 0) {
+        return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      }
+
+      const gestionId = this.semestreActual[0]?.id || '';
+
+      if (!gestionId) {
+        return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      }
+
+      // Verificar beneficios existentes en batch
+      const registrosExistentes = await window.academicoAPI.checkExistingBenefitsBatch(
+        carnets,
+        gestionId
+      );
+
+      // Crear mapa para búsqueda rápida
+      const registrosMap = new Map<string, any>();
+      registrosExistentes.forEach((reg: any) => {
+        registrosMap.set(reg.ci_estudiante, reg);
+      });
+
+      // Marcar estado de conflicto en cada registro
+      this.processedGroups.forEach(grupo => {
+        if (!grupo.hasErrors && grupo.registros) {
+          grupo.registros.forEach(registro => {
+            // Limpiar estado anterior
+            delete (registro as any).conflicto_estado;
+            delete (registro as any).conflicto_mensaje;
+            delete (registro as any).conflicto_beneficio_id;
+            delete (registro as any).conflicto_porcentaje_anterior;
+            delete (registro as any).debe_guardarse_inactivo;
+
+            // Solo verificar si tiene descuento > 0%
+            if ((registro.porcentaje_descuento || 0) > 0) {
+              const registroExistente = registrosMap.get(registro.ci_estudiante);
+
+              if (registroExistente) {
+                const beneficioExistenteNombre = this.getBeneficioNombre(registroExistente.id_beneficio);
+                const porcentajeExistente = registroExistente.porcentaje_descuento;
+                const porcentajeExistenteDisplay = (porcentajeExistente * 100).toFixed(0);
+                const porcentajeNuevo = registro.porcentaje_descuento || 0;
+                const porcentajeNuevoDisplay = (porcentajeNuevo * 100).toFixed(0);
+
+                if (registroExistente.id_beneficio === beneficioApoyoFamiliar.id) {
+                  // ERROR: Mismo beneficio (APOYO FAMILIAR)
+                  (registro as any).conflicto_estado = 'error';
+                  (registro as any).conflicto_mensaje = `Duplicado: ${porcentajeExistenteDisplay}%`;
+                  
+                  errores.push(
+                    `${registro.nombre_estudiante} (${registro.ci_estudiante}): Ya tiene "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%) registrado`
+                  );
+                } else {
+                  // Beneficio diferente: comparar porcentajes
+                  (registro as any).conflicto_beneficio_id = registroExistente.id;
+                  (registro as any).conflicto_porcentaje_anterior = porcentajeExistente;
+
+                  if (porcentajeNuevo > porcentajeExistente) {
+                    // REEMPLAZO: Nuevo descuento es MAYOR - guardar nuevo como activo, anterior como inactivo
+                    (registro as any).conflicto_estado = 'reemplazo';
+                    (registro as any).conflicto_mensaje = `${porcentajeNuevoDisplay}% > ${porcentajeExistenteDisplay}%`;
+                    (registro as any).conflicto_mensaje_completo = `Reemplaza "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%)`;
+                    (registro as any).debe_guardarse_inactivo = false;
+                    
+                    advertencias.push(
+                      `${registro.nombre_estudiante} (${registro.ci_estudiante}): Tiene "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%), se guardará "Apoyo Familiar" (${porcentajeNuevoDisplay}%) como activo`
+                    );
+                    beneficiosAInactivar.push(registroExistente.id);
+                  } else {
+                    // ADVERTENCIA: Nuevo descuento es IGUAL o MENOR - guardar nuevo como inactivo, mantener anterior
+                    (registro as any).conflicto_estado = 'advertencia';
+                    (registro as any).conflicto_mensaje = `${porcentajeNuevoDisplay}% ≤ ${porcentajeExistenteDisplay}%`;
+                    (registro as any).conflicto_mensaje_completo = `Mantiene "${beneficioExistenteNombre} (${porcentajeExistenteDisplay}%)"`;
+                    (registro as any).debe_guardarse_inactivo = true;
+                    
+                    advertencias.push(
+                      `${registro.nombre_estudiante} (${registro.ci_estudiante}): Tiene "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%), se guardará "Apoyo Familiar" (${porcentajeNuevoDisplay}%) como inactivo`
+                    );
+                    // NO agregar a beneficiosAInactivar porque el anterior se mantiene activo
+                  }
+                }
+              } else {
+                // Sin conflictos
+                (registro as any).conflicto_estado = 'sin_conflicto';
+              }
+            }
+          });
+
+          // NUEVA LÓGICA: Verificar si todos los estudiantes con descuento > 0 tienen conflictos
+          const estudiantesConDescuento = grupo.registros.filter(r => (r.porcentaje_descuento || 0) > 0);
+          const todosConConflicto = estudiantesConDescuento.length > 0 && 
+            estudiantesConDescuento.every(r => {
+              const estado = (r as any).conflicto_estado;
+              return estado === 'error' || estado === 'advertencia';
+            });
+
+          if (todosConConflicto) {
+            // Marcar el grupo completo como no guardable
+            (grupo as any).grupo_no_guardable = true;
+            errores.push(
+              `Grupo ${grupo.rowNumber}: Todos los estudiantes con descuento tienen beneficios existentes iguales o mayores. Este grupo no se guardará.`
+            );
+          } else {
+            (grupo as any).grupo_no_guardable = false;
+          }
+        }
+      });
+
+      return {
+        tieneErrores: errores.length > 0,
+        tieneAdvertencias: advertencias.length > 0,
+        mensajeError: errores.length > 0 ? errores.join('\n\n') : undefined,
+        mensajeAdvertencia: advertencias.length > 0 ? advertencias.join('\n\n') : undefined,
+        beneficiosAInactivar
+      };
+
+    } catch (error) {
+      console.error('Error verificando conflictos:', error);
+      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+    }
+  }
+
+  // Obtener nombre del beneficio por ID
+  getBeneficioNombre(id?: string): string {
+    if (!id) return 'N/A';
+    const beneficio = this.beneficioService.currentData.find((b: any) => b.id === id);
+    return beneficio?.nombre || 'N/A';
+  }
+
+  // Helper para obtener estado de conflicto de un registro
+  getConflictoEstado(registro: RegistroEstudiante): 'error' | 'reemplazo' | 'advertencia' | 'sin_conflicto' | null {
+    return (registro as any).conflicto_estado || null;
+  }
+
+  // Helper para obtener mensaje de conflicto de un registro
+  getConflictoMensaje(registro: RegistroEstudiante): string {
+    return (registro as any).conflicto_mensaje || '';
+  }
+
+  // Helper para obtener mensaje completo de conflicto
+  getConflictoMensajeCompleto(registro: RegistroEstudiante): string {
+    return (registro as any).conflicto_mensaje_completo || '';
+  }
+
+  // Helper para verificar si un grupo es no guardable
+  esGrupoNoGuardable(grupo: GrupoFamiliar): boolean {
+    return (grupo as any).grupo_no_guardable === true;
+  }
+
+  // Helper para contar cuántos grupos completos no se guardarán
+  contarGruposNoGuardables(): number {
+    return this.processedGroups.filter(g => this.esGrupoNoGuardable(g)).length;
   }
 
   private async procesarGrupoOptimizado(grupo: GrupoFamiliar, carrerasMap: Map<string, any>): Promise<RegistroEstudiante[]> {
@@ -1402,17 +1640,127 @@ export class RegistroMasivo implements OnInit {
       return;
     }
 
+    // VERIFICACIÓN DE CONFLICTOS DE BENEFICIOS
+    // Usar conflictos ya detectados o verificar de nuevo si no hay
+    let conflictos = this.conflictosDetectados;
+    
+    if (!conflictos) {
+      this.loadingService.show('Verificando beneficios existentes...');
+      conflictos = await this.verificarConflictosBeneficios();
+      this.conflictosDetectados = conflictos;
+      this.loadingService.hide();
+    }
+    
+    // Contar registros con error (beneficios duplicados) que serán omitidos
+    let registrosConError = 0;
+    this.processedGroups.forEach(grupo => {
+      if (!grupo.hasErrors && grupo.registros) {
+        grupo.registros.forEach(registro => {
+          if ((registro as any).conflicto_estado === 'error') {
+            registrosConError++;
+          }
+        });
+      }
+    });
+
+    // Si hay registros con error, informar al usuario que serán omitidos
+    if (registrosConError > 0) {
+      const confirmarOmitir = confirm(
+        `⚠️ ATENCIÓN:\n\n${registrosConError} estudiante(s) tienen el mismo beneficio registrado y serán omitidos del guardado.\n\n¿Desea continuar guardando los demás registros válidos?`
+      );
+      
+      if (!confirmarOmitir) {
+        return;
+      }
+    }
+
+    // Si hay advertencias (beneficios diferentes), pedir confirmación
+    if (conflictos.tieneAdvertencias) {
+      const confirmar = confirm(
+        `⚠️ ADVERTENCIA:\n\nAlgunos estudiantes tienen beneficios diferentes que serán reemplazados.\n\n¿Desea continuar? Los beneficios anteriores se marcarán como inactivos.`
+      );
+      
+      if (!confirmar) {
+        return;
+      }
+    }
+
     // Start saving process
     this.loadingService.show('Guardando registros en la base de datos...');
     this.resultadosGuardado = [];
 
     try {
-      // OPTIMIZATION: Process groups in batches with controlled concurrency
-      const BATCH_SIZE = 3; // Process 3 groups at a time to avoid overwhelming DB
-      const totalGrupos = this.processedGroups.length;
+      // STEP 1: Marcar beneficios anteriores como inactivos
+      if (conflictos.beneficiosAInactivar.length > 0) {
+        this.loadingService['messageSubject'].next('Marcando beneficios anteriores como inactivos...');
+        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', conflictos.beneficiosAInactivar);
+        
+        const updatePromises = conflictos.beneficiosAInactivar.map(async (id) => {
+          try {
+            await window.academicoAPI!.updateRegistroEstudiante(id, { inactivo: true });
+            console.log(`[INACTIVAR] Éxito para ID: ${id}`);
+          } catch (error) {
+            console.error(`[INACTIVAR] Error para ID ${id}:`, error);
+          }
+        });
 
-      for (let i = 0; i < this.processedGroups.length; i += BATCH_SIZE) {
-        const batch = this.processedGroups.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(updatePromises);
+      }
+
+      // STEP 2: Filtrar grupos para eliminar registros con error
+      const gruposFiltrados = this.processedGroups.map(grupo => {
+        if (grupo.hasErrors || !grupo.registros) {
+          return grupo; // Mantener grupos con errores estructurales
+        }
+
+        // NUEVA LÓGICA: Si el grupo completo no es guardable, marcarlo como error
+        if ((grupo as any).grupo_no_guardable) {
+          return { 
+            ...grupo, 
+            registros: grupo.registros, 
+            hasErrors: true, 
+            errorMessage: 'Todos los estudiantes con descuento tienen beneficios existentes iguales o mayores. Grupo omitido.' 
+          };
+        }
+
+        // Filtrar solo registros sin error de conflicto
+        const registrosSinError = grupo.registros.filter(registro => {
+          const conflictoEstado = (registro as any).conflicto_estado;
+          return conflictoEstado !== 'error'; // Omitir solo los que tienen error (mismo beneficio)
+        });
+
+        // Si el grupo queda sin registros válidos, no procesarlo
+        if (registrosSinError.length === 0) {
+          return { ...grupo, registros: [], hasErrors: true, errorMessage: 'Todos los estudiantes tienen beneficios duplicados' };
+        }
+
+        // Si el grupo tenía al menos 2 estudiantes pero ahora tiene menos, validar
+        if (registrosSinError.length < 2) {
+          return { ...grupo, registros: registrosSinError, hasErrors: true, errorMessage: `Grupo con menos de 2 estudiantes válidos (${registrosSinError.length} restante(s))` };
+        }
+
+        return { ...grupo, registros: registrosSinError };
+      });
+
+      // Filtrar solo grupos válidos para guardar
+      const gruposParaGuardar = gruposFiltrados.filter(g => !g.hasErrors && g.registros && g.registros.length >= 2);
+
+      if (gruposParaGuardar.length === 0) {
+        this.loadingService.hide();
+        this.toastService.error(
+          'No hay registros válidos',
+          'Todos los grupos tienen errores o no cumplen el mínimo de 2 estudiantes válidos',
+          5000
+        );
+        return;
+      }
+
+      // STEP 3: OPTIMIZATION: Process groups in batches with controlled concurrency
+      const BATCH_SIZE = 3; // Process 3 groups at a time to avoid overwhelming DB
+      const totalGrupos = gruposParaGuardar.length;
+
+      for (let i = 0; i < gruposParaGuardar.length; i += BATCH_SIZE) {
+        const batch = gruposParaGuardar.slice(i, i + BATCH_SIZE);
         
         // Update loading message with progress
         const progreso = Math.min(i + BATCH_SIZE, totalGrupos);
@@ -1450,11 +1798,16 @@ export class RegistroMasivo implements OnInit {
       // Show results modal
       this.showResumenModal = true;
 
-      // Show appropriate toast
+      // Show appropriate toast con información de registros omitidos
+      let mensajeAdicional = '';
+      if (registrosConError > 0) {
+        mensajeAdicional = ` (${registrosConError} estudiante(s) omitido(s) por beneficio duplicado)`;
+      }
+
       if (gruposFallidos === 0) {
         this.toastService.success(
           'Guardado exitoso',
-          `Se guardaron correctamente ${gruposExitosos} grupo(s) familiar(es)`,
+          `Se guardaron correctamente ${gruposExitosos} grupo(s) familiar(es)${mensajeAdicional}`,
           5000
         );
       } else if (gruposExitosos === 0) {
@@ -1466,7 +1819,7 @@ export class RegistroMasivo implements OnInit {
       } else {
         this.toastService.warning(
           'Guardado parcial',
-          `${gruposExitosos} grupo(s) guardado(s), ${gruposFallidos} fallido(s)`,
+          `${gruposExitosos} grupo(s) guardado(s), ${gruposFallidos} fallido(s)${mensajeAdicional}`,
           5000
         );
       }
@@ -1509,28 +1862,34 @@ export class RegistroMasivo implements OnInit {
     const id_solicitud = solicitudResult.id;
 
     // Prepare student records with solicitud ID
-    const registrosParaGuardar = grupo.registros.map(registro => ({
-      id_solicitud: id_solicitud,
-      id_estudiante_siaan: registro.id_estudiante_siaan,
-      id_gestion: registro.id_gestion,
-      ci_estudiante: registro.ci_estudiante,
-      nombre_estudiante: registro.nombre_estudiante,
-      id_carrera: registro.id_carrera,
-      id_beneficio: registro.id_beneficio,
-      valor_credito: registro.valor_credito,
-      total_creditos: registro.total_creditos,
-      credito_tecnologico: registro.credito_tecnologico,
-      porcentaje_descuento: registro.porcentaje_descuento,
-      monto_primer_pago: registro.monto_primer_pago,
-      plan_primer_pago: registro.plan_primer_pago,
-      referencia_primer_pago: registro.referencia_primer_pago,
-      pagos_realizados: registro.pagos_realizados,
-      pago_credito_tecnologico: registro.pago_credito_tecnologico,
-      total_semestre: registro.total_semestre,
-      registrado: false,
-      comentarios: registro.comentarios || '',
-      visible: true
-    }));
+    const registrosParaGuardar = grupo.registros.map(registro => {
+      // Determinar si debe guardarse como inactivo
+      const debeGuardarseInactivo = (registro as any).debe_guardarse_inactivo === true;
+      
+      return {
+        id_solicitud: id_solicitud,
+        id_estudiante_siaan: registro.id_estudiante_siaan,
+        id_gestion: registro.id_gestion,
+        ci_estudiante: registro.ci_estudiante,
+        nombre_estudiante: registro.nombre_estudiante,
+        id_carrera: registro.id_carrera,
+        id_beneficio: registro.id_beneficio,
+        valor_credito: registro.valor_credito,
+        total_creditos: registro.total_creditos,
+        credito_tecnologico: registro.credito_tecnologico,
+        porcentaje_descuento: registro.porcentaje_descuento,
+        monto_primer_pago: registro.monto_primer_pago,
+        plan_primer_pago: registro.plan_primer_pago,
+        referencia_primer_pago: registro.referencia_primer_pago,
+        pagos_realizados: registro.pagos_realizados,
+        pago_credito_tecnologico: registro.pago_credito_tecnologico,
+        total_semestre: registro.total_semestre,
+        registrado: false,
+        comentarios: registro.comentarios || '',
+        visible: true,
+        inactivo: debeGuardarseInactivo // Marcar como inactivo si el porcentaje anterior es mayor o igual
+      };
+    });
 
     // OPTIMIZATION: Use transaction-based batch insert
     const resultado = await window.academicoAPI.createMultipleWithTransaction(registrosParaGuardar);
