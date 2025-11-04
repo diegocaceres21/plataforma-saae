@@ -366,7 +366,7 @@
               <tr [ngClass]="{'border-t-4 border-slate-200': groupIndex > 0}" class="bg-slate-50">
                 <td colspan="10" class="px-4 py-2 font-bold text-slate-900 tracking-wide">
                   Gestión: {{ getNombreGestion(grupo.solicitud.id_gestion) }} | 
-                    {{ formatearFecha(grupo.solicitud.created_at!) }} | 
+                    {{ formatearFecha(grupo.solicitud.created_at || grupo.registros[0]?.created_at!) }} | 
                     {{ grupo.registros.length }} estudiante(s)
                   
                 </td>

@@ -394,7 +394,8 @@
                             <th class="px-4 py-2 text-right font-semibold text-slate-700">Descuento</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Estado</th>
                             <th class="px-4 py-2 text-left font-semibold text-slate-700">Plan Pago</th>
-                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Monto Pago</th>
+                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Pagos Realizados</th>
+                            <th class="px-4 py-2 text-right font-semibold text-slate-700">Saldo Semestre</th>
                             <th class="px-4 py-2 text-center font-semibold text-slate-700 w-20">Acciones</th>
                           </tr>
                         </thead>
@@ -592,7 +593,10 @@
                               
                               <td class="px-4 py-3 text-xs">{{ registro.plan_primer_pago }}</td>
                               <td class="px-4 py-3 text-right font-medium">
-                                {{ registro.monto_primer_pago | currency:'BOB ':'symbol':'1.2-2' }}
+                                {{ (registro.monto_primer_pago || 0) + ((registro.pagos_realizados || 0) + (registro.pago_credito_tecnologico? registro.credito_tecnologico! : 0)) | currency:'Bs. ':'symbol':'1.2-2' }}
+                              </td>
+                              <td class="px-4 py-3 text-right font-medium">
+                                {{ obtenerSaldoConDescuento(registro) | currency:'Bs. ':'symbol':'1.2-2' }}
                               </td>
                               <td class="px-4 py-3 text-center">
                                 <button

@@ -153,7 +153,7 @@ export class BeneficiosIndividual implements OnInit {
         const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
 
         // Get payment information
-        const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan, this.semestreActual);
+        let [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan, this.semestreActual);
 
         // Find career info in database
         const carreraInfo = this.carreraService.currentData.find(c =>
@@ -182,6 +182,9 @@ export class BeneficiosIndividual implements OnInit {
           referenciaFinal = resultManual[0] || 'N/A';
           planAccedidoFinal = resultManual[1] || 'N/A';
           pagoRealizadoFinal = resultManual[2] || 0;
+          if(pagosSemestre > 0){
+            pagosSemestre -= pagoRealizadoFinal;
+          }
         }
 
         // Update the registry with complete information

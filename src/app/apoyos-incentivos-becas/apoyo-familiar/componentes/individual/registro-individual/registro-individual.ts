@@ -124,7 +124,7 @@ export class RegistroIndividual implements OnInit {
           const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
 
           // Get payment information
-          const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan, this.semestreActual);
+          let [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan, this.semestreActual);
 
           // Find career info in database
           const carreraInfo = this.carreraService.currentData.find(c =>
@@ -142,11 +142,15 @@ export class RegistroIndividual implements OnInit {
 
           // Si no hay pago, solicitar entrada manual (el usuario decide si continuar o no)
           if (sinPago) {
+            this.loadingService.hide();
             const resultManual = await this.promptForManualPaymentData(registro.id_estudiante_siaan);
             referenciaFinal = resultManual[0] || 'N/A';
             planAccedidoFinal = resultManual[1] || 'N/A';
             pagoRealizadoFinal = resultManual[2] || 0;
-            
+            if(pagosSemestre > 0){
+              pagosSemestre -= pagoRealizadoFinal; 
+            }
+            this.loadingService.show();
             // Si el usuario cancela y resultManual[3] = true (sinPago sigue true)
             // los valores quedan como N/A, 0, etc.
           }

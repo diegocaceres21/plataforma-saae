@@ -219,7 +219,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       allStudents.push(...group.students);
     });
 
-    // Reordenar por UVE descendente manteniendo el orden manual para empates
+    // Reordenar por UVE descendente manteniendo el orden  para empates
     const sortedStudents = allStudents.sort((a, b) => {
       const uveA = a.total_creditos || 0;
       const uveB = b.total_creditos || 0;

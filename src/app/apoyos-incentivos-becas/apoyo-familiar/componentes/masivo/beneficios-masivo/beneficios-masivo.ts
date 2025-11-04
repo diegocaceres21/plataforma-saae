@@ -16,6 +16,7 @@ import { AcademicoUtilsService } from '../../../../servicios/academico-utils.ser
 import { Gestion } from '../../../../interfaces/gestion';
 import { RegistroEstudiante } from '../../../../interfaces/registro-estudiante';
 import { Beneficio } from '../../../../interfaces/beneficio';
+import { ManualPaymentModalComponent, ManualPaymentData } from '../../shared/manual-payment-modal/manual-payment-modal';
 
 interface EstudianteBeneficio {
   rowNumber: number;
@@ -45,7 +46,7 @@ interface ResultadoGuardado {
 
 @Component({
   selector: 'app-beneficios-masivo',
-  imports: [CommonModule, FormsModule, RouterLink, ToastContainerComponent, StudentAutocompleteComponent],
+  imports: [CommonModule, FormsModule, RouterLink, ToastContainerComponent, StudentAutocompleteComponent, ManualPaymentModalComponent],
   templateUrl: './beneficios-masivo.html',
   styleUrl: './beneficios-masivo.scss'
 })
@@ -81,6 +82,7 @@ export class BeneficiosMasivo implements OnInit {
   // Delete student confirmation modal
   showDeleteStudentModal = false;
   estudianteToDelete: EstudianteBeneficio | null = null;
+  isDeleteFromUpload = false; // Flag para saber si es de upload o processed
 
   // Add student modal
   showAgregarEstudianteModal = false;
@@ -89,6 +91,13 @@ export class BeneficiosMasivo implements OnInit {
   selectedBeneficioId: string = '';
   selectedPorcentaje: number = 0;
   selectedStudent: StudentSearchResult | null = null;
+
+  // Manual payment modal
+  showManualPaymentModal = false;
+  currentStudentForManualInput = '';
+  currentStudentCIForManualInput = '';
+  estudianteParaPagoManual: EstudianteBeneficio | null = null;
+  private manualPaymentResolve: ((data: ManualPaymentData | null) => void) | null = null;
 
   async ngOnInit() {
     await this.gestionService.loadGestionData();
@@ -322,6 +331,43 @@ export class BeneficiosMasivo implements OnInit {
           );
           this.isProcessing = false;
           return;
+        }
+
+        // Detectar duplicados por CI en el archivo cargado
+        const ciCount = new Map<string, number[]>();
+        estudiantes.forEach((est, index) => {
+          if (est.carnet) {
+            const ci = est.carnet.trim().toLowerCase();
+            if (!ciCount.has(ci)) {
+              ciCount.set(ci, []);
+            }
+            ciCount.get(ci)!.push(est.rowNumber);
+          }
+        });
+
+        // Marcar duplicados como error para que el usuario los vea
+        const duplicados: string[] = [];
+        ciCount.forEach((rows, ci) => {
+          if (rows.length > 1) {
+            duplicados.push(`CI ${ci} (filas ${rows.join(', ')})`);
+            // Marcar todos los duplicados (incluyendo el primero) para que el usuario decida cuál eliminar
+            rows.forEach(rowNum => {
+              const estudiante = estudiantes.find(e => e.rowNumber === rowNum);
+              if (estudiante) {
+                estudiante.hasErrors = true;
+                const otrasFilas = rows.filter(r => r !== rowNum).join(', ');
+                estudiante.errorMessage = `CI duplicado en el archivo. También aparece en fila(s): ${otrasFilas}`;
+              }
+            });
+          }
+        });
+
+        if (duplicados.length > 0) {
+          this.toastService.warning(
+            'Duplicados detectados',
+            `Se encontraron ${duplicados.length} CI(s) duplicado(s). Por favor, elimine los registros duplicados antes de calcular.`,
+            8000
+          );
         }
 
         this.uploadedEstudiantes = estudiantes;
@@ -648,6 +694,7 @@ export class BeneficiosMasivo implements OnInit {
       let referenciaFinal = referencia;
       let planAccedidoFinal = planAccedido;
       let pagoRealizadoFinal = pagoRealizado;
+      let sinPagoFinal = false;
 
       if ((sinPago || pagoRealizado === 0) && estudiante.porcentaje === 1) {
         // Estudiante con 100% de descuento y sin pago - asignar valores especiales
@@ -655,10 +702,11 @@ export class BeneficiosMasivo implements OnInit {
         planAccedidoFinal = 'Ninguno';
         pagoRealizadoFinal = 0;
       } else if (sinPago || pagoRealizado === 0) {
-        // No hay pago y no es 100% descuento - marcar como error
-        estudiante.hasErrors = true;
-        estudiante.errorMessage = 'No se encontró factura de pago del semestre actual';
-        return;
+        // No hay pago y no es 100% descuento - permitir ingreso manual
+        referenciaFinal = '';
+        planAccedidoFinal = '';
+        pagoRealizadoFinal = 0;
+        sinPagoFinal = true;
       }
 
       // OPTIMIZATION: O(1) lookup from map instead of O(n) find
@@ -696,7 +744,8 @@ export class BeneficiosMasivo implements OnInit {
         referencia_primer_pago: referenciaFinal,
         total_semestre: (valorCredito * totalCreditos) + creditoTecnologico,
         registrado: false,
-        id_gestion: idGestionActual
+        id_gestion: idGestionActual,
+        sin_pago: sinPagoFinal
       };
 
       estudiante.registro = registro;
@@ -727,6 +776,58 @@ export class BeneficiosMasivo implements OnInit {
       `Fila ${estudiante.rowNumber} eliminada correctamente`,
       3000
     );
+  }
+
+  eliminarEstudianteUpload(estudiante: EstudianteBeneficio): void {
+    // Eliminar de la lista de estudiantes cargados (antes de calcular)
+    this.uploadedEstudiantes = this.uploadedEstudiantes.filter(
+      e => e.rowNumber !== estudiante.rowNumber
+    );
+
+    // Verificar si quedan duplicados después de eliminar
+    this.verificarYActualizarDuplicados();
+
+    this.toastService.success(
+      'Estudiante eliminado',
+      `Fila ${estudiante.rowNumber} eliminada correctamente`,
+      3000
+    );
+  }
+
+  private verificarYActualizarDuplicados(): void {
+    // Limpiar errores de duplicados previos
+    this.uploadedEstudiantes.forEach(est => {
+      if (est.errorMessage?.includes('CI duplicado en el archivo')) {
+        est.hasErrors = false;
+        est.errorMessage = undefined;
+      }
+    });
+
+    // Detectar duplicados nuevamente
+    const ciCount = new Map<string, number[]>();
+    this.uploadedEstudiantes.forEach((est) => {
+      if (est.carnet) {
+        const ci = est.carnet.trim().toLowerCase();
+        if (!ciCount.has(ci)) {
+          ciCount.set(ci, []);
+        }
+        ciCount.get(ci)!.push(est.rowNumber);
+      }
+    });
+
+    // Marcar nuevos duplicados si aún existen
+    ciCount.forEach((rows, ci) => {
+      if (rows.length > 1) {
+        rows.forEach(rowNum => {
+          const estudiante = this.uploadedEstudiantes.find(e => e.rowNumber === rowNum);
+          if (estudiante) {
+            estudiante.hasErrors = true;
+            const otrasFilas = rows.filter(r => r !== rowNum).join(', ');
+            estudiante.errorMessage = `CI duplicado en el archivo. También aparece en fila(s): ${otrasFilas}`;
+          }
+        });
+      }
+    });
   }
 
   volverPasoAnterior(): void {
@@ -768,6 +869,19 @@ export class BeneficiosMasivo implements OnInit {
         'Error',
         'No hay estudiantes válidos para guardar',
         5000
+      );
+      return;
+    }
+
+    // Verificar si hay estudiantes sin pago que no hayan completado los datos
+    const estudiantesSinPago = estudiantesValidos.filter(e => e.registro?.sin_pago);
+    
+    if (estudiantesSinPago.length > 0) {
+      const nombres = estudiantesSinPago.map(e => e.nombre).join(', ');
+      this.toastService.error(
+        'Datos de pago incompletos',
+        `Los siguientes estudiantes necesitan datos de pago: ${nombres}. Por favor, ingrese los datos manualmente haciendo clic en el botón "💳 Sin plan de pago".`,
+        8000
       );
       return;
     }
@@ -1022,14 +1136,16 @@ export class BeneficiosMasivo implements OnInit {
   }
 
   // Delete student confirmation methods
-  confirmarEliminarEstudiante(estudiante: EstudianteBeneficio): void {
+  confirmarEliminarEstudiante(estudiante: EstudianteBeneficio, fromUpload = false): void {
     this.estudianteToDelete = estudiante;
+    this.isDeleteFromUpload = fromUpload;
     this.showDeleteStudentModal = true;
   }
 
   cancelarEliminarEstudiante(): void {
     this.showDeleteStudentModal = false;
     this.estudianteToDelete = null;
+    this.isDeleteFromUpload = false;
   }
 
   ejecutarEliminarEstudiante(): void {
@@ -1037,9 +1153,15 @@ export class BeneficiosMasivo implements OnInit {
       return;
     }
 
-    this.eliminarEstudiante(this.estudianteToDelete);
+    if (this.isDeleteFromUpload) {
+      this.eliminarEstudianteUpload(this.estudianteToDelete);
+    } else {
+      this.eliminarEstudiante(this.estudianteToDelete);
+    }
+    
     this.showDeleteStudentModal = false;
     this.estudianteToDelete = null;
+    this.isDeleteFromUpload = false;
   }
 
   // Add student modal methods
@@ -1204,6 +1326,7 @@ export class BeneficiosMasivo implements OnInit {
       let referenciaFinal = referencia;
       let planAccedidoFinal = planAccedido;
       let pagoRealizadoFinal = pagoRealizado;
+      let sinPagoFinal = false;
 
       if ((sinPago || pagoRealizado === 0) && this.selectedPorcentaje === 100) {
         // Estudiante con 100% de descuento y sin pago - asignar valores especiales
@@ -1211,8 +1334,11 @@ export class BeneficiosMasivo implements OnInit {
         planAccedidoFinal = 'Ninguno';
         pagoRealizadoFinal = 0;
       } else if (sinPago || pagoRealizado === 0) {
-        // No hay pago y no es 100% descuento - marcar como error
-        throw new Error('No se encontró factura de pago del semestre actual');
+        // No hay pago y no es 100% descuento - permitir ingreso manual
+        referenciaFinal = '';
+        planAccedidoFinal = '';
+        pagoRealizadoFinal = 0;
+        sinPagoFinal = true;
       }
 
       // Get career info
@@ -1282,7 +1408,8 @@ export class BeneficiosMasivo implements OnInit {
         pago_credito_tecnologico: pagoCreditoTecnologico,
         total_semestre: (totalCreditos * valorCredito) + creditoTecnologico,
         registrado: false,
-        id_gestion: this.semestreActual[0]?.id || ''
+        id_gestion: this.semestreActual[0]?.id || '',
+        sin_pago: sinPagoFinal
       };
 
       nuevoEstudiante.registro = registro;
@@ -1327,5 +1454,73 @@ export class BeneficiosMasivo implements OnInit {
            estudiante.porcentajeSugerido !== undefined && 
            !this.esReemplazo(estudiante) && 
            !this.esInactivo(estudiante);
+  }
+
+  // Manual payment modal methods
+  private showManualPaymentInput(studentName: string, studentCI: string): Promise<ManualPaymentData | null> {
+    return new Promise((resolve) => {
+      this.manualPaymentResolve = resolve;
+      this.currentStudentForManualInput = studentName;
+      this.currentStudentCIForManualInput = studentCI;
+      this.showManualPaymentModal = true;
+    });
+  }
+
+  onManualPaymentSubmit(data: ManualPaymentData): void {
+    if (this.manualPaymentResolve) {
+      this.manualPaymentResolve(data);
+      this.manualPaymentResolve = null;
+    }
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
+  }
+
+  onManualPaymentCancel(): void {
+    if (this.manualPaymentResolve) {
+      this.manualPaymentResolve(null);
+      this.manualPaymentResolve = null;
+    }
+    this.showManualPaymentModal = false;
+    this.currentStudentForManualInput = '';
+    this.currentStudentCIForManualInput = '';
+  }
+
+  // Method to manually enter payment data for a student without payment plan
+  async ingresarDatosPagoManual(estudiante: EstudianteBeneficio): Promise<void> {
+    if (!estudiante.registro) {
+      return;
+    }
+
+    try {
+      const studentName = estudiante.registro.nombre_estudiante;
+      const studentCI = estudiante.registro.ci_estudiante;
+
+      const paymentData = await this.showManualPaymentInput(studentName, studentCI);
+
+      if (paymentData) {
+        // Update registro with manual payment data
+        estudiante.registro.monto_primer_pago = paymentData.pagoRealizado;
+        estudiante.registro.plan_primer_pago = paymentData.planAccedido;
+        estudiante.registro.referencia_primer_pago = paymentData.referencia;
+        estudiante.registro.sin_pago = false;
+
+        if (estudiante.registro.pagos_realizados && estudiante.registro.pagos_realizados > 0) {
+          estudiante.registro.pagos_realizados -= paymentData.pagoRealizado;
+        }
+
+        this.toastService.success(
+          'Datos actualizados',
+          `Se ingresaron los datos de pago manualmente para ${studentName}`,
+          3000
+        );
+      }
+    } catch (error) {
+      console.error('Error ingresando datos de pago:', error);
+      this.toastService.error(
+        'Error',
+        'No se pudieron ingresar los datos de pago'
+      );
+    }
   }
 }
