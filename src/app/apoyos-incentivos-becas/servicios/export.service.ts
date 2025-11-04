@@ -498,7 +498,7 @@ export class ExportService {
     doc.setTextColor(100, 100, 100);
     
     doc.text(
-      `Total de registros: ${totalRegistros} | Generado por SAAE - Sistema de Apoyo Académico Estudiantil`,
+      `Total de registros: ${totalRegistros} | Generado por SAAE - Servicio Académico Administrativo Estudiantil`,
       doc.internal.pageSize.width / 2,
       pageHeight - 10,
       { align: 'center' }
@@ -1109,5 +1109,179 @@ export class ExportService {
       'saldo_semestre_descuento': 30
     };
     return widths[key] || 20;
+  }
+
+  // Exportar reporte de beneficios inactivos a Excel
+  exportInactiveBenefitsToExcel(data: any[], gestionNombre: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (data.length === 0) {
+        this.toastService.warning(
+          'Sin Datos',
+          'No hay datos disponibles para exportar'
+        );
+        resolve(false);
+        return;
+      }
+
+      try {
+        // Crear workbook y worksheet
+        const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+        const wb: XLSX.WorkBook = XLSX.utils.book_new();
+        
+        // Ajustar ancho de columnas
+        const maxWidth = 50;
+        const colWidths = Object.keys(data[0] || {}).map(key => ({
+          wch: Math.min(
+            Math.max(
+              key.length,
+              ...data.map(row => String(row[key] || '').length)
+            ),
+            maxWidth
+          )
+        }));
+        ws['!cols'] = colWidths;
+
+        // Agregar worksheet al workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'Beneficios No Aplicados');
+        
+        // Generar nombre de archivo
+        const fecha = new Date();
+        const fechaFormateada = this.formatDate(fecha);
+        const nombreArchivo = `Reporte_Beneficios_No_Aplicados_${gestionNombre}_${fechaFormateada}.xlsx`;
+        
+        // Descargar archivo
+        XLSX.writeFile(wb, nombreArchivo);
+
+        this.toastService.success(
+          'Exportación Completada',
+          `Archivo Excel descargado exitosamente con ${data.length} registros`,
+          3000
+        );
+        resolve(true);
+      } catch (error) {
+        console.error('Error exportando a Excel:', error);
+        this.toastService.error(
+          'Error en Exportación',
+          'Ocurrió un error al generar el archivo Excel'
+        );
+        resolve(false);
+      }
+    });
+  }
+
+  // Exportar reporte de beneficios inactivos a PDF
+  exportInactiveBenefitsToPDF(rows: any[][], gestionNombre: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (rows.length === 0) {
+        this.toastService.warning(
+          'Sin Datos',
+          'No hay datos disponibles para exportar'
+        );
+        resolve(false);
+        return;
+      }
+
+      try {
+        const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 15;
+
+        // Encabezado con logo
+        this.addPDFHeader(doc, pageWidth, margin, `REPORTE DE BENEFICIOS NO APLICADOS - ${gestionNombre}`);
+
+        let currentY = 50;
+
+        // Información adicional
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(60, 60, 60);
+        doc.text(`Total de registros: ${rows.length}`, margin, currentY);
+        doc.text(`Gestión: ${gestionNombre}`, pageWidth - margin, currentY, { align: 'right' });
+        
+        currentY += 10;
+
+        // Configuración de tabla
+        const headers = [['CI', 'Estudiante', 'Beneficio No Aplicado', '% No Aplicado', 'Beneficio Activo', '% Activo']];
+        
+        // Importar jsPDF-AutoTable dinámicamente
+        import('jspdf-autotable').then((module) => {
+          const autoTable = module.default;
+          
+          autoTable(doc, {
+            head: headers,
+            body: rows,
+            startY: currentY,
+            theme: 'striped',
+            headStyles: { 
+              fillColor: [0, 59, 113], // Azul UCB #003B71
+              textColor: [255, 255, 255],
+              fontSize: 10,
+              fontStyle: 'bold',
+              halign: 'center'
+            },
+            styles: { 
+              fontSize: 9,
+              cellPadding: 3,
+              overflow: 'linebreak',
+              halign: 'left'
+            },
+            columnStyles: {
+              0: { cellWidth: 25 }, // CI
+              1: { cellWidth: 60 }, // Estudiante
+              2: { cellWidth: 50 }, // Beneficio Inactivo
+              3: { cellWidth: 20, halign: 'center' }, // % Inactivo
+              4: { cellWidth: 50 }, // Beneficio Activo
+              5: { cellWidth: 20, halign: 'center' }  // % Activo
+            },
+            alternateRowStyles: {
+              fillColor: [245, 247, 250]
+            },
+            margin: { left: margin, right: margin },
+            didDrawPage: (data) => {
+              // Pie de página
+              doc.setFontSize(8);
+              doc.setFont('helvetica', 'italic');
+              doc.setTextColor(100, 100, 100);
+              doc.text(
+                `Página ${doc.getCurrentPageInfo().pageNumber} | SAAE - Servicio Académico Administrativo Estudiantil`,
+                pageWidth / 2,
+                pageHeight - 10,
+                { align: 'center' }
+              );
+            }
+          });
+
+          // Guardar PDF
+          const fecha = new Date();
+          const fechaFormateada = this.formatDate(fecha);
+          const nombreArchivo = `Reporte_Beneficios_No_Aplicados_${gestionNombre}_${fechaFormateada}.pdf`;
+
+          doc.save(nombreArchivo);
+
+          this.toastService.success(
+            'Exportación Completada',
+            `Archivo PDF descargado exitosamente con ${rows.length} registros`,
+            3000
+          );
+          resolve(true);
+        }).catch((error) => {
+          console.error('Error cargando jspdf-autotable:', error);
+          this.toastService.error(
+            'Error en Exportación',
+            'No se pudo cargar la librería de tablas PDF'
+          );
+          resolve(false);
+        });
+
+      } catch (error) {
+        console.error('Error exportando a PDF:', error);
+        this.toastService.error(
+          'Error en Exportación',
+          'Ocurrió un error al generar el archivo PDF'
+        );
+        resolve(false);
+      }
+    });
   }
 }

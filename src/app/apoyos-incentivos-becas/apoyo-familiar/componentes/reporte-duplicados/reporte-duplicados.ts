@@ -6,6 +6,7 @@ import { ToastService } from '../../../../shared/servicios/toast';
 import { LoadingService } from '../../../../shared/servicios/loading';
 import { ToastContainerComponent } from '../../../../shared/componentes/toast-container/toast-container';
 import { GestionService } from '../../../servicios/gestion.service';
+import { ExportService } from '../../../servicios/export.service';
 import { Gestion } from '../../../interfaces/gestion';
 import { RegistroEstudiante } from '../../../interfaces/registro-estudiante';
 import { Beneficio } from '../../../interfaces/beneficio';
@@ -27,6 +28,7 @@ export class ReporteDuplicados implements OnInit {
   private toastService = inject(ToastService);
   private loadingService = inject(LoadingService);
   private beneficioService = inject(BeneficioService);
+  private exportService = inject(ExportService);
 
   // Filter state
   gestiones: Gestion[] = [];
@@ -147,24 +149,16 @@ export class ReporteDuplicados implements OnInit {
         return inactivos.map((inactivo: RegistroEstudiante) => ({
           'CI Estudiante': estudiante.ci_estudiante,
           'Nombre': estudiante.nombre_estudiante,
-          'Beneficio No aplicado': this.obtenerNombreBeneficio(inactivo.id_beneficio!),
-          'Porcentaje No Aplicado': inactivo.porcentaje_descuento,
+          'Beneficio No Aplicado': this.obtenerNombreBeneficio(inactivo.id_beneficio!),
+          'Porcentaje No Aplicado': `${(inactivo.porcentaje_descuento * 100).toFixed(0)}%`,
           'Fecha Registro No Aplicado': new Date(inactivo.created_at!).toLocaleDateString(),
           'Beneficio Activo': activos.length > 0 ? this.obtenerNombreBeneficio(activos[0].id_beneficio!) : 'Ninguno',
-          'Porcentaje Activo': activos.length > 0 ? activos[0].porcentaje_descuento : 0
+          'Porcentaje Activo': activos.length > 0 ? `${(activos[0].porcentaje_descuento * 100).toFixed(0)}%` : '0%'
         }));
       });
 
-      // Create Excel workbook
-      const XLSX = await import('xlsx');
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Beneficios No Aplicados');
-      
-      // Save file
-      XLSX.writeFile(wb, `Reporte_Beneficios_No_Aplicados_${gestionNombre}.xlsx`);
-
-      this.toastService.success('Exportado', 'Reporte exportado a Excel exitosamente', 3000);
+      // Use export service
+      await this.exportService.exportInactiveBenefitsToExcel(data, gestionNombre);
     } catch (error: any) {
       console.error('Error exporting to Excel:', error);
       this.toastService.error('Error', 'No se pudo exportar a Excel', 5000);
@@ -196,28 +190,8 @@ export class ReporteDuplicados implements OnInit {
         ]);
       });
 
-      // Create PDF using jsPDF
-      const jsPDF = (await import('jspdf')).default;
-      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
-      
-      doc.setFontSize(18);
-      doc.text(`Reporte de Beneficios No Aplicados - ${gestionNombre}`, 15, 15);
-      
-      // Add autoTable
-      const autoTable = (await import('jspdf-autotable')).default;
-      autoTable(doc, {
-        head: [['CI', 'Estudiante', 'Beneficio No Aplicado', '% No Aplicado', 'Beneficio Activo', '% Activo']],
-        body: rows,
-        startY: 25,
-        theme: 'striped',
-        headStyles: { fillColor: [41, 128, 185] },
-        styles: { fontSize: 10 }
-      });
-      
-      // Save PDF
-      doc.save(`Reporte_Beneficios_No_Aplicados_${gestionNombre}.pdf`);
-
-      this.toastService.success('Exportado', 'Reporte exportado a PDF exitosamente', 3000);
+      // Use export service
+      await this.exportService.exportInactiveBenefitsToPDF(rows, gestionNombre);
     } catch (error: any) {
       console.error('Error exporting to PDF:', error);
       this.toastService.error('Error', 'No se pudo exportar a PDF', 5000);

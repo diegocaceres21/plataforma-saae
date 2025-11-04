@@ -45,6 +45,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
     mensajeError?: string;
     mensajeAdvertencia?: string;
     beneficiosAInactivar: string[];
+    beneficiosNuevosInactivos: Set<string>;
   } | null = null;
   isCheckingConflicts: boolean = false;
 
@@ -444,7 +445,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       // STEP 2: Si hay advertencias, pedir confirmación al usuario
       if (conflictos.tieneAdvertencias) {
         const confirmar = confirm(
-          `⚠️ ADVERTENCIA:\n\n${conflictos.mensajeAdvertencia}\n\n¿Desea continuar? Los beneficios anteriores se marcarán como no aplicados.`
+          `⚠️ ADVERTENCIA:\n\n${conflictos.mensajeAdvertencia}\n\n¿Desea continuar?`
         );
         
         if (!confirmar) {
@@ -486,13 +487,20 @@ export class VistaIndividual implements OnInit, OnDestroy {
     mensajeError?: string;
     mensajeAdvertencia?: string;
     beneficiosAInactivar: string[];
+    beneficiosNuevosInactivos: Set<string>; // CIs de estudiantes cuyos beneficios nuevos se guardarán como inactivos
   }> {
     const beneficiosAInactivar: string[] = [];
+    const beneficiosNuevosInactivos = new Set<string>();
     const errores: string[] = [];
     const advertencias: string[] = [];
 
     if (!window.academicoAPI?.checkExistingBenefitsBatch) {
-      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      return { 
+        tieneErrores: false, 
+        tieneAdvertencias: false, 
+        beneficiosAInactivar,
+        beneficiosNuevosInactivos
+      };
     }
 
     try {
@@ -504,7 +512,12 @@ export class VistaIndividual implements OnInit, OnDestroy {
       const gestionId = this.registrosEstudiantes[0]?.id_gestion || '';
 
       if (carnets.length === 0 || !gestionId) {
-        return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+        return { 
+          tieneErrores: false, 
+          tieneAdvertencias: false, 
+          beneficiosAInactivar,
+          beneficiosNuevosInactivos
+        };
       }
 
       // Verificar beneficios existentes en batch
@@ -523,6 +536,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       for (const registro of this.registrosEstudiantes) {
         const ci = registro.ci_estudiante;
         const idBeneficioNuevo = registro.id_beneficio;
+        const porcentajeNuevo = registro.porcentaje_descuento || 0;
         
         if (!ci || !idBeneficioNuevo) continue;
 
@@ -531,18 +545,28 @@ export class VistaIndividual implements OnInit, OnDestroy {
         if (registroExistente) {
           const beneficioExistenteNombre = this.getBeneficioNombre(registroExistente.id_beneficio);
           const beneficioNuevoNombre = this.getBeneficioNombre(idBeneficioNuevo);
+          const porcentajeExistente = registroExistente.porcentaje_descuento || 0;
 
           if (registroExistente.id_beneficio === idBeneficioNuevo) {
             // ERROR: Mismo beneficio
             errores.push(
-              `${registro.nombre_estudiante}: Ya tiene el beneficio "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%) registrado`
+              `${registro.nombre_estudiante}: Ya tiene el beneficio "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%) registrado`
             );
           } else {
-            // WARNING: Beneficio diferente
-            advertencias.push(
-              `${registro.nombre_estudiante}: Tiene "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%), se reemplazará por "${beneficioNuevoNombre}"`
-            );
-            beneficiosAInactivar.push(registroExistente.id);
+            // Beneficio diferente - comparar porcentajes
+            if (porcentajeNuevo > porcentajeExistente) {
+              // REEMPLAZO: El nuevo beneficio tiene mayor porcentaje
+              advertencias.push(
+                `${registro.nombre_estudiante}: Tiene "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%), se reemplazará por "${beneficioNuevoNombre}" (${(porcentajeNuevo * 100).toFixed(0)}%)`
+              );
+              beneficiosAInactivar.push(registroExistente.id);
+            } else {
+              // INACTIVO: El nuevo beneficio tiene menor o igual porcentaje
+              advertencias.push(
+                `${registro.nombre_estudiante}: Tiene "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%), el nuevo "${beneficioNuevoNombre}" (${(porcentajeNuevo * 100).toFixed(0)}%) se guardará como NO aplicado`
+              );
+              beneficiosNuevosInactivos.add(ci);
+            }
           }
         }
       }
@@ -552,28 +576,36 @@ export class VistaIndividual implements OnInit, OnDestroy {
         tieneAdvertencias: advertencias.length > 0,
         mensajeError: errores.length > 0 ? errores.join('\n\n') : undefined,
         mensajeAdvertencia: advertencias.length > 0 ? advertencias.join('\n\n') : undefined,
-        beneficiosAInactivar
+        beneficiosAInactivar,
+        beneficiosNuevosInactivos
       };
 
     } catch (error) {
       console.error('Error verificando conflictos:', error);
-      return { tieneErrores: false, tieneAdvertencias: false, beneficiosAInactivar };
+      return { 
+        tieneErrores: false, 
+        tieneAdvertencias: false, 
+        beneficiosAInactivar,
+        beneficiosNuevosInactivos
+      };
     }
   }
 
   // Método para guardar apoyo familiar con solicitud
   async guardarApoyoFamiliar(beneficiosAInactivar: string[]): Promise<void> {
     try {
-      // STEP 1: Marcar beneficios anteriores como inactivos
+      const beneficiosNuevosInactivos = this.conflictosDetectados?.beneficiosNuevosInactivos || new Set<string>();
+
+      // STEP 1: Marcar beneficios anteriores como inactivos (cuando el nuevo tiene mayor porcentaje)
       if (beneficiosAInactivar.length > 0) {
-        console.log('[INACTIVAR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
+        console.log('[INACTIVAR ANTERIOR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
         
         const updatePromises = beneficiosAInactivar.map(async (id) => {
           try {
             await window.academicoAPI!.updateRegistroEstudiante(id, { inactivo: true });
-            console.log(`[INACTIVAR] Éxito para ID: ${id}`);
+            console.log(`[INACTIVAR ANTERIOR] Éxito para ID: ${id}`);
           } catch (error) {
-            console.error(`[INACTIVAR] Error para ID ${id}:`, error);
+            console.error(`[INACTIVAR ANTERIOR] Error para ID ${id}:`, error);
           }
         });
 
@@ -598,36 +630,48 @@ export class VistaIndividual implements OnInit, OnDestroy {
       }
 
       // STEP 3: Preparar los datos de los estudiantes con el ID de solicitud
-      const registrosParaGuardar = this.registrosEstudiantes.map(registro => ({
-        id_solicitud: solicitud.id,
-        id_gestion: gestionId,
-        id_estudiante_siaan: registro.id_estudiante_siaan || '',
-        ci_estudiante: registro.ci_estudiante || '',
-        nombre_estudiante: registro.nombre_estudiante || '',
-        id_carrera: registro.id_carrera,
-        id_beneficio: registro.id_beneficio,
-        total_creditos: registro.total_creditos || 0,
-        valor_credito: registro.valor_credito || 0,
-        credito_tecnologico: registro.credito_tecnologico || 0,
-        porcentaje_descuento: registro.porcentaje_descuento || 0,
-        monto_primer_pago: registro.monto_primer_pago || 0,
-        plan_primer_pago: registro.plan_primer_pago || '',
-        pago_credito_tecnologico: registro.pago_credito_tecnologico,
-        referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
-        total_semestre: registro.total_semestre || 0,
-        registrado: false,
-        comentarios: registro.comentarios || '',
-        pagos_realizados: registro.pagos_realizados
-      }));
+      // Marcar como inactivo los que tienen beneficio nuevo con menor/igual porcentaje
+      const registrosParaGuardar = this.registrosEstudiantes.map(registro => {
+        const debeGuardarseInactivo = beneficiosNuevosInactivos.has(registro.ci_estudiante || '');
+        
+        return {
+          id_solicitud: solicitud.id,
+          id_gestion: gestionId,
+          id_estudiante_siaan: registro.id_estudiante_siaan || '',
+          ci_estudiante: registro.ci_estudiante || '',
+          nombre_estudiante: registro.nombre_estudiante || '',
+          id_carrera: registro.id_carrera,
+          id_beneficio: registro.id_beneficio,
+          total_creditos: registro.total_creditos || 0,
+          valor_credito: registro.valor_credito || 0,
+          credito_tecnologico: registro.credito_tecnologico || 0,
+          porcentaje_descuento: registro.porcentaje_descuento || 0,
+          monto_primer_pago: registro.monto_primer_pago || 0,
+          plan_primer_pago: registro.plan_primer_pago || '',
+          pago_credito_tecnologico: registro.pago_credito_tecnologico,
+          referencia_primer_pago: registro.referencia_primer_pago || 'SIN-REF',
+          total_semestre: registro.total_semestre || 0,
+          registrado: false,
+          inactivo: debeGuardarseInactivo, // Marcar como inactivo si tiene menor/igual porcentaje
+          comentarios: registro.comentarios || '',
+          pagos_realizados: registro.pagos_realizados
+        };
+      });
 
       // STEP 4: Guardar todos los registros de estudiantes
       await window.academicoAPI!.createMultipleRegistroEstudiante(registrosParaGuardar);
 
       this.isSaving = false;
+      
+      const cantidadInactivos = beneficiosNuevosInactivos.size;
+      const mensajeExtra = cantidadInactivos > 0 
+        ? ` (${cantidadInactivos} guardado(s) como NO aplicado(s) por tener menor porcentaje)`
+        : '';
+      
       this.toastService.success(
         'Guardado Exitoso',
-        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente. ID de solicitud: ${solicitud.id}`,
-        5000
+        `Se guardaron ${this.registrosEstudiantes.length} registros correctamente${mensajeExtra}. ID de solicitud: ${solicitud.id}`,
+        6000
       );
 
       // Marcar todos los registros como guardados
@@ -648,16 +692,21 @@ export class VistaIndividual implements OnInit, OnDestroy {
         throw new Error('API de base de datos no disponible');
       }
 
-      // STEP 1: Marcar beneficios anteriores como inactivos
+      const beneficiosNuevosInactivos = this.conflictosDetectados?.beneficiosNuevosInactivos || new Set<string>();
+      const registro = this.registrosEstudiantes[0];
+      const ci = registro.ci_estudiante || '';
+      const debeGuardarseInactivo = beneficiosNuevosInactivos.has(ci);
+
+      // STEP 1: Marcar beneficios anteriores como inactivos (solo si el nuevo tiene mayor porcentaje)
       if (beneficiosAInactivar.length > 0) {
-        console.log('[INACTIVAR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
+        console.log('[INACTIVAR ANTERIOR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
         
         const updatePromises = beneficiosAInactivar.map(async (id) => {
           try {
             await window.academicoAPI!.updateRegistroEstudiante(id, { inactivo: true });
-            console.log(`[INACTIVAR] Éxito para ID: ${id}`);
+            console.log(`[INACTIVAR ANTERIOR] Éxito para ID: ${id}`);
           } catch (error) {
-            console.error(`[INACTIVAR] Error para ID ${id}:`, error);
+            console.error(`[INACTIVAR ANTERIOR] Error para ID ${id}:`, error);
           }
         });
 
@@ -665,14 +714,13 @@ export class VistaIndividual implements OnInit, OnDestroy {
       }
 
       // STEP 2: Guardar el nuevo beneficio
-      const registro = this.registrosEstudiantes[0];
       const gestionId = registro?.id_gestion || '581e078e-2c19-4d8f-a9f8-eb5ac388cb44';
 
       const registroParaGuardar = {
         id_solicitud: null, // Sin solicitud para beneficios individuales
         id_gestion: gestionId,
         id_estudiante_siaan: registro.id_estudiante_siaan || '',
-        ci_estudiante: registro.ci_estudiante || '',
+        ci_estudiante: ci,
         nombre_estudiante: registro.nombre_estudiante || '',
         id_carrera: registro.id_carrera,
         id_beneficio: registro.id_beneficio,
@@ -687,6 +735,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
         pagos_realizados: registro.pagos_realizados,
         total_semestre: registro.total_semestre || 0,
         registrado: false,
+        inactivo: debeGuardarseInactivo, // Marcar como inactivo si tiene menor/igual porcentaje
         comentarios: registro.comentarios || null
       };
 
@@ -694,9 +743,12 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
       this.isSaving = false;
       
-      const mensajeExtra = beneficiosAInactivar.length > 0 
-        ? ' (beneficio anterior marcado como no aplicado)'
-        : '';
+      let mensajeExtra = '';
+      if (debeGuardarseInactivo) {
+        mensajeExtra = ' (guardado como NO aplicado por tener menor porcentaje)';
+      } else if (beneficiosAInactivar.length > 0) {
+        mensajeExtra = ' (beneficio anterior marcado como NO aplicado)';
+      }
       
       this.toastService.success(
         'Guardado Exitoso',
