@@ -306,12 +306,13 @@ export class BeneficiosMasivo implements OnInit {
               if (isNaN(value)) return undefined;
               // Si el valor es menor o igual a 1, asumimos que es formato decimal (0.5 = 50%)
               // Si es mayor a 1, asumimos que ya es el porcentaje (50 = 50%)
-              return value > 1 ? value / 100 : value;
+              return value > 1 ? value / 100 : Math.round((value + Number.EPSILON) * 100) / 100;
             })()
           };
 
           estudiantes.push(estudiante);
         }
+        console.log('Estudiantes parsed:', estudiantes);
 
         if (estudiantes.length === 0) {
           this.toastService.warning(
@@ -574,7 +575,7 @@ export class BeneficiosMasivo implements OnInit {
       const registroExistente = registrosExistentesMap.get(ciEstudiante);
 
       if (registroExistente) {
-        // Check if it's the SAME benefit (ERROR) or DIFFERENT benefit (WARNING)
+        // Check if it's the SAME benefit (ERROR) or DIFFERENT benefit (compare percentages)
         if (registroExistente.id_beneficio === beneficio.id) {
           // Same benefit - this is an ERROR
           const beneficioExistenteNombre = beneficiosMap.get(
@@ -587,23 +588,35 @@ export class BeneficiosMasivo implements OnInit {
           estudiante.errorMessage = `Ya tiene el beneficio "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%) registrado`;
           return;
         } else {
-          // Different benefit - this is a WARNING (allow to continue)
+          // Different benefit - compare percentages
           const beneficioExistenteNombre = beneficiosMap.get(
             Array.from(beneficiosMap.keys()).find(
               key => beneficiosMap.get(key)!.id === registroExistente.id_beneficio
             ) || ''
           )?.nombre || 'Otro beneficio';
           
-          estudiante.hasWarning = true;
-          estudiante.warningMessage = `Ya tiene "${beneficioExistenteNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%)`;
-          // Store the ID of the previous benefit to mark it as inactive later
-          estudiante.beneficioAnteriorId = registroExistente.id;
-          console.log(`[DETECCION] Estudiante ${nombreEstudiante} tiene beneficio anterior ID: ${registroExistente.id}`, {
-            ci: ciEstudiante,
-            beneficioActual: beneficio.nombre,
-            beneficioAnterior: beneficioExistenteNombre,
-            beneficioAnteriorId: registroExistente.id
-          });
+          const porcentajeExistente = registroExistente.porcentaje_descuento;
+          const porcentajeNuevo = estudiante.porcentaje || 0;
+
+          if (porcentajeNuevo > porcentajeExistente) {
+            // REEMPLAZO: Nuevo porcentaje es MAYOR - marcar beneficio anterior para inactivar
+            estudiante.hasWarning = true;
+            estudiante.warningMessage = `"${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%)`;
+            estudiante.beneficioAnteriorId = registroExistente.id;
+            (estudiante as any).debe_guardarse_inactivo = false;
+            (estudiante as any).tipo_conflicto = 'reemplazo';
+            
+            console.log(`[REEMPLAZO] ${nombreEstudiante}: Nuevo ${(porcentajeNuevo * 100).toFixed(0)}% > Anterior ${(porcentajeExistente * 100).toFixed(0)}%`);
+          } else {
+            // ADVERTENCIA: Nuevo porcentaje es IGUAL o MENOR - guardar nuevo como inactivo
+            estudiante.hasWarning = true;
+            estudiante.warningMessage = `"${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%).`;
+            estudiante.beneficioAnteriorId = undefined; // No marcar el anterior como inactivo
+            (estudiante as any).debe_guardarse_inactivo = true;
+            (estudiante as any).tipo_conflicto = 'inactivo';
+            
+            console.log(`[INACTIVO] ${nombreEstudiante}: Nuevo ${(porcentajeNuevo * 100).toFixed(0)}% ≤ Anterior ${(porcentajeExistente * 100).toFixed(0)}%`);
+          }
         }
       }
 
@@ -769,29 +782,29 @@ export class BeneficiosMasivo implements OnInit {
     }
 
     try {
-      // STEP 1: Mark previous benefits as inactive for students with warnings
-      const estudiantesConBeneficioAnterior = estudiantesValidos.filter(
-        e => e.beneficioAnteriorId && e.hasWarning
+      // STEP 1: Mark previous benefits as inactive for students with REEMPLAZO only
+      const estudiantesConReemplazo = estudiantesValidos.filter(
+        e => e.beneficioAnteriorId && (e as any).tipo_conflicto === 'reemplazo'
       );
 
-      if (estudiantesConBeneficioAnterior.length > 0) {
+      if (estudiantesConReemplazo.length > 0) {
         this.loadingService['messageSubject'].next(
-          `Actualizando beneficios anteriores... (${estudiantesConBeneficioAnterior.length})`
+          `Marcando beneficios anteriores como inactivos... (${estudiantesConReemplazo.length})`
         );
 
         // Update previous benefits in parallel
-        const updatePromises = estudiantesConBeneficioAnterior.map(async (estudiante) => {
+        const updatePromises = estudiantesConReemplazo.map(async (estudiante) => {
           try {
-            console.log(`[UPDATE] Marcando como inactivo el ID: ${estudiante.beneficioAnteriorId} para ${estudiante.nombre}`);
+            console.log(`[REEMPLAZO-UPDATE] Marcando como inactivo el ID: ${estudiante.beneficioAnteriorId} para ${estudiante.nombre}`);
             const result = await window.academicoAPI!.updateRegistroEstudiante(
               estudiante.beneficioAnteriorId!,
               { inactivo: true }
             );
-            console.log(`[UPDATE] Éxito para ${estudiante.nombre}:`, result);
+            console.log(`[REEMPLAZO-UPDATE] Éxito para ${estudiante.nombre}:`, result);
             return result;
           } catch (error) {
             console.error(
-              `[UPDATE] Error marcando beneficio anterior como inactivo para ${estudiante.nombre}:`,
+              `[REEMPLAZO-UPDATE] Error marcando beneficio anterior como inactivo para ${estudiante.nombre}:`,
               error
             );
             // Continue even if one update fails
@@ -800,34 +813,40 @@ export class BeneficiosMasivo implements OnInit {
         });
 
         const results = await Promise.allSettled(updatePromises);
-        console.log('[UPDATE] Resultados de actualización:', results);
+        console.log('[REEMPLAZO-UPDATE] Resultados de actualización:', results);
       }
 
       // STEP 2: Prepare all records for batch insert
       this.loadingService['messageSubject'].next('Guardando nuevos beneficios...');
       
-      const registrosParaGuardar = estudiantesValidos.map(estudiante => ({
-        id_solicitud: undefined,
-        id_estudiante_siaan: estudiante.registro!.id_estudiante_siaan,
-        id_gestion: estudiante.registro!.id_gestion,
-        ci_estudiante: estudiante.registro!.ci_estudiante,
-        nombre_estudiante: estudiante.registro!.nombre_estudiante,
-        id_carrera: estudiante.registro!.id_carrera,
-        id_beneficio: estudiante.registro!.id_beneficio,
-        valor_credito: estudiante.registro!.valor_credito,
-        total_creditos: estudiante.registro!.total_creditos,
-        credito_tecnologico: estudiante.registro!.credito_tecnologico,
-        porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
-        monto_primer_pago: estudiante.registro!.monto_primer_pago,
-        plan_primer_pago: estudiante.registro!.plan_primer_pago,
-        pagos_realizados: estudiante.registro!.pagos_realizados ? estudiante.registro!.pagos_realizados : undefined,
-        pago_credito_tecnologico: estudiante.registro!.pago_credito_tecnologico,
-        referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
-        total_semestre: estudiante.registro!.total_semestre,
-        registrado: false,
-        comentarios: null,
-        visible: true
-      }));
+      const registrosParaGuardar = estudiantesValidos.map(estudiante => {
+        // Determinar si debe guardarse como inactivo
+        const debeGuardarseInactivo = (estudiante as any).debe_guardarse_inactivo === true;
+        
+        return {
+          id_solicitud: undefined,
+          id_estudiante_siaan: estudiante.registro!.id_estudiante_siaan,
+          id_gestion: estudiante.registro!.id_gestion,
+          ci_estudiante: estudiante.registro!.ci_estudiante,
+          nombre_estudiante: estudiante.registro!.nombre_estudiante,
+          id_carrera: estudiante.registro!.id_carrera,
+          id_beneficio: estudiante.registro!.id_beneficio,
+          valor_credito: estudiante.registro!.valor_credito,
+          total_creditos: estudiante.registro!.total_creditos,
+          credito_tecnologico: estudiante.registro!.credito_tecnologico,
+          porcentaje_descuento: estudiante.registro!.porcentaje_descuento,
+          monto_primer_pago: estudiante.registro!.monto_primer_pago,
+          plan_primer_pago: estudiante.registro!.plan_primer_pago,
+          pagos_realizados: estudiante.registro!.pagos_realizados ? estudiante.registro!.pagos_realizados : undefined,
+          pago_credito_tecnologico: estudiante.registro!.pago_credito_tecnologico,
+          referencia_primer_pago: estudiante.registro!.referencia_primer_pago,
+          total_semestre: estudiante.registro!.total_semestre,
+          registrado: false,
+          comentarios: null,
+          visible: true,
+          inactivo: debeGuardarseInactivo // Guardar como inactivo si el porcentaje es menor o igual
+        };
+      });
 
       // OPTIMIZATION: Single batch insert with transaction
       const resultado = await window.academicoAPI.createMultipleWithTransaction(registrosParaGuardar);
@@ -954,7 +973,7 @@ export class BeneficiosMasivo implements OnInit {
 
   // Helper: Get percentage for display (0-100 from 0-1 decimal)
   getPorcentajeDisplay(estudiante: EstudianteBeneficio): number {
-    return estudiante.porcentaje ? estudiante.porcentaje * 100 : 0;
+    return estudiante.porcentaje ? Number((estudiante.porcentaje * 100).toFixed(0)) : 0;
   }
 
   // Helper: Set percentage from display value (converts 0-100 to 0-1 decimal)
@@ -1110,22 +1129,55 @@ export class BeneficiosMasivo implements OnInit {
 
       // Verificar si el estudiante ya tiene un beneficio en la gestión actual
       const idGestionActual = this.semestreActual[0]?.id || '';
-      const beneficioExistente = await this.verificarBeneficioExistente(ciEstudiante, idGestionActual);
+      
+      // Obtener registro existente para comparar porcentajes
+      let registroExistente: any = null;
+      if (window.academicoAPI.checkExistingBenefit) {
+        registroExistente = await window.academicoAPI.checkExistingBenefit(ciEstudiante, idGestionActual);
+      }
 
-      if (beneficioExistente.existe) {
-        // Check if it's the SAME benefit (ERROR) or DIFFERENT benefit (WARNING)
-        if (beneficioExistente.idBeneficio === this.selectedBeneficioId) {
+      let debeGuardarseInactivo = false;
+      let beneficioAnteriorId: string | undefined = undefined;
+
+      if (registroExistente) {
+        // Check if it's the SAME benefit (ERROR) or DIFFERENT benefit (compare percentages)
+        if (registroExistente.id_beneficio === this.selectedBeneficioId) {
           // Same benefit - this is an ERROR, block it
+          const beneficioNombre = this.beneficioService.currentData.find(
+            (b: Beneficio) => b.id === registroExistente.id_beneficio
+          )?.nombre || 'Desconocido';
+          
           throw new Error(
-            `El estudiante ya tiene registrado el beneficio "${beneficioExistente.beneficioNombre}" (${beneficioExistente.porcentaje?.toFixed(0)}%) en la gestión actual`
+            `El estudiante ya tiene registrado el beneficio "${beneficioNombre}" (${(registroExistente.porcentaje_descuento * 100).toFixed(0)}%) en la gestión actual`
           );
         } else {
-          // Different benefit - show warning but allow to continue
-          this.toastService.warning(
-            'Beneficio Adicional',
-            `Nota: El estudiante ya tiene el beneficio "${beneficioExistente.beneficioNombre}" (${beneficioExistente.porcentaje?.toFixed(0)}%) en esta gestión`,
-            5000
-          );
+          // Different benefit - compare percentages
+          const beneficioExistenteNombre = this.beneficioService.currentData.find(
+            (b: Beneficio) => b.id === registroExistente.id_beneficio
+          )?.nombre || 'Otro beneficio';
+          
+          const porcentajeExistente = registroExistente.porcentaje_descuento;
+          const porcentajeNuevoDecimal = this.selectedPorcentaje / 100;
+
+          if (porcentajeNuevoDecimal > porcentajeExistente) {
+            // REEMPLAZO: Nuevo porcentaje es MAYOR
+            this.toastService.warning(
+              'Reemplazo de Beneficio',
+              `El nuevo beneficio (${this.selectedPorcentaje}%) reemplazará "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%)`,
+              5000
+            );
+            beneficioAnteriorId = registroExistente.id;
+            debeGuardarseInactivo = false;
+          } else {
+            // ADVERTENCIA: Nuevo porcentaje es IGUAL o MENOR
+            this.toastService.warning(
+              'Beneficio Menor o Igual',
+              `El estudiante mantiene "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%). El nuevo beneficio se guardará como inactivo.`,
+              5000
+            );
+            debeGuardarseInactivo = true;
+            // No marcar el anterior como inactivo
+          }
         }
       }
 
@@ -1192,8 +1244,22 @@ export class BeneficiosMasivo implements OnInit {
         carnet: ciEstudiante,
         beneficio: beneficio.nombre,
         porcentaje: porcentajeDecimal, // Store as decimal (0-1)
-        hasErrors: false
+        hasErrors: false,
+        beneficioAnteriorId: beneficioAnteriorId
       };
+
+      // Agregar propiedades dinámicas para el guardado
+      if (debeGuardarseInactivo) {
+        (nuevoEstudiante as any).debe_guardarse_inactivo = true;
+        (nuevoEstudiante as any).tipo_conflicto = 'inactivo';
+        nuevoEstudiante.hasWarning = true;
+        nuevoEstudiante.warningMessage = 'Se guardará como inactivo (porcentaje menor o igual al existente)';
+      } else if (beneficioAnteriorId) {
+        (nuevoEstudiante as any).debe_guardarse_inactivo = false;
+        (nuevoEstudiante as any).tipo_conflicto = 'reemplazo';
+        nuevoEstudiante.hasWarning = true;
+        nuevoEstudiante.warningMessage = 'Reemplazará el beneficio anterior';
+      }
 
       // Create registro
       const registro: RegistroEstudiante = {
@@ -1245,5 +1311,21 @@ export class BeneficiosMasivo implements OnInit {
     } finally {
       this.isAddingStudent = false;
     }
+  }
+
+  // Helper methods para identificar tipo de conflicto
+  esReemplazo(estudiante: EstudianteBeneficio): boolean {
+    return (estudiante as any).tipo_conflicto === 'reemplazo';
+  }
+
+  esInactivo(estudiante: EstudianteBeneficio): boolean {
+    return (estudiante as any).tipo_conflicto === 'inactivo';
+  }
+
+  esPorcentajeDiferente(estudiante: EstudianteBeneficio): boolean {
+    return (estudiante.hasWarning === true) && 
+           estudiante.porcentajeSugerido !== undefined && 
+           !this.esReemplazo(estudiante) && 
+           !this.esInactivo(estudiante);
   }
 }

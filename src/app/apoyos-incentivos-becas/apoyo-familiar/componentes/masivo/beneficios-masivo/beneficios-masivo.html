@@ -170,7 +170,7 @@
                   <td class="px-4 py-3 text-sm text-slate-900">{{ estudiante.nombre }}</td>
                   <td class="px-4 py-3 text-sm font-mono text-slate-900">{{ estudiante.carnet }}</td>
                   <td class="px-4 py-3 text-sm text-slate-900">{{ estudiante.beneficio }}</td>
-                  <td class="px-4 py-3 text-sm text-slate-900">{{ (estudiante.porcentaje || 0) * 100 }}%</td>
+                  <td class="px-4 py-3 text-sm text-slate-900">{{ ((estudiante.porcentaje || 0) * 100).toFixed(0) }}%</td>
                   <td class="px-4 py-3">
                     @if (estudiante.hasErrors) {
                       <div class="flex items-center text-red-600">
@@ -296,7 +296,11 @@
             </thead>
             <tbody class="bg-white divide-y divide-slate-200">
               @for (estudiante of processedEstudiantes; track estudiante.rowNumber) {
-                <tr [class.bg-red-50]="estudiante.hasErrors" [class.bg-amber-50]="estudiante.hasWarning && !estudiante.hasErrors">
+                <tr 
+                  [class.bg-red-50]="estudiante.hasErrors" 
+                  [class.bg-blue-50]="esReemplazo(estudiante) && !estudiante.hasErrors"
+                  [class.bg-orange-50]="esInactivo(estudiante) && !estudiante.hasErrors"
+                  [class.bg-amber-50]="esPorcentajeDiferente(estudiante) && !estudiante.hasErrors">
                   <td class="px-4 py-3 text-sm text-slate-900">{{ estudiante.rowNumber }}</td>
                   <td class="px-4 py-3 text-sm text-slate-900">{{ estudiante.nombre }}</td>
                   <td class="px-4 py-3 text-sm font-mono text-slate-900">{{ estudiante.carnet }}</td>
@@ -335,13 +339,37 @@
                   </td>
                   <td class="px-4 py-3">
                     @if (estudiante.hasErrors) {
+                      <!-- ERROR: Mismo beneficio o error de validación -->
                       <div class="flex items-start text-red-600">
                         <svg class="w-5 h-5 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
                         </svg>
                         <span class="text-xs">{{ estudiante.errorMessage }}</span>
                       </div>
-                    } @else if (estudiante.hasWarning) {
+                    } @else if (esReemplazo(estudiante)) {
+                      <!-- REEMPLAZO: Nuevo porcentaje mayor - Reemplazará el anterior -->
+                      <div class="flex items-start text-blue-600">
+                        <svg class="w-5 h-5 mr-1 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <div class="space-y-0">
+                          <p class="text-xs font-semibold leading-none mb-0.5">Reemplazará</p>
+                          <span class="text-xs break-words leading-3.5 block" [title]="estudiante.warningMessage">{{ estudiante.warningMessage }}</span>
+                        </div>
+                      </div>
+                    } @else if (esInactivo(estudiante)) {
+                      <!-- INACTIVO: Nuevo porcentaje menor/igual - Se guarda inactivo -->
+                      <div class="flex items-start text-orange-600">
+                        <svg class="w-5 h-5 mr-1 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                        </svg>
+                        <div class="space-y-0">
+                          <p class="text-xs font-semibold leading-none mb-0.5">Menor descuento</p>
+                          <span class="text-xs break-words leading-3.5 block" [title]="estudiante.warningMessage">{{ estudiante.warningMessage }}</span>
+                        </div>
+                      </div>
+                    } @else if (esPorcentajeDiferente(estudiante)) {
+                      <!-- ADVERTENCIA: Porcentaje diferente al sugerido -->
                       <div class="flex items-start text-amber-600">
                         <svg class="w-5 h-5 mr-1 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
@@ -349,6 +377,7 @@
                         <span class="text-xs break-words" [title]="estudiante.warningMessage">{{ estudiante.warningMessage }}</span>
                       </div>
                     } @else {
+                      <!-- SIN CONFLICTOS -->
                       <div class="flex items-center text-emerald-600">
                         <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>

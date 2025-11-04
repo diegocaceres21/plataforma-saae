@@ -1845,7 +1845,7 @@ export class RegistroMasivo implements OnInit {
 
     // Create solicitud for this family group
     const solicitudData = {
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: new Date().toLocaleDateString('es-ES'),//.toISOString().split('T')[0],
       id_gestion: this.semestreActual[0]?.id || '',
       estado: 'PENDIENTE',
       cantidad_estudiantes: grupo.registros.length,
