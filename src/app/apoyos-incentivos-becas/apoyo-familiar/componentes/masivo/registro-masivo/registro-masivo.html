@@ -281,7 +281,7 @@
                     </svg>
                     <div class="flex-1">
                       <p class="text-sm font-semibold text-amber-800">Beneficios existentes encontrados</p>
-                      <p class="text-xs text-amber-700 mt-0.5">Revisa la columna "Estado". Los beneficios anteriores se marcarán como inactivos al guardar.</p>
+                      <p class="text-xs text-amber-700 mt-0.5">Revisa la columna "Estado". Los beneficios anteriores se marcarán como no aplicados al guardar.</p>
                       @if (contarGruposNoGuardables() > 0) {
                         <p class="text-xs text-amber-700 mt-1 font-semibold">⚠️ {{ contarGruposNoGuardables() }} grupo(s) completo(s) no se guardarán porque todos sus estudiantes con descuento tienen conflictos.</p>
                       }
@@ -569,7 +569,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                                       </svg>
                                       <div class="text-xs">
-                                        <p class="font-semibold text-orange-800">Guardado inactivo</p>
+                                        <p class="font-semibold text-orange-800">Guardado no aplicado</p>
                                         <p class="text-orange-600 mt-0.5">{{ getConflictoMensaje(registro) }}</p>
                                         <p class="text-orange-500 text-[10px] mt-0.5">{{ getConflictoMensajeCompleto(registro) }}</p>
                                       </div>

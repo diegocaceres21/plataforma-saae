@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   removeRegistroEstudiante: (id) => ipcRenderer.invoke('registro_estudiante:remove', id),
   createMultipleRegistroEstudiante: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultiple', dataArray),
   createMultipleWithTransaction: (dataArray) => ipcRenderer.invoke('registro_estudiante:createMultipleWithTransaction', dataArray),
+  getEstudiantesConInactivos: (filters) => ipcRenderer.invoke('registro_estudiante:getEstudiantesConInactivos', filters),
 
   // External API endpoints
   obtenerIDPersona: (carnet) => ipcRenderer.invoke('api:obtenerIDPersona', carnet),

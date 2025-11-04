@@ -20,6 +20,7 @@ export interface RegistroEstudiante {
     pagos_realizados?: number;
     pago_credito_tecnologico?: boolean;
     registrado: boolean;
+    inactivo?: boolean; // True si el beneficio fue marcado como inactivo (reemplazado por otro)
     comentarios?: string;
     created_at?: string;
     updated_at?: string;

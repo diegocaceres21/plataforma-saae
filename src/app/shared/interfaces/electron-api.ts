@@ -73,6 +73,7 @@ declare global {
       removeRegistroEstudiante: (id: string) => Promise<any>;
       createMultipleRegistroEstudiante: (data: any[]) => Promise<any>;
       createMultipleWithTransaction: (data: any[]) => Promise<{ exitosos: number[]; errores: Record<number, string>; ids: number[] }>;
+      getEstudiantesConInactivos: (filters: { id_gestion: string; search?: string }) => Promise<any>;
       
       // External APIs
       obtenerIDPersona: (carnet: string) => Promise<any>;

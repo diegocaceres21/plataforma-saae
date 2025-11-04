@@ -444,7 +444,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       // STEP 2: Si hay advertencias, pedir confirmación al usuario
       if (conflictos.tieneAdvertencias) {
         const confirmar = confirm(
-          `⚠️ ADVERTENCIA:\n\n${conflictos.mensajeAdvertencia}\n\n¿Desea continuar? Los beneficios anteriores se marcarán como inactivos.`
+          `⚠️ ADVERTENCIA:\n\n${conflictos.mensajeAdvertencia}\n\n¿Desea continuar? Los beneficios anteriores se marcarán como no aplicados.`
         );
         
         if (!confirmar) {
@@ -566,7 +566,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
     try {
       // STEP 1: Marcar beneficios anteriores como inactivos
       if (beneficiosAInactivar.length > 0) {
-        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', beneficiosAInactivar);
+        console.log('[INACTIVAR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
         
         const updatePromises = beneficiosAInactivar.map(async (id) => {
           try {
@@ -650,7 +650,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
 
       // STEP 1: Marcar beneficios anteriores como inactivos
       if (beneficiosAInactivar.length > 0) {
-        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', beneficiosAInactivar);
+        console.log('[INACTIVAR] Marcando beneficios anteriores como no aplicados:', beneficiosAInactivar);
         
         const updatePromises = beneficiosAInactivar.map(async (id) => {
           try {
@@ -695,7 +695,7 @@ export class VistaIndividual implements OnInit, OnDestroy {
       this.isSaving = false;
       
       const mensajeExtra = beneficiosAInactivar.length > 0 
-        ? ' (beneficio anterior marcado como inactivo)'
+        ? ' (beneficio anterior marcado como no aplicado)'
         : '';
       
       this.toastService.success(

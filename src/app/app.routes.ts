@@ -15,6 +15,7 @@ import { Busqueda } from './reporte-pago/busqueda/busqueda';
 import { MainMenu } from './shared/componentes/main-menu/main-menu';
 import { Reporte } from './reporte-pago/reporte/reporte';
 import { ReporteBeneficios } from './apoyos-incentivos-becas/apoyo-familiar/componentes/reporte-beneficios/reporte-beneficios';
+import { ReporteDuplicados } from './apoyos-incentivos-becas/apoyo-familiar/componentes/reporte-duplicados/reporte-duplicados';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/login', pathMatch: 'full' },
@@ -28,6 +29,7 @@ export const routes: Routes = [
     { path: 'beneficios-masivo', component: BeneficiosMasivo },
     { path: 'beneficios-individual', component: BeneficiosIndividual },
     { path: 'reporte-pagos', component:  Busqueda},
+    { path: 'reporte-duplicados', component:  ReporteDuplicados},
     { path: 'resultado-pagos', component:  Reporte},
     { path: 'lista-registros', component: ListaRegistrosComponent },
     { path: 'configuracion', component: ConfiguracionComponent },

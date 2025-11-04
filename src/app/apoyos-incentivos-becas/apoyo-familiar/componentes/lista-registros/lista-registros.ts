@@ -1437,10 +1437,10 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         .map(r => r.nombre_estudiante)
         .join(', ');
       
-      return `Estás a punto de eliminar el grupo completo de apoyo familiar que incluye a ${cantidadRegistros} estudiantes: ${nombres}. Esta acción marcará todos los registros como inactivos.`;
+      return `Estás a punto de eliminar el grupo completo de apoyo familiar que incluye a ${cantidadRegistros} estudiantes: ${nombres}. Esta acción marcará todos los registros como no aplicados.`;
     } else {
       const registro = this.solicitudAEliminar.registros[0];
-      return `Estás a punto de eliminar el registro de ${registro.nombre_estudiante} (CI: ${registro.ci_estudiante}). Esta acción marcará el registro como inactivo.`;
+      return `Estás a punto de eliminar el registro de ${registro.nombre_estudiante} (CI: ${registro.ci_estudiante}). Esta acción marcará el registro como no aplicado.`;
     }
   }
 

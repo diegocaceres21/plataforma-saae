@@ -760,3 +760,59 @@ module.exports.createUser = createUser;
 module.exports.updateUser = updateUser;
 module.exports.changeUserPassword = changeUserPassword;
 module.exports.deleteUser = deleteUser;
+
+// Get students with inactive benefits (for duplicados report)
+async function getEstudiantesConInactivos(filters = {}) {
+  try {
+    const { id_gestion, search } = filters;
+    
+    // Query to get all students that have at least one inactive benefit
+    let query = `
+      WITH estudiantes_con_inactivos AS (
+        SELECT DISTINCT ci_estudiante, nombre_estudiante
+        FROM registro_estudiante
+        WHERE inactivo = true
+        ${id_gestion ? 'AND id_gestion = $1' : ''}
+        ${search ? `AND LOWER(nombre_estudiante) LIKE LOWER($${id_gestion ? '2' : '1'})` : ''}
+      )
+      SELECT 
+        e.ci_estudiante,
+        e.nombre_estudiante,
+        json_agg(
+          json_build_object(
+            'id', r.id,
+            'id_solicitud', r.id_solicitud,
+            'id_beneficio', r.id_beneficio,
+            'id_gestion', r.id_gestion,
+            'id_carrera', r.id_carrera,
+            'porcentaje_descuento', r.porcentaje_descuento,
+            'total_creditos', r.total_creditos,
+            'valor_credito', r.valor_credito,
+            'credito_tecnologico', r.credito_tecnologico,
+            'total_semestre', r.total_semestre,
+            'monto_primer_pago', r.monto_primer_pago,
+            'plan_primer_pago', r.plan_primer_pago,
+            'inactivo', r.inactivo,
+            'created_at', r.created_at
+          ) ORDER BY r.inactivo ASC, r.created_at DESC
+        ) as registros
+      FROM estudiantes_con_inactivos e
+      INNER JOIN registro_estudiante r ON r.ci_estudiante = e.ci_estudiante
+        ${id_gestion ? 'AND r.id_gestion = $1' : ''}
+      GROUP BY e.ci_estudiante, e.nombre_estudiante
+      ORDER BY e.nombre_estudiante ASC
+    `;
+    
+    const params = [];
+    if (id_gestion) params.push(id_gestion);
+    if (search) params.push(`%${search}%`);
+    
+    const result = await pool.query(query, params);
+    return result.rows;
+  } catch (error) {
+    console.error('Error getting students with inactive benefits:', error);
+    throw error;
+  }
+}
+
+module.exports.getEstudiantesConInactivos = getEstudiantesConInactivos;

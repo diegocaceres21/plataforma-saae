@@ -53,6 +53,11 @@ function registerRoutes(ipcMain) {
     return await controllers.updateBulk('registro_estudiante', ids, data);
   });
 
+  // Special route for getting students with inactive benefits (duplicados report)
+  ipcMain.handle('registro_estudiante:getEstudiantesConInactivos', async (event, filters) => {
+    return await controllers.getEstudiantesConInactivos(filters);
+  });
+
   // Special route for gestion - get semester gestiones only
   ipcMain.handle('gestion:getSemester', async () => {
     return await controllers.getSemesterGestiones();

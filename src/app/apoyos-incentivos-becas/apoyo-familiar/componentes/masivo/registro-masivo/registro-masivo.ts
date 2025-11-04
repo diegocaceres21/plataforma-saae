@@ -598,7 +598,7 @@ export class RegistroMasivo implements OnInit {
                     (registro as any).debe_guardarse_inactivo = true;
                     
                     advertencias.push(
-                      `${registro.nombre_estudiante} (${registro.ci_estudiante}): Tiene "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%), se guardará "Apoyo Familiar" (${porcentajeNuevoDisplay}%) como inactivo`
+                      `${registro.nombre_estudiante} (${registro.ci_estudiante}): Tiene "${beneficioExistenteNombre}" (${porcentajeExistenteDisplay}%), se guardará "Apoyo Familiar" (${porcentajeNuevoDisplay}%) como no aplicado`
                     );
                     // NO agregar a beneficiosAInactivar porque el anterior se mantiene activo
                   }
@@ -1677,7 +1677,7 @@ export class RegistroMasivo implements OnInit {
     // Si hay advertencias (beneficios diferentes), pedir confirmación
     if (conflictos.tieneAdvertencias) {
       const confirmar = confirm(
-        `⚠️ ADVERTENCIA:\n\nAlgunos estudiantes tienen beneficios diferentes que serán reemplazados.\n\n¿Desea continuar? Los beneficios anteriores se marcarán como inactivos.`
+        `⚠️ ADVERTENCIA:\n\nAlgunos estudiantes tienen beneficios diferentes que serán reemplazados.\n\n¿Desea continuar? Los beneficios anteriores se marcarán como no aplicados.`
       );
       
       if (!confirmar) {
@@ -1692,8 +1692,8 @@ export class RegistroMasivo implements OnInit {
     try {
       // STEP 1: Marcar beneficios anteriores como inactivos
       if (conflictos.beneficiosAInactivar.length > 0) {
-        this.loadingService['messageSubject'].next('Marcando beneficios anteriores como inactivos...');
-        console.log('[INACTIVAR] Marcando beneficios anteriores como inactivos:', conflictos.beneficiosAInactivar);
+        this.loadingService['messageSubject'].next('Marcando beneficios anteriores como no aplicados...');
+        console.log('[INACTIVAR] Marcando beneficios anteriores como no aplicados:', conflictos.beneficiosAInactivar);
         
         const updatePromises = conflictos.beneficiosAInactivar.map(async (id) => {
           try {

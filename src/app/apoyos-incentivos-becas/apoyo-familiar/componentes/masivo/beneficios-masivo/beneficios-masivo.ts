@@ -613,9 +613,9 @@ export class BeneficiosMasivo implements OnInit {
             estudiante.warningMessage = `"${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%).`;
             estudiante.beneficioAnteriorId = undefined; // No marcar el anterior como inactivo
             (estudiante as any).debe_guardarse_inactivo = true;
-            (estudiante as any).tipo_conflicto = 'inactivo';
+            (estudiante as any).tipo_conflicto = 'no aplicado';
             
-            console.log(`[INACTIVO] ${nombreEstudiante}: Nuevo ${(porcentajeNuevo * 100).toFixed(0)}% ≤ Anterior ${(porcentajeExistente * 100).toFixed(0)}%`);
+            console.log(`[NO APLICADO] ${nombreEstudiante}: Nuevo ${(porcentajeNuevo * 100).toFixed(0)}% ≤ Anterior ${(porcentajeExistente * 100).toFixed(0)}%`);
           }
         }
       }
@@ -789,7 +789,7 @@ export class BeneficiosMasivo implements OnInit {
 
       if (estudiantesConReemplazo.length > 0) {
         this.loadingService['messageSubject'].next(
-          `Marcando beneficios anteriores como inactivos... (${estudiantesConReemplazo.length})`
+          `Marcando beneficios anteriores como no aplicados... (${estudiantesConReemplazo.length})`
         );
 
         // Update previous benefits in parallel
@@ -804,7 +804,7 @@ export class BeneficiosMasivo implements OnInit {
             return result;
           } catch (error) {
             console.error(
-              `[REEMPLAZO-UPDATE] Error marcando beneficio anterior como inactivo para ${estudiante.nombre}:`,
+              `[REEMPLAZO-UPDATE] Error marcando beneficio anterior como no aplicado para ${estudiante.nombre}:`,
               error
             );
             // Continue even if one update fails
@@ -1172,7 +1172,7 @@ export class BeneficiosMasivo implements OnInit {
             // ADVERTENCIA: Nuevo porcentaje es IGUAL o MENOR
             this.toastService.warning(
               'Beneficio Menor o Igual',
-              `El estudiante mantiene "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%). El nuevo beneficio se guardará como inactivo.`,
+              `El estudiante mantiene "${beneficioExistenteNombre}" (${(porcentajeExistente * 100).toFixed(0)}%). El nuevo beneficio se guardará como no aplicado.`,
               5000
             );
             debeGuardarseInactivo = true;
@@ -1251,9 +1251,9 @@ export class BeneficiosMasivo implements OnInit {
       // Agregar propiedades dinámicas para el guardado
       if (debeGuardarseInactivo) {
         (nuevoEstudiante as any).debe_guardarse_inactivo = true;
-        (nuevoEstudiante as any).tipo_conflicto = 'inactivo';
+        (nuevoEstudiante as any).tipo_conflicto = 'no aplicado';
         nuevoEstudiante.hasWarning = true;
-        nuevoEstudiante.warningMessage = 'Se guardará como inactivo (porcentaje menor o igual al existente)';
+        nuevoEstudiante.warningMessage = 'Se guardará como no aplicado (porcentaje menor o igual al existente)';
       } else if (beneficioAnteriorId) {
         (nuevoEstudiante as any).debe_guardarse_inactivo = false;
         (nuevoEstudiante as any).tipo_conflicto = 'reemplazo';
@@ -1319,7 +1319,7 @@ export class BeneficiosMasivo implements OnInit {
   }
 
   esInactivo(estudiante: EstudianteBeneficio): boolean {
-    return (estudiante as any).tipo_conflicto === 'inactivo';
+    return (estudiante as any).tipo_conflicto === 'no aplicado';
   }
 
   esPorcentajeDiferente(estudiante: EstudianteBeneficio): boolean {
