@@ -202,31 +202,12 @@ export class RegistroIndividual implements OnInit {
         this.showKardexErrorModal(kardexErrorMessages);
         return; // Stop processing and don't navigate to view
       }
+      
+      // Check for career mismatches and resolve them sequentially
+      await this.resolveAllCareerIssues();
+
+      // Calculate percentages and continue with final processing
       this.calcularPorcentajes();
-      const carreras = this.carreraService.currentData;
-
-      // Check for career mismatches before proceeding
-      let hasCareersToResolve = false;
-      for (const registro of this.registrosEstudiantes) {
-        // Verificar si no tiene id_carrera pero sí tiene texto de carrera (y no es error)
-        if (!registro.id_carrera && registro.carrera && registro.carrera !== 'Error al cargar información' && registro.carrera !== 'N/A') {
-          hasCareersToResolve = true;
-          try {
-            await this.promptForCareerSelection(registro, carreras);
-            break; // Process one at a time
-          } catch (error) {
-            // User cancelled the career selection - stop processing completely
-            return;
-          }
-        }
-      }
-
-      // If we need to resolve careers, stop here and wait for user input
-      if (hasCareersToResolve) {
-        return;
-      }
-
-      // Continue with final processing
       this.completeFinalProcessing();
 
     } catch (error) {
@@ -337,9 +318,32 @@ export class RegistroIndividual implements OnInit {
   }
 
   // Career selection modal methods
-  async promptForCareerSelection(registro: any, availableCareers: any[]): Promise<void> {
+  private async resolveAllCareerIssues(): Promise<void> {
+    const carreras = this.carreraService.currentData;
+
+    // Iterate through all students and resolve career issues one by one
+    for (let i = 0; i < this.registrosEstudiantes.length; i++) {
+      const registro = this.registrosEstudiantes[i];
+      
+      // Verificar si no tiene id_carrera pero sí tiene texto de carrera (y no es error)
+      if (!registro.id_carrera && registro.carrera && registro.carrera !== 'Error al cargar información' && registro.carrera !== 'N/A') {
+        try {
+          // Pass the index instead of the object reference
+          await this.promptForCareerSelection(i, carreras);
+        } catch (error) {
+          // User cancelled the career selection - stop processing completely
+          throw error;
+        }
+      }
+    }
+  }
+
+  async promptForCareerSelection(studentIndex: number, availableCareers: any[]): Promise<void> {
+    this.loadingService.hide();
     return new Promise((resolve, reject) => {
-      this.currentStudentWithCareerIssue = registro;
+      const registro = this.registrosEstudiantes[studentIndex];
+      
+      this.currentStudentWithCareerIssue = { ...registro, index: studentIndex }; // Store index with a copy
       this.availableCareers = availableCareers;
       this.originalCareerFromKardex = registro.carrera || '';
       this.selectedCareerForStudent = '';
@@ -358,9 +362,14 @@ export class RegistroIndividual implements OnInit {
       const selectedCareer = this.availableCareers.find(c => c.carrera === this.selectedCareerForStudent);
 
       if (selectedCareer) {
-        // Update the student's career with ID only (carrera field is just for display)
-        this.currentStudentWithCareerIssue.carrera = selectedCareer.carrera; // Solo para mostrar en UI
-        this.currentStudentWithCareerIssue.id_carrera = selectedCareer.id; // Campo principal para BD
+        // Use the stored index to update the student directly in the array
+        const studentIndex = this.currentStudentWithCareerIssue.index;
+        
+        if (studentIndex !== undefined && studentIndex >= 0 && studentIndex < this.registrosEstudiantes.length) {
+          // Update the student in the array directly
+          this.registrosEstudiantes[studentIndex].carrera = selectedCareer.carrera; // Solo para mostrar en UI
+          this.registrosEstudiantes[studentIndex].id_carrera = selectedCareer.id; // Campo principal para BD
+        }
       }
 
       this.toastService.success(
@@ -380,9 +389,8 @@ export class RegistroIndividual implements OnInit {
         (this as any).careerSelectionReject = null;
       }
 
-      // Check if there are more career issues to resolve
+      // Close modal - the loop in resolveAllCareerIssues will continue automatically
       this.closeCareerSelectionModal();
-      this.continueCareerResolution();
     }
   }
 
@@ -413,28 +421,6 @@ export class RegistroIndividual implements OnInit {
     }
 
     // Don't continue processing - user cancelled
-  }
-
-  async continueCareerResolution(): Promise<void> {
-    const carreras = this.carreraService.currentData;
-
-    // Check if there are more career issues to resolve
-    for (const registro of this.registrosEstudiantes) {
-      // Verificar si no tiene id_carrera pero sí tiene texto de carrera (y no es error)
-      if (!registro.id_carrera && registro.carrera && registro.carrera !== 'Error al cargar información' && registro.carrera !== 'N/A') {
-        // Found another career issue, prompt for selection
-        try {
-          await this.promptForCareerSelection(registro, carreras);
-          return; // Process one at a time
-        } catch (error) {
-          // User cancelled the career selection - stop processing completely
-          return;
-        }
-      }
-    }
-
-    // No more career issues, continue with final processing
-    this.completeFinalProcessing();
   }
 
   closeCareerSelectionModal(): void {

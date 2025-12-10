@@ -105,8 +105,144 @@
         </div>
       </div>
 
-      <!-- Gráfico de Evolución por Gestión -->
+      <!-- Gráfico de Categorías (Apoyos, Becas, Incentivos) -->
       <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mb-8">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="text-lg font-bold text-[#003B71] mb-1">Resumen por Categoría</h3>
+            <p class="text-sm text-slate-500">Distribución de estudiantes y montos por tipo de beneficio (haz clic para ver detalles)</p>
+          </div>
+        </div>
+        
+        <div class="relative h-96" style="cursor: pointer;">
+          <canvas baseChart
+                  type="bar"
+                  [data]="barChartDataCategorias"
+                  [options]="barChartOptionsCategorias">
+          </canvas>
+        </div>
+      </div>
+
+      <!-- Modal de Drillthrough -->
+      @if (mostrarDrillthrough) {
+        <div class="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-50 flex items-center justify-center p-4"
+             (click)="cerrarDrillthrough()">
+          <div class="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-auto"
+               (click)="$event.stopPropagation()">
+            
+            <!-- Header del Modal -->
+            <div class="sticky top-0 bg-white border-b-2 border-slate-200 p-6 rounded-t-2xl z-10">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg flex items-center justify-center"
+                       [style.background-color]="getColorCategoria()">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 class="text-2xl font-bold text-[#003B71]">{{ categoriaSeleccionada }}</h2>
+                    <p class="text-sm text-slate-500 mt-1">Detalle de beneficios</p>
+                  </div>
+                </div>
+                <button 
+                  (click)="cerrarDrillthrough()"
+                  class="w-10 h-10 flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors">
+                  <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Contenido del Modal -->
+            <div class="p-6">
+              <!-- Métricas de la categoría -->
+              <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-slate-50 rounded-xl p-4 border-2"
+                     [style.border-color]="getColorCategoria()">
+                  <div class="text-sm font-semibold text-slate-600 mb-1">Total Estudiantes</div>
+                  <div class="text-3xl font-bold"
+                       [style.color]="getColorCategoria()">
+                    {{ formatNumber(getTotalEstudiantesByTipo(getBeneficiosPorCategoria())) }}
+                  </div>
+                </div>
+                <div class="bg-slate-50 rounded-xl p-4 border-2"
+                     [style.border-color]="getColorCategoria()">
+                  <div class="text-sm font-semibold text-slate-600 mb-1">Monto Total</div>
+                  <div class="text-3xl font-bold"
+                       [style.color]="getColorCategoria()">
+                    {{ formatCurrency(getTotalAhorroByTipo(getBeneficiosPorCategoria())) }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gráficos de barras horizontales -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- Estudiantes -->
+                <div>
+                  <h4 class="text-md font-bold text-[#003B71] mb-4">Por Estudiantes</h4>
+                  <div class="space-y-4">
+                    @for (beneficio of getBeneficiosPorCategoria(); track beneficio.nombre) {
+                      <div>
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-400">
+                              {{ ((beneficio.totalEstudiantes / getTotalEstudiantesByTipo(getBeneficiosPorCategoria())) * 100).toFixed(1) }}%
+                            </span>
+                            <span class="text-sm font-bold text-[#003B71]">{{ formatNumber(beneficio.totalEstudiantes) }}</span>
+                          </div>
+                        </div>
+                        <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                            [style.width.%]="(beneficio.totalEstudiantes / getTotalEstudiantesByTipo(getBeneficiosPorCategoria())) * 100"
+                            [style.background-color]="getColorCategoria()">
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <!-- Ahorro -->
+                <div>
+                  <h4 class="text-md font-bold text-[#003B71] mb-4">Por Monto</h4>
+                  <div class="space-y-4">
+                    @for (beneficio of getBeneficiosPorCategoria(); track beneficio.nombre) {
+                      <div>
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="text-sm font-semibold text-[#003B71]">{{ beneficio.nombre }}</span>
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold text-slate-400">
+                              {{ ((beneficio.totalAhorro / getTotalAhorroByTipo(getBeneficiosPorCategoria())) * 100).toFixed(1) }}%
+                            </span>
+                            <span class="text-xs font-bold text-[#003B71]">{{ formatCurrency(beneficio.totalAhorro) }}</span>
+                          </div>
+                        </div>
+                        <div class="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 ease-out"
+                            [style.width.%]="(beneficio.totalAhorro / getTotalAhorroByTipo(getBeneficiosPorCategoria())) * 100"
+                            [style.background-color]="getColorCategoria()">
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+      }
+
+      <!-- Gráfico de Evolución por Gestión -->
+      <!--<div class="bg-white rounded-2xl shadow-sm border-2 border-slate-200 p-8 mb-8">
         <div class="flex items-center justify-between mb-6">
           <div>
             <h3 class="text-lg font-bold text-[#003B71] mb-1">Evolución del Monto en Apoyos, Becas e Incentivos</h3>
@@ -121,7 +257,6 @@
           </button>
         </div>
         
-        <!-- Chart.js Canvas para gráfico de líneas -->
         <div class="relative h-96">
           <canvas baseChart
                   type="line"
@@ -129,7 +264,7 @@
                   [options]="lineChartOptions">
           </canvas>
         </div>
-      </div>
+      </div>-->
 
       <!-- Gráficos por Tipo de Beneficio - Paleta UCB -->
       

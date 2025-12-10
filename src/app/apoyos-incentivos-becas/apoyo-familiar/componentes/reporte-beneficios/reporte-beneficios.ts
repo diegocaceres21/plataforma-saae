@@ -113,6 +113,168 @@ export class ReporteBeneficios implements OnInit {
 
   // Estados
   isLoading: boolean = false;
+  
+  // Drillthrough state
+  categoriaSeleccionada: string | null = null;
+  mostrarDrillthrough: boolean = false;
+
+  // Configuración para Chart de Categorías (Apoyos, Becas, Incentivos)
+  public barChartTypeCategorias: ChartType = 'bar';
+  public barChartDataCategorias: ChartConfiguration<'bar'>['data'] = {
+    labels: [],
+    datasets: [
+      {
+        label: 'Estudiantes',
+        data: [],
+        backgroundColor: '#003B71',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Monto (Bs.)',
+        data: [],
+        backgroundColor: '#FDB913',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+        yAxisID: 'y1',
+      }
+    ]
+  };
+  public barChartOptionsCategorias: ChartOptions<'bar'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    onClick: (event, elements) => {
+      if (elements.length > 0) {
+        const index = elements[0].index;
+        const categoria = this.barChartDataCategorias.labels![index] as string;
+        this.onCategoriaClick(categoria);
+      }
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          font: {
+            size: 12,
+            weight: 'bold'
+          },
+          color: '#003B71',
+          padding: 15,
+          usePointStyle: true,
+          pointStyle: 'circle'
+        }
+      },
+      tooltip: {
+        backgroundColor: '#fde047',
+        titleColor: '#003B71',
+        bodyColor: '#003B71',
+        padding: 12,
+        titleFont: {
+          size: 13,
+          weight: 'bold'
+        },
+        bodyFont: {
+          size: 14
+        },
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed.y || 0;
+            if (context.datasetIndex === 0) {
+              return `Estudiantes: ${value.toLocaleString('es-BO')}`;
+            } else {
+              return `Monto: ${this.formatCurrency(value)}`;
+            }
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Estudiantes',
+          color: '#003B71',
+          font: {
+            size: 12,
+            weight: 'bold'
+          }
+        },
+        ticks: {
+          font: {
+            size: 11,
+            weight: 'bold'
+          },
+          color: '#9ca3af'
+        },
+        grid: {
+          color: '#e2e8f0',
+        },
+        border: {
+          width: 2,
+          color: '#e5e7eb'
+        }
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Monto (Bs.)',
+          color: '#FDB913',
+          font: {
+            size: 12,
+            weight: 'bold'
+          }
+        },
+        ticks: {
+          font: {
+            size: 11,
+            weight: 'bold'
+          },
+          color: '#9ca3af',
+          callback: (value) => {
+            return 'Bs. ' + Number(value).toLocaleString('es-BO', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0
+            });
+          }
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
+        border: {
+          width: 2,
+          color: '#e5e7eb'
+        }
+      },
+      x: {
+        ticks: {
+          font: {
+            size: 12,
+            weight: 600
+          },
+          color: '#003B71'
+        },
+        grid: {
+          display: false
+        },
+        border: {
+          width: 2,
+          color: '#e5e7eb'
+        }
+      }
+    }
+  };
 
   // Configuración para Chart de Estudiantes por Carrera
   public barChartTypeEstudiantes: ChartType = 'bar';
@@ -601,6 +763,9 @@ export class ReporteBeneficios implements OnInit {
   }
 
   private updateChartData(): void {
+    // Actualizar gráfico de categorías
+    this.updateCategoriasChart();
+    
     // Ordenar carreras por total de estudiantes para el gráfico de estudiantes
     const carrerasOrdenadasPorEstudiantes = [...this.carrerasData].sort((a, b) => b.totalEstudiantes - a.totalEstudiantes);
     
@@ -959,5 +1124,84 @@ export class ReporteBeneficios implements OnInit {
     }
     
     return 'Multiples_Gestiones';
+  }
+
+  // Métodos para el gráfico de categorías y drillthrough
+  private updateCategoriasChart(): void {
+    const categorias = ['Apoyos', 'Becas', 'Incentivos'];
+    
+    const estudiantesData = [
+      this.getTotalEstudiantesByTipo(this.apoyosData),
+      this.getTotalEstudiantesByTipo(this.becasData),
+      this.getTotalEstudiantesByTipo(this.incentivosData)
+    ];
+    
+    const ahorroData = [
+      this.getTotalAhorroByTipo(this.apoyosData),
+      this.getTotalAhorroByTipo(this.becasData),
+      this.getTotalAhorroByTipo(this.incentivosData)
+    ];
+    
+    this.barChartDataCategorias = {
+      labels: categorias,
+      datasets: [
+        {
+          label: 'Estudiantes',
+          data: estudiantesData,
+          backgroundColor: '#003B71',
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Monto (Bs.)',
+          data: ahorroData,
+          backgroundColor: '#FDB913',
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false,
+          yAxisID: 'y1',
+        }
+      ]
+    };
+  }
+
+  onCategoriaClick(categoria: string): void {
+    this.categoriaSeleccionada = categoria;
+    this.mostrarDrillthrough = true;
+  }
+
+  cerrarDrillthrough(): void {
+    this.categoriaSeleccionada = null;
+    this.mostrarDrillthrough = false;
+  }
+
+  getBeneficiosPorCategoria(): BeneficioData[] {
+    if (!this.categoriaSeleccionada) return [];
+    
+    switch (this.categoriaSeleccionada) {
+      case 'Apoyos':
+        return this.apoyosData;
+      case 'Becas':
+        return this.becasData;
+      case 'Incentivos':
+        return this.incentivosData;
+      default:
+        return [];
+    }
+  }
+
+  getColorCategoria(): string {
+    switch (this.categoriaSeleccionada) {
+      case 'Apoyos':
+        return '#003B71';
+      case 'Becas':
+        return '#FDB913';
+      case 'Incentivos':
+        return '#005A9C';
+      default:
+        return '#003B71';
+    }
   }
 }

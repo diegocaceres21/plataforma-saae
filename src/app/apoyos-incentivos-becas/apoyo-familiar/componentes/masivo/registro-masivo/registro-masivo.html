@@ -403,7 +403,7 @@
                           @for (registro of grupo.registros; track registro.id; let idx = $index) {
                             <tr class="hover:bg-slate-50" 
                                 [ngClass]="{
-                                  'bg-red-200 hover:bg-red-100': registro.plan_primer_pago === 'PLAN PLUS',
+                                  'bg-amber-100 hover:bg-amber-500': registro.plan_primer_pago === 'PLAN PLUS',
                                   'bg-orange-100 hover:bg-orange-50': tieneCIDuplicado(registro),
                                   'bg-yellow-50 hover:bg-yellow-100': registro.sin_kardex,
                                   'bg-amber-50 hover:bg-amber-100': registro.sin_pago && !registro.sin_kardex
@@ -590,8 +590,8 @@
                                   <span class="text-xs text-slate-400"> </span>
                                 }
                               </td>
-                              
-                              <td class="px-4 py-3 text-xs">{{ registro.plan_primer_pago }}</td>
+
+                              <td class="px-4 py-3 text-xs" [ngClass]="{'text-orange-500 font-bold': registro.plan_primer_pago === 'PLAN PLUS'}">{{ registro.plan_primer_pago }}</td>
                               <td class="px-4 py-3 text-right font-medium">
                                 {{ (registro.monto_primer_pago || 0) + ((registro.pagos_realizados || 0) + (registro.pago_credito_tecnologico? registro.credito_tecnologico! : 0)) | currency:'Bs. ':'symbol':'1.2-2' }}
                               </td>

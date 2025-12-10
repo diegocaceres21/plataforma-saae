@@ -10,10 +10,18 @@ const externalApi = require('./electron-backend/externalApi');
 const { setExternalTokens } = require('./electron-backend/tokenStore');
 const { setStoredCredentials } = require('./electron-backend/externalApi/apiInterceptor');
 const path = require('path');
+const dotenv = require('dotenv');
 // Example: require your HTTP client for external API requests
 //const axios = require('axios');
 
 // --- Auto Updater base config ---
+
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+} else {
+  // Cuando la app está empaquetada (.exe)
+  dotenv.config({ path: path.join(process.resourcesPath, '.env') });
+}
 autoUpdater.autoDownload = true; // download automatically when update is available
 autoUpdater.autoInstallOnAppQuit = true; // install on next quit
 autoUpdater.allowPrerelease = process.env.UPDATER_ALLOW_PRERELEASE === '1';

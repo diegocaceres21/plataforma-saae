@@ -44,7 +44,7 @@ export class ManualPaymentModalComponent {
     return !!(
       this.paymentData.referencia.trim() &&
       this.paymentData.planAccedido.trim() &&
-      this.paymentData.pagoRealizado > 0
+      this.paymentData.pagoRealizado >= 0
     );
   }
   

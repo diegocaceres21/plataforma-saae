@@ -1409,15 +1409,21 @@ export class RegistroMasivo implements OnInit {
         carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       );
 
+      const beneficioApoyoFamiliar = this.beneficioService.currentData.find(
+        (b: any) => b.nombre.toLowerCase().includes('apoyo familiar')
+      );
+
       // Create new registro
       const nuevoRegistro: RegistroEstudiante = {
         id: crypto.randomUUID(),
         id_solicitud: '',
         id_gestion: this.semestreActual[0]?.id || '',
+        id_beneficio: beneficioApoyoFamiliar ? beneficioApoyoFamiliar.id : '',
         id_estudiante_siaan: idEstudiante,
         ci_estudiante: ciEstudiante,
         nombre_estudiante: nombreEstudiante,
-        carrera,
+        id_carrera: carreraInfo ? carreraInfo.id : undefined,
+        carrera: carrera,
         total_creditos: totalCreditos,
         valor_credito: carreraInfo?.tarifario?.valor_credito || 0,
         credito_tecnologico: carreraInfo?.incluye_tecnologico ? (carreraInfo.tarifario?.valor_credito || 0) : 0,
