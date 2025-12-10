@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   getAllGestion: () => ipcRenderer.invoke('gestion:getAll'),
   getAllVisibleGestion: () => ipcRenderer.invoke('gestion:getAllVisible'),
   getSemesterGestion: () => ipcRenderer.invoke('gestion:getSemester'),
+  getIdGestiones: () => ipcRenderer.invoke('gestion:getIdGestiones'),
   updateGestion: (id, data) => ipcRenderer.invoke('gestion:update', id, data),
 
   // CRUD for apoyo_familiar table
@@ -98,7 +99,10 @@ contextBridge.exposeInMainWorld('academicoAPI', {
   obtenerPersonasPorCarnet: (carnet) => ipcRenderer.invoke('api:obtenerPersonasPorCarnet', carnet),
   logInSiaan: (credentials) => ipcRenderer.invoke('api:logInSiaan', credentials),
   setExternalTokens: (data) => ipcRenderer.invoke('api:setExternalTokens', data),
-
+  obtenerTiposDepartamento: (periodo) => ipcRenderer.invoke('api:obtenerTiposDepartamento', periodo),
+  obtenerDepartamentos: (idTipo, periodo) => ipcRenderer.invoke('api:obtenerDepartamentos', idTipo, periodo),
+  obtenerOfertaAcademica: (idCarrera, periodo) => ipcRenderer.invoke('api:obtenerOfertaAcademica', idCarrera, periodo),
+  obtenerAsignaturas: () => ipcRenderer.invoke('api:obtenerAsignaturas'),
   // Reportes
   getReporteBeneficiosByGestion: (id_gestion) => ipcRenderer.invoke('reporte:getBeneficiosByGestion', id_gestion),
   getEvolucionBeneficios: () => ipcRenderer.invoke('reporte:getEvolucionBeneficios'),

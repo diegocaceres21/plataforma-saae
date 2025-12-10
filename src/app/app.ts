@@ -14,7 +14,7 @@ import './shared/interfaces/electron-api'; // Import electron API types
 })
 export class App implements OnInit {
   public loadingService = inject(LoadingService);
-
+  
   async ngOnInit() {
     // All base data loads are handled in APP_INITIALIZER now.
   }

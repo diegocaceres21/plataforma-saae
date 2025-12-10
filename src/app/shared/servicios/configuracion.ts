@@ -81,10 +81,12 @@ export class ConfiguracionService {
           { value: 'Anual', label: 'Anual' },
           { value: 'Semestre', label: 'Semestre' }
         ]},
+        { key: 'id_gestion_siaan', label: 'ID Gestión SIAAN', type: 'text', required: true },
+
         { key: 'activo', label: 'Activo', type: 'checkbox', required: false },
         { key: 'visible', label: 'Visible', type: 'checkbox', required: false }
       ],
-      itemVacio: { gestion: '', anio: new Date().getFullYear(), tipo: 'Semestre', activo: true, visible: true },
+      itemVacio: { gestion: '', anio: new Date().getFullYear(), tipo: 'Semestre', activo: true, visible: true, id_gestion_siaan: ''},
       permisos: { crear: true, editar: true, eliminar: false }
     },
     departamentos: {

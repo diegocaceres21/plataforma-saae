@@ -10,6 +10,7 @@ import { RouterLink } from '@angular/router';
 })
 export class MainMenu {
   authService = inject(AuthService);
+
   isAdmin: boolean = false;
   userName: string = '';
 

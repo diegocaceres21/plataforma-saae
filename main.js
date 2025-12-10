@@ -141,6 +141,38 @@ ipcMain.handle('api:obtenerPersonasPorCarnet', async (event, carnet) => {
   }
 });
 
+ipcMain.handle('api:obtenerTiposDepartamento', async (event, periodo) => {
+  try {
+    return await externalApi.ofertaAcademica.obtenerTiposDepartamento(periodo);
+  } catch (error) {
+    throw error;
+  }
+});
+
+ipcMain.handle('api:obtenerDepartamentos', async (event, idTipo, periodo) => {
+  try {
+    return await externalApi.ofertaAcademica.obtenerDepartamentos(idTipo,periodo);
+  } catch (error) {
+    throw error;
+  }
+});
+
+ipcMain.handle('api:obtenerOfertaAcademica', async (event, idCarrera, periodo) => {
+  try {
+    return await externalApi.ofertaAcademica.obtenerOfertaAcademica(idCarrera, periodo);
+  } catch (error) {
+    throw error;
+  }
+});
+
+ipcMain.handle('api:obtenerAsignaturas', async (event) => {
+  try {
+    return await externalApi.ofertaAcademica.obtenerAsignaturas();
+  } catch (error) {
+    throw error;
+  }
+});
+
 // IPC handler for logInSiaan (external auth)
 ipcMain.handle('api:logInSiaan', async (event, credentials) => {
   try {

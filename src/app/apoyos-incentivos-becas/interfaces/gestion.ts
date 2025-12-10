@@ -5,6 +5,7 @@ export interface Gestion {
     tipo: 'Anual' | 'Semestre';
     activo: boolean;
     visible: boolean;
+    id_gestion_siaan: string;
     created_at?: string;
     updated_at?: string;
 }

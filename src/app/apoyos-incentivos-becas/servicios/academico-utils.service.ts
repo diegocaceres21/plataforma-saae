@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Gestion } from '../interfaces/gestion';
+import { MateriaKardex } from '../interfaces/asignatura';
 
 /**
  * Servicio de utilidades para funciones académicas comunes
@@ -65,6 +66,55 @@ export class AcademicoUtilsService {
 
     return [totalCreditos, carrera];
   }
+
+  /* async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[MateriaKardex[], string]> {
+    let carrera: string = '';
+    let semestresEncontrados = 0;
+    let materias: MateriaKardex[] = [];
+
+    // Crear array de nombres de gestiones para buscar
+    const nombresGestiones = gestiones_activas.map(g => g.gestion);
+
+    // Iterar sobre el kardex en orden inverso (más reciente a más antiguo)
+    for (let i = kardex.length - 1; i >= 0; i--) {
+      const semestre = kardex[i];
+      const encabezadoSemestre = semestre.encabezado[0];
+
+      // Verificar si este semestre corresponde a alguna de las gestiones activas
+      const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
+
+      if (gestionEncontrada) {
+        materias.push(
+          {
+            'sigla': semestre.tabla.datos.map((dato: any) => dato[2].contenidoCelda[0].contenido.trim()),
+            'asignatura': semestre.tabla.datos.map((dato: any) => dato[3].contenidoCelda[0].contenido.trim()),
+            'tipo': semestre.tabla.datos.map((dato: any) => dato[4].contenidoCelda[0].contenido.trim()),
+            'evaluacionContinua': semestre.tabla.datos.map((dato: any) => dato[7].contenidoCelda[0].contenido),
+            'notaFinal': semestre.tabla.datos.map((dato: any) => dato[10].contenidoCelda[0].contenido),
+          }
+        )
+
+        // Obtener carrera (solo la primera vez)
+        if (!carrera) {
+          carrera = semestre.encabezado[semestre.encabezado.length - 1]
+            .split(': ')
+            .pop()
+            ?.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') || '';
+        }
+
+        semestresEncontrados++;
+      }
+    }
+
+    // Si no se encontró ningún semestre, lanzar error
+    if (semestresEncontrados === 0) {
+      const gestionsStr = nombresGestiones.join(', ');
+      throw new Error(`No se encontró información para las gestiones "${gestionsStr}" en el kardex del estudiante.`);
+    }
+
+    return [materias, carrera];
+  } */
 
   /**
    * Obtiene información del kardex del estudiante para gestiones activas (versión con flag de error)

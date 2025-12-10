@@ -63,6 +63,10 @@ function registerRoutes(ipcMain) {
     return await controllers.getSemesterGestiones();
   });
 
+  ipcMain.handle('gestion:getIdGestiones', async () => {
+    return await controllers.getIdGestiones();
+  });
+
   // Special route for reportes - get beneficios data by gestion
   ipcMain.handle('reporte:getBeneficiosByGestion', async (event, id_gestion) => {
     return await controllers.getReporteBeneficiosByGestion(id_gestion);

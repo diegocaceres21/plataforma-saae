@@ -15,7 +15,7 @@ module.exports = {
 
   gestion: {
     table: 'gestion',
-    columns: ['id', 'gestion', 'anio', 'tipo', 'activo', 'visible', 'created_at', 'updated_at']
+    columns: ['id', 'gestion', 'anio', 'tipo', 'activo', 'visible','id_gestion_siaan', 'created_at', 'updated_at']
   },
   apoyo_familiar: {
     table: 'apoyo_familiar',

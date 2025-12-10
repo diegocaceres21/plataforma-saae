@@ -401,6 +401,20 @@ function getSemesterGestiones() {
   });
 }
 
+function getIdGestiones(){
+  return new Promise((resolve, reject) => {
+    pool.query(
+      `SELECT DISTINCT id_gestion_siaan FROM gestion 
+       WHERE activo = true`,
+      [],
+      (err, result) => {
+        if (err) reject(err);
+        else resolve(result.rows);
+      }
+    );
+  });
+}
+
 function getReporteBeneficiosByGestion(id_gestion) {
   return new Promise((resolve, reject) => {
     const query = `
@@ -494,7 +508,8 @@ module.exports = {
   createMultipleWithTransaction,
   getSemesterGestiones,
   getReporteBeneficiosByGestion,
-  getEvolucionBeneficios
+  getEvolucionBeneficios,
+  getIdGestiones
 };
 /**
  * Autentica usuario verificando username y password.
