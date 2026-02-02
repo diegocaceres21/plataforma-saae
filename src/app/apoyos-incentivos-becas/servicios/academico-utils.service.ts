@@ -311,13 +311,15 @@ export class AcademicoUtilsService {
     let totalUVE = 0;
     for (const materia of materias) {
       const asignatura = ofertaAcademica.find(a => a.sigla === materia.sigla && a.asignatura === materia.asignatura && a.tipo === materia.tipo);
-      console.log('Buscando asignatura en oferta académica para materia:', materia);
       if (asignatura) {
-        console.log('Asignatura encontrada en oferta académica:', asignatura);
+        materia.uve = asignatura.uve; // Almacenar el UVE en la materia
         totalUVE += asignatura.uve;
       }
       else if(materia.tipo === 'ESTANDAR' || materia.tipo === 'CURSO DE IDIOMAS (NO CURRICULAR)' || materia.tipo === 'INTERSEDES'){
+        materia.uve = materia.creditosAcademicos || 0; // Almacenar el UVE en la materia
         totalUVE += materia.creditosAcademicos || 0;
+      } else {
+        materia.uve = 0; // Marcar como 0 si no se encuentra
       }
     }
     return totalUVE;

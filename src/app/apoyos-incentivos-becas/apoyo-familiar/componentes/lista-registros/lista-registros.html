@@ -678,6 +678,7 @@
                 [index]="$index"
                 [isExpanded]="isDetailExpanded($index)"
                 [showManualOrderIndicator]="false"
+                [materias]="registro.materias || []"
                 (toggleExpanded)="toggleDetailAccordion($index)">
               </app-student-accordion>
             }

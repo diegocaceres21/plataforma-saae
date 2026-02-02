@@ -178,6 +178,7 @@
           [index]="$index"
           [isExpanded]="isExpanded($index)"
           [showManualOrderIndicator]="manualOrderApplied && isStudentInTieGroup(registro)"
+          [materias]="registro.materias || []"
           (toggleExpanded)="toggleAccordion($index)">
         </app-student-accordion>
       }

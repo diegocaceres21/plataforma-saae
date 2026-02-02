@@ -11,7 +11,7 @@
 }-->
 
 <!-- Main Content Grid -->
-<div class="grid grid-cols-1 md:grid-cols-12 gap-4 flex-1">
+<div class="grid grid-cols-1 md:grid-cols-13 gap-4 flex-1">
   
   <!-- Carnet -->
   <div class="flex flex-col md:col-span-2">
@@ -55,5 +55,16 @@
         {{ (registro.porcentaje_descuento || 0) * 100 | number:'1.0-1' }}%
       </span>
     </div>
+  </div>
+
+  <div class="flex flex-col md:col-span-1 items-center justify-end">
+    <button 
+      (click)="openMateriasModal($event)"
+      class="p-1.5 text-blue-900 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-all duration-200" 
+      title="Ver Materias">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+      </svg>
+    </button>
   </div>
 </div>

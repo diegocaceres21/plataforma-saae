@@ -22,7 +22,9 @@
       <app-student-header-info 
         [registro]="registro"
         [showManualOrderIndicator]="showManualOrderIndicator"
-        [isInTieGroup]="isInTieGroup">
+        [isInTieGroup]="isInTieGroup"
+        [materias]="materias"
+        (openMaterias)="openMateriasModal()">
       </app-student-header-info>
 
       <!-- Expand/Collapse Icon -->
@@ -58,3 +60,12 @@
     </div>
   }
 </div>
+
+<!-- Materias Modal - Outside accordion to avoid z-index issues -->
+<app-materias-modal
+  [isOpen]="showMateriasModal"
+  [materias]="materias"
+  [nombreEstudiante]="registro.nombre_estudiante || ''"
+  [totalUVE]="registro.total_creditos || 0"
+  (closeModal)="closeMateriasModal()">
+</app-materias-modal>

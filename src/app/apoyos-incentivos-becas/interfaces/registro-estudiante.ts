@@ -1,3 +1,5 @@
+import { MateriaKardex } from './asignatura';
+
 export interface RegistroEstudiante {
     id: string;
     id_solicitud: string;
@@ -31,4 +33,6 @@ export interface RegistroEstudiante {
     criterio_carnet?: string; // Carnet usado en la búsqueda
     criterio_nombre?: string; // Nombre usado en la búsqueda
     encontrado_por?: 'carnet' | 'nombre'; // Método exitoso de búsqueda
+    // Materias inscritas para el cálculo de UVE
+    materias?: MateriaKardex[]; // Lista de materias usadas para calcular total_creditos
 }

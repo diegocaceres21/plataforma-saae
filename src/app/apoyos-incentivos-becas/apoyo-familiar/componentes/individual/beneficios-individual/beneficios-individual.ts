@@ -200,7 +200,8 @@ export class BeneficiosIndividual implements OnInit {
           monto_primer_pago: pagoRealizadoFinal,
           referencia_primer_pago: referenciaFinal,
           pago_credito_tecnologico: pago_credito_tecnologico,
-          pagos_realizados: pagosSemestre ? pagosSemestre : undefined
+          pagos_realizados: pagosSemestre ? pagosSemestre : undefined,
+          materias: materias // Almacenar las materias para ver en el modal
         };
 
         // Calculate financial details

@@ -168,7 +168,8 @@ export class RegistroIndividual implements OnInit {
             monto_primer_pago: pagoRealizadoFinal,
             referencia_primer_pago: referenciaFinal,
             pagos_realizados: pagosSemestre ? pagosSemestre : undefined,
-            pago_credito_tecnologico: pagoCreditoTecnologico
+            pago_credito_tecnologico: pagoCreditoTecnologico,
+            materias: materias // Almacenar las materias para ver en el modal
           };
 
         } catch (error) {

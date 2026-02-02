@@ -1776,7 +1776,8 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
         credito_tecnologico: creditoTecnologico,
         pagos_realizados: pagosSemestre,
         pago_credito_tecnologico: pagoCreditoTecnologico,
-        total_semestre: totalSemestre
+        total_semestre: totalSemestre,
+        materias: materias // Almacenar las materias para ver en el modal
       };
 
       console.log(`✅ ${estudiante.nombre_estudiante}: ${totalCreditos} UVE, Pagos: ${pagosSemestre} Bs.`);
