@@ -756,8 +756,8 @@ export class RegistroMasivo implements OnInit {
 
         // Get kardex information
         const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-        const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
-
+        const [materias, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+        const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
         let valorCredito = 0;
         let creditoTecnologico = 0;
         let totalSemestre = 0;
@@ -1091,7 +1091,8 @@ export class RegistroMasivo implements OnInit {
 
       // Get kardex information
       const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const [materias, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
 
       if (sinKardex) {
         // Student without kardex - show error
@@ -1390,8 +1391,8 @@ export class RegistroMasivo implements OnInit {
 
       // Get kardex information
       const kardex = await window.academicoAPI.obtenerKardexEstudiante(idEstudiante);
-      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
-
+      const [materias, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
       if (sinKardex) {
         throw new Error(`El estudiante ${nombreEstudiante} no tiene registro en las gestiones activas`);
       }

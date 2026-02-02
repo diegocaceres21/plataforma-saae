@@ -153,6 +153,15 @@ function limpiarNombreYTipo(nombre) {
     }
   }
 
+  else if (textoUpper.includes('(CURSO DE FORMACION CONTINUA')) {
+    const tipoMatch = texto.match(/\(CURSO DE FORMACION CONTINUA.*\)/i);
+    if (tipoMatch) {
+      tipo = 'CURSO DE FORMACION CONTINUA (NO CURRICULAR)';
+      texto = texto.replace(tipoMatch[0], '');
+    }
+  }
+  
+
   // ✅ Limpiar etiquetas [VIRTUAL], [SEMI PRESENCIAL]
   texto = texto.replace(/\[.*?\]/g, '');
 
@@ -220,6 +229,7 @@ async function _obtenerAsignaturas() {
   // 1️⃣ Obtener gestiones activas de la base de datos
   const gestionesData = await getIdGestiones();
   const gestionesActivas = gestionesData.map(g => g.id_gestion_siaan);
+  console.log('Gestiones activas encontradas:', gestionesActivas);
   
   if (gestionesActivas.length === 0) {
     console.warn('No hay gestiones activas');

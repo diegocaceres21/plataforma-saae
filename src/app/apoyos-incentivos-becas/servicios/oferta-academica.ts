@@ -31,6 +31,7 @@ export class OfertaAcademica {
   async loadAsignaturasData(): Promise<void> {
     this._isLoading.next(true);
     this._error.next(null);
+    console.log('Cargando datos de asignaturas desde oferta académica...');
     try {
       if (!window.academicoAPI?.obtenerAsignaturas) {
         throw new Error('academicoAPI.obtenerAsignaturas not available');
@@ -39,6 +40,7 @@ export class OfertaAcademica {
       const data = await window.academicoAPI.obtenerAsignaturas();
 
       this._asignaturas.next(data);
+      console.log('Datos de asignaturas cargados:', data);
 
     } catch (error) {
       const errorMessage = `Error loading asignaturas data: ${error}`;

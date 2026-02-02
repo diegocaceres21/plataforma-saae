@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { Gestion } from '../interfaces/gestion';
-import { MateriaKardex } from '../interfaces/asignatura';
+import { Asignatura, MateriaKardex } from '../interfaces/asignatura';
+import { OfertaAcademica } from './oferta-academica';
 
 /**
  * Servicio de utilidades para funciones académicas comunes
@@ -10,7 +11,7 @@ import { MateriaKardex } from '../interfaces/asignatura';
   providedIn: 'root'
 })
 export class AcademicoUtilsService {
-
+  ofertaAcademicaService = inject(OfertaAcademica);
   /**
    * Obtiene información del kardex del estudiante para las gestiones activas
    * Retorna el total de créditos acumulados y la carrera del estudiante
@@ -20,7 +21,7 @@ export class AcademicoUtilsService {
    * @returns Promise<[totalCreditos, carrera]>
    * @throws Error si no se encuentra información para las gestiones especificadas
    */
-  async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string]> {
+  /* async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string]> {
     let totalCreditos: number = 0;
     let carrera: string = '';
     let semestresEncontrados = 0;
@@ -65,9 +66,9 @@ export class AcademicoUtilsService {
     }
 
     return [totalCreditos, carrera];
-  }
+  } */
 
-  /* async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[MateriaKardex[], string]> {
+  async obtenerInformacionKardex(kardex: any[], gestiones_activas: Gestion[]): Promise<[MateriaKardex[], string]> {
     let carrera: string = '';
     let semestresEncontrados = 0;
     let materias: MateriaKardex[] = [];
@@ -84,15 +85,17 @@ export class AcademicoUtilsService {
       const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
 
       if (gestionEncontrada) {
-        materias.push(
-          {
-            'sigla': semestre.tabla.datos.map((dato: any) => dato[2].contenidoCelda[0].contenido.trim()),
-            'asignatura': semestre.tabla.datos.map((dato: any) => dato[3].contenidoCelda[0].contenido.trim()),
-            'tipo': semestre.tabla.datos.map((dato: any) => dato[4].contenidoCelda[0].contenido.trim()),
-            'evaluacionContinua': semestre.tabla.datos.map((dato: any) => dato[7].contenidoCelda[0].contenido),
-            'notaFinal': semestre.tabla.datos.map((dato: any) => dato[10].contenidoCelda[0].contenido),
-          }
-        )
+        // Crear un objeto por cada materia del semestre
+        for (const dato of semestre.tabla.datos) {
+          if(dato[2].contenidoCelda[0].contenido.trim() && dato[2].contenidoCelda[0].contenido.trim() !== '')
+          materias.push({
+            'sigla': dato[2].contenidoCelda[0].contenido.trim(),
+            'asignatura': dato[3].contenidoCelda[0].contenido.trim(),
+            'tipo': dato[4].contenidoCelda[0].contenido.trim(),
+            'evaluacionContinua': dato[7].contenidoCelda[0].contenido,
+            'notaFinal': dato[10].contenidoCelda[0].contenido,
+          });
+        }
 
         // Obtener carrera (solo la primera vez)
         if (!carrera) {
@@ -114,7 +117,7 @@ export class AcademicoUtilsService {
     }
 
     return [materias, carrera];
-  } */
+  } 
 
   /**
    * Obtiene información del kardex del estudiante para gestiones activas (versión con flag de error)
@@ -124,7 +127,7 @@ export class AcademicoUtilsService {
    * @param gestiones_activas - Gestiones académicas activas para buscar en el kardex
    * @returns Promise<[totalCreditos, carrera, sinKardex]>
    */
-  async obtenerInformacionKardexConFlag(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string, boolean]> {
+  /* async obtenerInformacionKardexConFlag(kardex: any[], gestiones_activas: Gestion[]): Promise<[number, string, boolean]> {
     let totalCreditos: number = 0;
     let carrera: string = '';
     let semestresEncontrados = 0;
@@ -166,8 +169,56 @@ export class AcademicoUtilsService {
     const sinKardex = semestresEncontrados === 0;
 
     return [totalCreditos, carrera, sinKardex];
-  }
+  } */
 
+  async obtenerInformacionKardexConFlag(kardex: any[], gestiones_activas: Gestion[]): Promise<[MateriaKardex[], string, boolean]> {
+    let carrera: string = '';
+    let semestresEncontrados = 0;
+    let materias: MateriaKardex[] = [];
+
+    // Crear array de nombres de gestiones para buscar
+    const nombresGestiones = gestiones_activas.map(g => g.gestion);
+
+    // Iterar sobre el kardex en orden inverso
+    for (let i = kardex.length - 1; i >= 0; i--) {
+      const semestre = kardex[i];
+      const encabezadoSemestre = semestre.encabezado[0];
+
+      // Verificar si este semestre corresponde a alguna de las gestiones activas
+      const gestionEncontrada = nombresGestiones.find(nombre => encabezadoSemestre.includes(nombre));
+
+      if (gestionEncontrada) {
+        // Crear un objeto por cada materia del semestre
+        for (const dato of semestre.tabla.datos) {
+          if(dato[2].contenidoCelda[0].contenido.trim() && dato[2].contenidoCelda[0].contenido.trim() !== '')
+          materias.push({
+            'sigla': dato[2].contenidoCelda[0].contenido.trim(),
+            'asignatura': dato[3].contenidoCelda[0].contenido.trim(),
+            'tipo': dato[4].contenidoCelda[0].contenido.trim(),
+            'evaluacionContinua': dato[7].contenidoCelda[0].contenido,
+            'notaFinal': dato[10].contenidoCelda[0].contenido,
+          });
+        }
+
+        // Obtener carrera (solo la primera vez)
+        if (!carrera) {
+          carrera = semestre.encabezado[semestre.encabezado.length - 1]
+            .split(': ')
+            .pop()
+            ?.normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') || '';
+        }
+
+        semestresEncontrados++;
+      }
+    }
+
+
+    // Retornar flag de error en vez de lanzar excepción
+    const sinKardex = semestresEncontrados === 0;
+
+    return [materias, carrera, sinKardex];
+  }
 
   async obtenerPlanDePagoRealizado(id_estudiante: string, gestiones_activas: Gestion[]): Promise<[string, string, number, boolean, number, boolean]> {
     let referencia = "";
@@ -212,21 +263,21 @@ export class AcademicoUtilsService {
                     planAccedido = "PLAN ESTANDAR";
                     pagoRealizado = parseFloat(
                       (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
+                        .replace(".", "")
                     );
                     break;
                   } else if (referencia.includes("PLUS")) {
                     planAccedido = "PLAN PLUS";
                     pagoRealizado = parseFloat(
                       (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
+                        .replace(".", "")
                     );
                     break;
                   }
                   else if(!referencia.includes("TECNOLOGICO")){
                     pagosSemestre += parseFloat(
                       (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(",", "")
+                        .replace(".", "")
                     );
                   }
                   else{
@@ -253,6 +304,23 @@ export class AcademicoUtilsService {
 
     // Return values with sin_pago flag
     return [referencia, planAccedido || 'No encontrado', pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico];
+  }
+
+  async calcularTotalUVE(materias: MateriaKardex[]): Promise<number> {
+    const ofertaAcademica: Asignatura[] = await this.ofertaAcademicaService.currentData;
+    let totalUVE = 0;
+    for (const materia of materias) {
+      const asignatura = ofertaAcademica.find(a => a.sigla === materia.sigla && a.asignatura === materia.asignatura && a.tipo === materia.tipo);
+      console.log('Buscando asignatura en oferta académica para materia:', materia);
+      if (asignatura) {
+        console.log('Asignatura encontrada en oferta académica:', asignatura);
+        totalUVE += asignatura.uve;
+      }
+      else if(materia.tipo === 'ESTANDAR' || materia.tipo === 'CURSO DE IDIOMAS (NO CURRICULAR)' || materia.tipo === 'INTERSEDES'){
+        totalUVE += materia.creditosAcademicos || 0;
+      }
+    }
+    return totalUVE;
   }
   /**
    * TODO: Agregar aquí otras funciones comunes como:

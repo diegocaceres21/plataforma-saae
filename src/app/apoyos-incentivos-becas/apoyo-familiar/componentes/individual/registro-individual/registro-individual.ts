@@ -121,8 +121,8 @@ export class RegistroIndividual implements OnInit {
         try {
           // Get kardex information
           const kardex = await window.academicoAPI.obtenerKardexEstudiante(registro.id_estudiante_siaan);
-          const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
-
+          const [materias, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
+          const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
           // Get payment information
           let [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(registro.id_estudiante_siaan, this.semestreActual);
 

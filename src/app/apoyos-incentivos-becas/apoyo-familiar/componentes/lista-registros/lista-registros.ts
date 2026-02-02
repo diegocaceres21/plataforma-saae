@@ -1748,7 +1748,9 @@ export class ListaRegistrosComponent implements OnInit, OnDestroy {
       const gestionesActuales: Gestion[] = [gestionEstudiante, gestionAnual].filter(Boolean) as Gestion[];
 
       // Obtener información del kardex
-      const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, gestionesActuales);
+      const [materias, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, gestionesActuales);
+      const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
+
 
       // Obtener plan de pago realizado
       const [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pagoCreditoTecnologico] = 

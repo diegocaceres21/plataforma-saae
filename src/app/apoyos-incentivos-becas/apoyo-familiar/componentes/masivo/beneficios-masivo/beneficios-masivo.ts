@@ -676,8 +676,8 @@ export class BeneficiosMasivo implements OnInit {
       }
 
       // Obtener información del kardex
-      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
-
+      const [materias, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
       if (sinKardex || totalCreditos === 0) {
         estudiante.hasErrors = true;
         estudiante.errorMessage = 'No tiene créditos registrados en los semestres activos';
@@ -1310,7 +1310,8 @@ export class BeneficiosMasivo implements OnInit {
         throw new Error('No se encontró kardex para el estudiante');
       }
 
-      const [totalCreditos, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const [materias, carrera, sinKardex] = await this.academicoUtils.obtenerInformacionKardexConFlag(kardex, this.semestreActual);
+      const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
 
       if (sinKardex || totalCreditos === 0) {
         throw new Error('No tiene créditos registrados en los semestres activos');

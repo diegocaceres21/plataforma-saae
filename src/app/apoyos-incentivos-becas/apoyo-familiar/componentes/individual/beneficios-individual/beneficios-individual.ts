@@ -150,8 +150,8 @@ export class BeneficiosIndividual implements OnInit {
       try {
         // Get kardex information
         const kardex = await window.academicoAPI.obtenerKardexEstudiante(this.estudiante.id_estudiante_siaan);
-        const [totalCreditos, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
-
+        const [materias, carrera] = await this.academicoUtils.obtenerInformacionKardex(kardex, this.semestreActual);
+        const totalCreditos = await this.academicoUtils.calcularTotalUVE(materias);
         // Get payment information
         let [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan, this.semestreActual);
 

@@ -67,6 +67,7 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          
           "configurations": {
             "production": {
               "buildTarget": "plataforma-saae:build:production"
