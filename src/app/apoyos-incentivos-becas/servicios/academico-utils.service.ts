@@ -261,23 +261,35 @@ export class AcademicoUtilsService {
                 if (gestionEncontrada) {
                   if (referencia.includes("ESTANDAR") || referencia.includes("ESTÁNDAR")) {
                     planAccedido = "PLAN ESTANDAR";
+                    const value1 = factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0";
+                    const lastComma1 = value1.lastIndexOf(',');
+                    const lastPeriod1 = value1.lastIndexOf('.');
                     pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(".", "")
+                      lastComma1 > lastPeriod1 
+                        ? value1.replace(/\./g, '').replace(',', '.')
+                        : value1.replace(/,/g, '')
                     );
                     break;
                   } else if (referencia.includes("PLUS")) {
                     planAccedido = "PLAN PLUS";
+                    const value2 = factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0";
+                    const lastComma2 = value2.lastIndexOf(',');
+                    const lastPeriod2 = value2.lastIndexOf('.');
                     pagoRealizado = parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(".", "")
+                      lastComma2 > lastPeriod2 
+                        ? value2.replace(/\./g, '').replace(',', '.')
+                        : value2.replace(/,/g, '')
                     );
                     break;
                   }
                   else if(!referencia.includes("TECNOLOGICO")){
+                    const value3 = factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0";
+                    const lastComma3 = value3.lastIndexOf(',');
+                    const lastPeriod3 = value3.lastIndexOf('.');
                     pagosSemestre += parseFloat(
-                      (factura[factura.length - 1]?.contenidoCelda?.[0]?.contenido || "0")
-                        .replace(".", "")
+                      lastComma3 > lastPeriod3 
+                        ? value3.replace(/\./g, '').replace(',', '.')
+                        : value3.replace(/,/g, '')
                     );
                   }
                   else{
