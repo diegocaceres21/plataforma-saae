@@ -22,7 +22,7 @@ if (process.env.NODE_ENV !== 'production') {
   // Cuando la app está empaquetada (.exe)
   dotenv.config({ path: path.join(process.resourcesPath, '.env') });
 }
-autoUpdater.autoDownload = true; // download automatically when update is available
+autoUpdater.autoDownload = false; // user must confirm download from the UI
 autoUpdater.autoInstallOnAppQuit = true; // install on next quit
 autoUpdater.allowPrerelease = process.env.UPDATER_ALLOW_PRERELEASE === '1';
 autoUpdater.logger = log;
@@ -321,6 +321,10 @@ ipcMain.handle('update:download', async () => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+ipcMain.handle('app:getVersion', () => {
+  return app.getVersion();
 });
 
 ipcMain.handle('update:install', async () => {

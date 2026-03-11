@@ -108,6 +108,14 @@ declare global {
       changePassword: (id: number, newPassword: string) => Promise<{ success: boolean; error?: string }>;
       deleteUser: (id: number) => Promise<{ success: boolean; error?: string }>;
     };
+    updater?: {
+      getVersion: () => Promise<string>;
+      check: () => Promise<{ result?: any; skipped?: boolean; error?: string }>;
+      download: () => Promise<{ started?: boolean; skipped?: boolean; error?: string }>;
+      install: () => Promise<{ quitting?: boolean; skipped?: boolean; error?: string }>;
+      on: (channel: string, cb: (data: any) => void) => void;
+      off: (channel: string, cb: (data: any) => void) => void;
+    };
   }
 }
 

@@ -671,8 +671,8 @@ export class ExportService {
     let currentY = startY;
 
     // Información básica del estudiante en un recuadro
-    doc.setFillColor(240, 248, 255); // Azul muy claro
-    doc.setDrawColor(59, 130, 246); // Azul
+    //doc.setFillColor(240, 248, 255); // Azul muy claro
+    //doc.setDrawColor(59, 130, 246); // Azul
 
     // Título del estudiante
     doc.setFontSize(14);
@@ -700,8 +700,8 @@ export class ExportService {
     const studentBoxHeight = 8 + (totalLines * 5); // 8mm para título + 5mm por línea
 
     // Dibujar recuadro con altura dinámica
-    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
-    doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight);
+    //doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight, 'F');
+    //doc.rect(margin, currentY, pageWidth - 2 * margin, studentBoxHeight);
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');

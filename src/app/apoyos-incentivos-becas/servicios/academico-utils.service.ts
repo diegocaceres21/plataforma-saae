@@ -322,8 +322,11 @@ export class AcademicoUtilsService {
     const ofertaAcademica: Asignatura[] = await this.ofertaAcademicaService.currentData;
     let totalUVE = 0;
     for (const materia of materias) {
-      const asignatura = ofertaAcademica.find(a => a.sigla === materia.sigla && a.asignatura === materia.asignatura && a.tipo === materia.tipo);
+      const asignatura = ofertaAcademica.find(a => a.sigla.replace(/\s+/g, ' ').trim() === materia.sigla.replace(/\s+/g, ' ').trim() && a.asignatura.replace(/\s+/g, ' ').trim() === materia.asignatura.replace(/\s+/g, ' ').trim() && a.tipo === materia.tipo);
+      console.log(materia)
       if (asignatura) {
+      
+        console.log(asignatura);
         materia.uve = asignatura.uve; // Almacenar el UVE en la materia
         totalUVE += asignatura.uve;
       }

@@ -28,5 +28,89 @@
 
     <div *ngIf="error" class="mt-4 text-sm text-red-600 text-center">{{ error }}</div>
     <div *ngIf="!error && siaanWarning" class="mt-4 text-xs text-amber-600 text-center">{{ siaanWarning }}</div>
+
+    <!-- Version badge -->
+    <div *ngIf="currentVersion" class="mt-6 text-center text-xs text-gray-400 select-none">
+      v{{ currentVersion }}
+    </div>
+  </div>
+</div>
+
+<!-- Update modal -->
+<div *ngIf="showUpdateModal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative">
+
+    <!-- Close button -->
+    <button (click)="closeUpdateModal()"
+            class="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold leading-none"
+            title="Cerrar">
+      &times;
+    </button>
+
+    <!-- Icon -->
+    <div class="flex justify-center mb-4">
+      <div class="bg-blue-100 rounded-full p-3">
+        <!-- Arrow-up icon (inline SVG, no external deps) -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-blue-700" fill="none"
+             viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 3v13m0-13l-4 4m4-4l4 4" />
+        </svg>
+      </div>
+    </div>
+
+    <h2 class="text-lg font-bold text-blue-900 text-center mb-1">Nueva versión disponible</h2>
+
+    <!-- Version info -->
+    <p class="text-sm text-gray-500 text-center mb-4">
+      <span *ngIf="currentVersion">Actual: <strong>v{{ currentVersion }}</strong> &nbsp;&rarr;&nbsp;</span>
+      Nueva: <strong>v{{ updateInfo?.version }}</strong>
+    </p>
+
+    <!-- Error -->
+    <div *ngIf="updateError" class="mb-3 text-xs text-red-600 text-center bg-red-50 rounded-lg px-3 py-2">
+      {{ updateError }}
+    </div>
+
+    <!-- Download progress bar -->
+    <div *ngIf="isDownloading" class="mb-4">
+      <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <span>Descargando...</span>
+        <span>{{ downloadProgress }}%</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2">
+        <div class="bg-blue-600 h-2 rounded-full transition-all duration-300"
+             [style.width.%]="downloadProgress"></div>
+      </div>
+    </div>
+
+    <!-- Actions: initial state -->
+    <div *ngIf="!isDownloading && !updateReady" class="flex flex-col gap-2">
+      <button (click)="downloadUpdate()"
+              class="w-full py-2.5 rounded-lg font-semibold text-white bg-blue-700 hover:bg-blue-800 transition text-sm">
+        Descargar actualización
+      </button>
+      <button (click)="closeUpdateModal()"
+              class="w-full py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition text-sm">
+        Más tarde
+      </button>
+    </div>
+
+    <!-- Actions: ready to install -->
+    <div *ngIf="updateReady" class="flex flex-col gap-2">
+      <p class="text-xs text-green-700 text-center bg-green-50 rounded-lg px-3 py-2 mb-1">
+        Descarga completa. La app se reiniciará para aplicar la actualización.
+      </p>
+      <button (click)="installUpdate()"
+              class="w-full py-2.5 rounded-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition text-sm">
+        Reiniciar e instalar
+      </button>
+      <button (click)="closeUpdateModal()"
+              class="w-full py-2 rounded-lg font-medium text-gray-600 hover:bg-gray-100 transition text-sm">
+        Después
+      </button>
+    </div>
+
   </div>
 </div>

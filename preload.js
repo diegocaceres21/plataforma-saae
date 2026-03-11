@@ -6,12 +6,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 // Updater API (diagnóstico y control manual desde UI)
+const _updaterListeners = new Map();
 contextBridge.exposeInMainWorld('updater', {
+  getVersion: () => ipcRenderer.invoke('app:getVersion'),
   check: () => ipcRenderer.invoke('update:check'),
   download: () => ipcRenderer.invoke('update:download'),
   install: () => ipcRenderer.invoke('update:install'),
-  on: (channel, cb) => ipcRenderer.on(channel, (_, data) => cb?.(data)),
-  off: (channel, cb) => ipcRenderer.removeListener(channel, cb),
+  on: (channel, cb) => {
+    const wrapper = (_event, data) => cb?.(data);
+    _updaterListeners.set(cb, wrapper);
+    ipcRenderer.on(channel, wrapper);
+  },
+  off: (channel, cb) => {
+    const wrapper = _updaterListeners.get(cb);
+    if (wrapper) {
+      ipcRenderer.removeListener(channel, wrapper);
+      _updaterListeners.delete(cb);
+    }
+  },
 });
 
 contextBridge.exposeInMainWorld('academicoAPI', {

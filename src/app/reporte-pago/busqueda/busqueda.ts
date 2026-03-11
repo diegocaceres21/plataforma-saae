@@ -138,7 +138,16 @@ export class Busqueda {
                 factura: pago[1]?.contenidoCelda?.[0]?.contenido,
                 beneficiario: detalleFactura.beneficiario,
                 nit: detalleFactura.nit,
-                monto: parseFloat((pago[5]?.contenidoCelda?.[0]?.contenido || "0").replace(",", ""))
+                monto: (() => {
+                  const value = pago[5]?.contenidoCelda?.[0]?.contenido || "0";
+                  const lastComma = value.lastIndexOf(',');
+                  const lastPeriod = value.lastIndexOf('.');
+                  return parseFloat(
+                    lastComma > lastPeriod
+                      ? value.replace(/\./g, '').replace(',', '.')
+                      : value.replace(/,/g, '')
+                  );
+                })()
               };
               
               // Aplicar filtro de fechas si está activo

@@ -17,6 +17,7 @@ import { ToastContainerComponent } from '../../../../../shared/componentes/toast
 import { GestionService } from '../../../../servicios/gestion.service';
 import { RegistroIndividualDataService } from '../../../../servicios/registro-individual-data';
 import { AcademicoUtilsService } from '../../../../servicios/academico-utils.service';
+import { Carrera, CarreraWithRelations } from '../../../../../shared/interfaces';
 
 @Component({
   selector: 'app-beneficios-individual',
@@ -133,6 +134,7 @@ export class BeneficiosIndividual implements OnInit {
     return this.beneficiosDisponibles.find(b => b.id === this.beneficioSeleccionado);
   }
 
+
   async onSubmit() {
     if (!this.canProcess || !this.estudiante) {
       return;
@@ -162,13 +164,20 @@ export class BeneficiosIndividual implements OnInit {
         );
 
         // Get selected beneficio
+        
         const beneficio = this.beneficiosDisponibles.find(b => b.id === this.beneficioSeleccionado);
         const porcentajeDescuento = this.mostrarInputPorcentaje ? this.porcentajePersonalizado / 100 : (beneficio?.porcentaje || 0);
-
+        
         // Si no hay pago pero el descuento es 100%, usar valores predeterminados
         let referenciaFinal = referencia;
         let planAccedidoFinal = planAccedido || 'N/A';
         let pagoRealizadoFinal = pagoRealizado || 0;
+
+        if(beneficio?.nombre ==="Apoyo Pronto Pago"){
+          if(planAccedido === "PLAN PLUS"){
+            pagoRealizadoFinal = 12 * carreraInfo?.tarifario?.valor_credito!//this.obtenerPagoInicialPlus(carreraInfo); // Aplicar 50% de descuento
+          }
+        }
 
         if ((sinPago || pagoRealizado === 0) && porcentajeDescuento === 1) {
           // Estudiante con 100% de descuento y sin pago - asignar valores especiales
