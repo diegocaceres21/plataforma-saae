@@ -57,7 +57,7 @@ const obtenerPersonasPorCarnet = wrapWithRetry(_obtenerPersonasPorCarnet);
 
 
 async function _obtenerKardexEstudiante(id_estudiante) {
-  const url = `https://backend.ucb.edu.bo/Academico/api/v1/Academico/Procesos/Kardex/ObtenerKardexEstudiante?idPersona=${id_estudiante}&idCarrera=4mo9gjV/hDzYrnuqH0/IHA==&esEclesial=0&idRegional=PJh5GJydX69ABmU3tKVdpQ==`;
+  const url = `https://backend.ucb.edu.bo/Academico/api/v1/Academico/Procesos/Kardex/ObtenerKardexEstudiante?idPersona=${id_estudiante}&idCarrera=MhLc0N%252bjvAfuHLRo3NZY6g==&esEclesial=0&idRegional=PJh5GJydX69ABmU3tKVdpQ==`;
 
   const headers = buildHeaders();
 

@@ -46,6 +46,13 @@ export class BeneficiosIndividual implements OnInit {
   showKardexErrorModalFlag: boolean = false;
   kardexErrorMessages: string[] = [];
 
+  // Career selection modal state
+  showCareerSelectionModal: boolean = false;
+  currentStudentWithCareerIssue: RegistroEstudiante | null = null;
+  originalCareerFromKardex: string = '';
+  selectedCareerForStudent: string = '';
+  availableCareers: CarreraWithRelations[] = [];
+
   public loadingService = inject(LoadingService);
   private carreraService = inject(CarreraService);
   private beneficioService = inject(BeneficioService);
@@ -66,6 +73,10 @@ export class BeneficiosIndividual implements OnInit {
 
     // Cargar beneficios
     await this.beneficioService.loadBeneficioData();
+
+    // Cargar carreras disponibles
+    await this.carreraService.loadCarreraData();
+    this.availableCareers = this.carreraService.currentData;
   }
 
   // Obtener lista de beneficios disponibles
@@ -158,10 +169,21 @@ export class BeneficiosIndividual implements OnInit {
         let [referencia, planAccedido, pagoRealizado, sinPago, pagosSemestre, pago_credito_tecnologico] = await this.academicoUtils.obtenerPlanDePagoRealizado(this.estudiante.id_estudiante_siaan, this.semestreActual);
 
         // Find career info in database
-        const carreraInfo = this.carreraService.currentData.find(c =>
+        let carreraInfo = this.carreraService.currentData.find(c =>
           c.carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '') ===
           carrera.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         );
+
+        if (!carreraInfo) {
+          this.loadingService.hide();
+          const selectedCareerId = await this.promptForCareerSelection(this.estudiante, carrera);
+          if (!selectedCareerId) {
+            // User cancelled
+            return;
+          }
+          carreraInfo = this.carreraService.currentData.find(c => c.id === selectedCareerId);
+          this.loadingService.show();
+        }
 
         // Get selected beneficio
         
@@ -324,5 +346,36 @@ export class BeneficiosIndividual implements OnInit {
   // Get excluded CIs for autocomplete (only current student)
   getExcludedCIs(): string[] {
     return this.estudiante ? [this.estudiante.ci_estudiante] : [];
+  }
+
+  // Career selection modal methods
+  private careerSelectionResolve: ((value: string) => void) | null = null;
+
+  private promptForCareerSelection(estudiante: RegistroEstudiante, carreraKardex: string): Promise<string> {
+    return new Promise((resolve) => {
+      this.currentStudentWithCareerIssue = estudiante;
+      this.originalCareerFromKardex = carreraKardex;
+      this.selectedCareerForStudent = '';
+      this.showCareerSelectionModal = true;
+      this.careerSelectionResolve = resolve;
+    });
+  }
+
+  onCareerSelectionConfirm(): void {
+    if (this.careerSelectionResolve) {
+      this.careerSelectionResolve(this.selectedCareerForStudent);
+      this.careerSelectionResolve = null;
+    }
+    this.showCareerSelectionModal = false;
+    this.currentStudentWithCareerIssue = null;
+  }
+
+  onCareerSelectionCancel(): void {
+    if (this.careerSelectionResolve) {
+      this.careerSelectionResolve('');
+      this.careerSelectionResolve = null;
+    }
+    this.showCareerSelectionModal = false;
+    this.currentStudentWithCareerIssue = null;
   }
 }
